@@ -9,9 +9,15 @@ Postgres was also removed since Supabase runs Postgres under the hood.
 Also, the local RAG AI Agent workflow from the video will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
 
-[Original Local AI Starter Kit by the n8n team](https://github.com/n8n-io/self-hosted-ai-starter-kit)
+## Important Links
 
-Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
+- [Local AI community](https://thinktank.ottomator.ai/c/local-ai/18) forum over in the oTTomator Think Tank
+
+- [GitHub Kanban board](https://github.com/users/coleam00/projects/2/views/1) for feature implementation and bug squashing.
+
+- [Original Local AI Starter Kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) by the n8n team
+
+- Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
 
 ![n8n.io - Screenshot](https://raw.githubusercontent.com/n8n-io/self-hosted-ai-starter-kit/main/assets/n8n-demo.gif)
 
