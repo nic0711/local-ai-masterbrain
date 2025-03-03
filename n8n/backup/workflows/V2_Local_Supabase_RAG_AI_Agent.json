@@ -1,15 +1,15 @@
 {
-  "name": "Local Supabase RAG AI Agent",
+  "name": "V2 Supabase RAG AI Agent",
   "nodes": [
     {
       "parameters": {},
-      "id": "99b30fd7-b36c-44ba-9daa-408585aaaee9",
+      "id": "3e70b57d-49fb-4cb0-8f9f-29d39adf6a65",
       "name": "Postgres Chat Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.1,
       "position": [
-        1040,
-        560
+        480,
+        340
       ],
       "credentials": {
         "postgres": {
@@ -23,13 +23,13 @@
         "model": "qwen2.5:7b-instruct-q4_K_M",
         "options": {}
       },
-      "id": "c7632a7c-2661-492e-bd6f-aab994818998",
+      "id": "8d61de27-45d8-4d10-97cc-3c36d224f865",
       "name": "Ollama Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
       "typeVersion": 1,
       "position": [
-        920,
-        560
+        360,
+        340
       ],
       "credentials": {
         "ollamaApi": {
@@ -43,13 +43,13 @@
         "model": "qwen2.5:7b-instruct-q4_K_M",
         "options": {}
       },
-      "id": "73d773a4-5c72-4af3-a52d-144f0e417823",
+      "id": "cbd5b56f-7afc-4e83-a221-6be4d348374e",
       "name": "Ollama Model",
       "type": "@n8n/n8n-nodes-langchain.lmOllama",
       "typeVersion": 1,
       "position": [
-        1960,
-        500
+        1400,
+        280
       ],
       "credentials": {
         "ollamaApi": {
@@ -63,13 +63,13 @@
         "name": "documents",
         "topK": 3
       },
-      "id": "3f882fa7-c8ed-4531-b236-a34c16c55838",
+      "id": "c15bd0a8-286a-4076-8ce8-8c0e54f73e2a",
       "name": "Vector Store Tool",
       "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
       "typeVersion": 1,
       "position": [
-        1740,
-        320
+        1180,
+        100
       ]
     },
     {
@@ -78,13 +78,13 @@
         "destinationKey": "=data",
         "options": {}
       },
-      "id": "7efee822-68ad-4fe2-a616-ba19fd127684",
+      "id": "ab9fb44a-85c6-486b-b5de-0f9d768d91b2",
       "name": "Extract Document Text",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        1480,
-        860
+        920,
+        640
       ],
       "alwaysOutputData": true
     },
@@ -101,13 +101,13 @@
           }
         }
       },
-      "id": "da4c8b29-4944-43c4-9df3-e380366c594a",
+      "id": "b5abf0a5-f62a-49a6-bf81-bf002ba4bb90",
       "name": "Default Data Loader",
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1,
       "position": [
-        1860,
-        1100
+        1300,
+        880
       ]
     },
     {
@@ -115,26 +115,26 @@
         "chunkSize": 100,
         "options": {}
       },
-      "id": "d11c39b9-3fa7-4d5d-838f-da0d258c67c5",
+      "id": "1e2791c1-86e7-4fe1-a76d-732f87e6f41a",
       "name": "Recursive Character Text Splitter",
       "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
       "typeVersion": 1,
       "position": [
-        1860,
-        1320
+        1300,
+        1100
       ]
     },
     {
       "parameters": {
         "model": "nomic-embed-text:latest"
       },
-      "id": "8a04559c-dfe8-479f-8998-a2e9bc994a0a",
+      "id": "909713ea-5be3-4916-b12e-a8e848c949cb",
       "name": "Embeddings Ollama1",
       "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
       "typeVersion": 1,
       "position": [
-        1700,
-        1100
+        1140,
+        880
       ],
       "credentials": {
         "ollamaApi": {
@@ -149,13 +149,13 @@
         "height": 527.3027193303974,
         "width": 969.0343804425795
       },
-      "id": "a18773ae-1eb3-46b8-91cf-4184c66cf14f",
+      "id": "de473f2f-b806-45bc-a0e0-2ef0d2aa9b55",
       "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        560,
-        220
+        0,
+        0
       ]
     },
     {
@@ -165,13 +165,13 @@
         "width": 583.4552380860637,
         "color": 4
       },
-      "id": "fa010a11-3dda-4bd5-b261-463a3a6b88d9",
+      "id": "b23ef570-f642-4503-87b9-3494ffdbf768",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1540,
-        220
+        980,
+        0
       ]
     },
     {
@@ -181,26 +181,26 @@
         "width": 1568.9362829025763,
         "color": 5
       },
-      "id": "f29e6cc7-015e-47cb-a4fd-fecd6ffb0d24",
+      "id": "836cd765-dae8-460e-951d-66e19d0cce77",
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        560,
-        760
+        0,
+        540
       ]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "5da52326-dfbd-4350-919c-843461f58913",
+      "id": "f8b5039c-4b00-453a-b30e-31a59f5d36ad",
       "name": "When chat message received",
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.1,
       "position": [
-        620,
-        340
+        60,
+        120
       ],
       "webhookId": "4b3b1838-d6b3-447e-9d79-d0931eddb9f8"
     },
@@ -208,13 +208,13 @@
       "parameters": {
         "options": {}
       },
-      "id": "e537544a-37d5-4b00-b5ff-bc71f041f4bb",
+      "id": "2f64907b-42ef-4bd6-83ba-e97584271bc7",
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1340,
-        340
+        780,
+        120
       ]
     },
     {
@@ -224,13 +224,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "2b8cd01f-30a8-4aab-b0dd-56d2b658f059",
+      "id": "9a30041f-0c14-41d8-a811-229b890bb1b7",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        620,
-        520
+        60,
+        300
       ],
       "webhookId": "4a839da9-b8a2-45f8-bcaf-c484f9a5912d"
     },
@@ -238,13 +238,13 @@
       "parameters": {
         "options": {}
       },
-      "id": "c9dfe906-178b-4375-8bda-f9290f35f222",
+      "id": "8311e22f-bddd-41f8-9d40-fde119126dc9",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.6,
       "position": [
-        1000,
-        340
+        440,
+        120
       ]
     },
     {
@@ -267,13 +267,13 @@
         },
         "options": {}
       },
-      "id": "8f974a15-aa2f-4525-8278-ad58ad296076",
+      "id": "4988a14f-a2ea-4c4b-8f66-0f1773e11ea0",
       "name": "Edit Fields",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        820,
-        340
+        260,
+        120
       ]
     },
     {
@@ -291,10 +291,10 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
       "typeVersion": 1,
       "position": [
-        1560,
-        460
+        1000,
+        240
       ],
-      "id": "2263db0a-944b-4fe3-9c3e-f1546fb5da97",
+      "id": "9841944a-5a85-437d-a9ed-a3e7393d7a8d",
       "name": "Supabase Vector Store",
       "credentials": {
         "supabaseApi": {
@@ -310,10 +310,10 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
       "typeVersion": 1,
       "position": [
-        1740,
-        600
+        1180,
+        380
       ],
-      "id": "3f4477b6-9708-4bcd-a774-515b3362ef47",
+      "id": "24e6e703-33c2-426d-ab59-7c9cad0fded9",
       "name": "Embeddings Ollama2",
       "credentials": {
         "ollamaApi": {
@@ -338,10 +338,10 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
       "typeVersion": 1,
       "position": [
-        1740,
-        860
+        1180,
+        640
       ],
-      "id": "9a8d05de-2305-45cd-ac97-5b6658058471",
+      "id": "d72c6f38-7766-4a10-9897-362539a6bcc0",
       "name": "Supabase Vector Store1",
       "credentials": {
         "supabaseApi": {
@@ -357,13 +357,13 @@
         "filterType": "string",
         "filterString": "=metadata->>file_id=like.*{{ $json.path }}*"
       },
-      "id": "60534fbb-e620-42f1-a4da-e948694a324f",
+      "id": "ab0e0395-9f88-438f-bc47-ea3913b869fe",
       "name": "Delete Old Doc Rows",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1020,
-        1060
+        460,
+        840
       ],
       "alwaysOutputData": true,
       "credentials": {
@@ -389,15 +389,15 @@
       "type": "n8n-nodes-base.localFileTrigger",
       "typeVersion": 1,
       "position": [
-        620,
-        1060
+        60,
+        840
       ],
-      "id": "d3ccc49c-28dd-41bc-ae86-752ab6d38a0b",
+      "id": "eba68fe1-738d-451b-a2a7-9ee2942dd727",
       "name": "Local File Trigger"
     },
     {
       "parameters": {
-        "fileSelector": "/data/shared/test.txt",
+        "fileSelector": "={{ $('Local File Trigger').item.json.path }}",
         "options": {
           "dataPropertyName": "=data"
         }
@@ -405,11 +405,12 @@
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        1200,
-        860
+        640,
+        640
       ],
-      "id": "1838461b-8783-4dc1-b7a0-f7bd14499135",
-      "name": "Read/Write Files from Disk"
+      "id": "b9459d4d-836c-47c4-9651-ebf3129f8864",
+      "name": "Read/Write Files from Disk",
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -439,10 +440,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        840,
-        880
+        280,
+        660
       ],
-      "id": "d94e79a0-1bf2-4f44-b2cc-f8bad1bc30f5",
+      "id": "27123d6a-e27a-49a9-bd73-8a27235928ea",
       "name": "If"
     }
   ],
@@ -658,11 +659,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "26d69fe7-6473-410d-a553-a799457c2157",
+  "versionId": "ea9ff68c-8fc0-40b0-aa5d-48217cda89f3",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "73cb7a3e883df514bb47e8d1b34526d30e2abb8f56cd99f10d5948a1e11b25aa"
   },
-  "id": "vTN9y2dLXqTiDfPT",
+  "id": "hrnPh6dXgIbGVzIk",
   "tags": []
 }
