@@ -168,6 +168,28 @@ Additionally, after you see "Editor is now accessible via: http://localhost:5678
 python start_services.py --profile cpu
 ```
 
+## Deploying to the Cloud
+
+### Prerequisites for the below steps
+
+- Linux machine (preferably Unbuntu) with Nano, Git, and Docker installed
+
+### Extra steps
+
+Before running the above commands to pull the repo and install everything:
+
+1. Run the commands as root to open up the necessary ports:
+   - ufw enable
+   - ufw allow 8000 && ufw allow 3001 && ufw allow 3000 && ufw allow 5678 && ufw allow 80 && ufw allow 443
+   - ufw allow 8080 (if you want to expose SearXNG)
+   - ufw allow 11434 (if you want to expose Ollama)
+   - ufw reload
+
+2. Set up A records for your DNS provider to point your subdomains you'll set up in the .env file for Caddy
+to the IP address of your cloud instance.
+
+   For example, A record to point n8n to [cloud instance IP] for n8n.yourdomain.com
+
 ## ⚡️ Quick start and usage
 
 The main component of the self-hosted AI starter kit is a docker compose file
