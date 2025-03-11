@@ -4,7 +4,7 @@
 quickly bootstraps a fully featured Local AI and Low Code development
 environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication. 
 
-This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, and Flowise!
+This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, SearXNG, and Caddy!
 Postgres was also removed since Supabase runs Postgres under the hood.
 Also, the local RAG AI Agent workflow from the video will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
@@ -46,6 +46,11 @@ builder that pairs very well with n8n
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
 kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
 
+✅ [**SearXNG**](https://searxng.org/) - Open-source, free internet metasearch engine which aggregates 
+results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
+
+✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
+
 ## Prerequisites
 
 Before you begin, make sure you have the following software installed:
@@ -82,16 +87,26 @@ Before running the services, you need to set up your environment variables for S
    SERVICE_ROLE_KEY=
    DASHBOARD_USERNAME=
    DASHBOARD_PASSWORD=
-
-   ############
-   # Supavisor -- Database pooler
-   ############
    POOLER_TENANT_ID=
    ```
 
-   > [!IMPORTANT]
-   > Make sure to generate secure random values for all secrets. Never use the example values in production.
+> [!IMPORTANT]
+> Make sure to generate secure random values for all secrets. Never use the example values in production.
 
+3. Set the following environment variables if deploying to production, otherwise leave commented:
+   ```bash
+   ############
+   # Caddy Config
+   ############
+
+   N8N_HOSTNAME=n8n.yourdomain.com
+   WEBUI_HOSTNAME=:openwebui.yourdomain.com
+   FLOWISE_HOSTNAME=:flowise.yourdomain.com
+   SUPABASE_HOSTNAME=:supabase.yourdomain.com
+   OLLAMA_HOSTNAME=:ollama.yourdomain.com
+   SEARXNG_HOSTNAME=searxng.yourdomain.com
+   LETSENCRYPT_EMAIL=your-email-address
+   ```   
 
 ---
 
@@ -152,6 +167,28 @@ Additionally, after you see "Editor is now accessible via: http://localhost:5678
 ```bash
 python start_services.py --profile cpu
 ```
+
+## Deploying to the Cloud
+
+### Prerequisites for the below steps
+
+- Linux machine (preferably Unbuntu) with Nano, Git, and Docker installed
+
+### Extra steps
+
+Before running the above commands to pull the repo and install everything:
+
+1. Run the commands as root to open up the necessary ports:
+   - ufw enable
+   - ufw allow 8000 && ufw allow 3001 && ufw allow 3000 && ufw allow 5678 && ufw allow 80 && ufw allow 443
+   - ufw allow 8080 (if you want to expose SearXNG)
+   - ufw allow 11434 (if you want to expose Ollama)
+   - ufw reload
+
+2. Set up A records for your DNS provider to point your subdomains you'll set up in the .env file for Caddy
+to the IP address of your cloud instance.
+
+   For example, A record to point n8n to [cloud instance IP] for n8n.yourdomain.com
 
 ## ⚡️ Quick start and usage
 
@@ -266,7 +303,7 @@ and nodes. If you run into an issue, go to [support](#support).
 
 ## 🎥 Video walkthrough
 
-- [Cole's Guide to the Local AI Starter Kit](https://youtu.be/V_0dNE-H2gw)
+- [Cole's Guide to the Local AI Starter Kit](https://youtu.be/pOsO40HSbOo)
 
 ## 🛍️ More AI templates
 
