@@ -546,7 +546,7 @@
         "descriptionType": "manual",
         "toolDescription": "Given a file ID, fetches the text from the document.",
         "operation": "executeQuery",
-        "query": "SELECT \n    string_agg(content, ' ') as document_text\nFROM documents_pg\n  WHERE metadata->>'file_id' = $1\nGROUP BY metadata->>'file_id';",
+        "query": "SELECT \n    string_agg(text, ' ') as document_text\nFROM documents_pg\n  WHERE metadata->>'file_id' = $1\nGROUP BY metadata->>'file_id';",
         "options": {
           "queryReplacement": "={{ $fromAI('file_id') }}"
         }
