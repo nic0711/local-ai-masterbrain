@@ -27,6 +27,8 @@ x-ollama: &service-ollama
   restart: unless-stopped
   ports:
     - 11434:11434
+  environment:
+    - OLLAMA_CONTEXT_LENGTH=8192
   volumes:
     - ollama_storage:/root/.ollama
 
