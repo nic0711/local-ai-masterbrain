@@ -4,9 +4,8 @@
 quickly bootstraps a fully featured Local AI and Low Code development
 environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication. 
 
-This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, SearXNG, and Caddy!
-Postgres was also removed since Supabase runs Postgres under the hood.
-Also, the local RAG AI Agent workflow from the video will be automatically in your 
+This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, Langfuse, SearXNG, and Caddy!
+Also, the local RAG AI Agent workflows from the video will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
 
 ## Important Links
@@ -42,14 +41,16 @@ privately interact with your local models and N8N agents
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent
 builder that pairs very well with n8n
 
-✅ [**Qdrant**](https://qdrant.tech/) - Open-source, high performance vector
+✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
 kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
 
-✅ [**SearXNG**](https://searxng.org/) - Open-source, free internet metasearch engine which aggregates 
+✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates 
 results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
 
 ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
+
+✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ## Prerequisites
 
@@ -88,6 +89,16 @@ Before running the services, you need to set up your environment variables for S
    DASHBOARD_USERNAME=
    DASHBOARD_PASSWORD=
    POOLER_TENANT_ID=
+
+   ############
+   # Langfuse credentials
+   ############
+
+   CLICKHOUSE_PASSWORD=
+   MINIO_ROOT_PASSWORD=
+   LANGFUSE_SALT=
+   NEXTAUTH_SECRET=
+   ENCRYPTION_KEY=  
    ```
 
 > [!IMPORTANT]
