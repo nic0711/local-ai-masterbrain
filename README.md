@@ -191,7 +191,8 @@ Before running the above commands to pull the repo and install everything:
 
 1. Run the commands as root to open up the necessary ports:
    - ufw enable
-   - ufw allow 8000 && ufw allow 3001 && ufw allow 3000 && ufw allow 5678 && ufw allow 80 && ufw allow 443
+   - ufw allow 8000 && ufw allow 3000 && ufw allow 5678 && ufw allow 3002 && ufw allow 80 && ufw allow 443
+   - ufw allow 3001 (if you want to expose Flowise, you will have to set up the [environment variables](https://docs.flowiseai.com/configuration/environment-variables) to enable authentication)
    - ufw allow 8080 (if you want to expose SearXNG)
    - ufw allow 11434 (if you want to expose Ollama)
    - ufw reload
