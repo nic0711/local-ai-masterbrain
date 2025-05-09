@@ -58,6 +58,8 @@ services:
     container_name: flowise
     environment:
         - PORT=3001
+        - FLOWISE_USERNAME=${FLOWISE_USERNAME}
+        - FLOWISE_PASSWORD=${FLOWISE_PASSWORD}  
     ports:
         - 3001:3001
     extra_hosts:
