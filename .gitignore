@@ -5,3 +5,16 @@ shared/
 supabase/
 searxng/uwsgi.ini
 searxng/settings.yml
+
+# N8N Credentials and Sensitive Data
+# Ignore all JSON files in backup directories
+n8n/backup/**/*.json
+n8n/backup/credentials/
+n8n/backup/workflows/
+n8n/backup/import/credentials/
+n8n/backup/import/workflows/
+!n8n/backup/credentials/.gitkeep
+!n8n/backup/workflows/.gitkeep
+!n8n/backup/import/credentials/.gitkeep
+!n8n/backup/import/workflows/.gitkeep
+!n8n/backup/import/workflows/.gitkeep
