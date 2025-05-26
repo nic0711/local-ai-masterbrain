@@ -35,6 +35,11 @@
     reverse_proxy localhost:8000
 }
 
+# Neo4j
+{$NEO4J_HOSTNAME} {
+    reverse_proxy localhost:7474
+}
+
 # SearXNG
 {$SEARXNG_HOSTNAME} {
     encode zstd gzip

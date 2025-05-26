@@ -115,6 +115,20 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
+  neo4j:
+    image: neo4j:latest
+    volumes:
+        - ./neo4j/logs:/logs
+        - ./neo4j/config:/config
+        - ./neo4j/data:/data
+        - ./neo4j/plugins:/plugins
+    environment:
+        - NEO4J_AUTH=${NEO4J_AUTH:-"neo4j/your_password"}
+    ports:
+      - 7474:7474
+      - 7687:7687
+    restart: always      
+
   caddy:
     container_name: caddy
     image: docker.io/library/caddy:2-alpine
@@ -132,6 +146,7 @@ services:
       - SUPABASE_HOSTNAME=${SUPABASE_HOSTNAME:-":8005"}
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
+      - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
