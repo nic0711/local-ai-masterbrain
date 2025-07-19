@@ -28,6 +28,7 @@ x-n8n: &service-n8n
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - WEBHOOK_URL=${N8N_HOSTNAME:+https://}${N8N_HOSTNAME:-http://localhost:5678}
+    - OLLAMA_HOST=host.docker.internal:11434
 
 x-ollama: &service-ollama
   image: ollama/ollama:latest
@@ -91,6 +92,33 @@ services:
     volumes:
       - ./n8n/backup:/backup
 
+  # Neuer Python NLP Service
+  python-nlp-service:
+    container_name: python-nlp-service
+    build: 
+      context: ./python-nlp-service
+      dockerfile: Dockerfile
+    restart: always
+    expose:
+      - 5000  # Nur interner Port für Container-Kommunikation
+    ports:
+      - "5050:5000"  # Für direkten Zugriff (optional)
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
   n8n:
     <<: *service-n8n
     container_name: n8n
@@ -102,8 +130,10 @@ services:
       - ./n8n/backup:/backup
       - ./shared:/data/shared
     depends_on:
+      python-nlp-service:  # Korrigiert: Doppelpunkt hinzugefügt
+        condition: service_started
       n8n-import:
-        condition: service_completed_successfully
+          condition: service_completed_successfully
 
   qdrant:
     image: qdrant/qdrant
@@ -156,6 +186,7 @@ services:
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
+      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-":8009"}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -331,16 +362,28 @@ services:
       timeout: 10s
       retries: 10
 
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: crawl4ai
+    restart: unless-stopped
+    ports:
+      - "8082:11235"  # Crawl4AI läuft intern auf Port 11235
+    environment:
+      - LLM_PROVIDER=ollama/deepseek-r1:8b
+      - LLM_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - ./crawl4ai-data:/data
+
   searxng:
     container_name: searxng
     image: docker.io/searxng/searxng:latest
     restart: unless-stopped
     expose:
-      - 8080/tcp
+      - 8081/tcp
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
-      - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
+      - SEARXNG_BASE_URL=http://${SEARXNG_HOSTNAME:-localhost:8081}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
     cap_drop:
