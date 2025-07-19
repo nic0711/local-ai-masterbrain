@@ -34,7 +34,12 @@ COPY --chown=appuser:appuser . .
 # Port freigeben, auf dem Gunicorn lauschen wird
 EXPOSE 5000
 
+# Umgebungsvariablen für Gunicorn mit Standardwerten
+ENV WORKERS=${WORKERS:-2}
+ENV THREADS=${THREADS:-4}
+ENV TIMEOUT=${TIMEOUT:-120}
+
 # Den Service mit Gunicorn starten
 # Der Name 'app' vor dem Doppelpunkt muss dem Dateinamen app.py entsprechen.
 # Der Name 'app' nach dem Doppelpunkt muss dem Flask-App-Objekt (app = Flask(__name__)) entsprechen.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--worker-class", "gthread", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "${WORKERS}", "--threads", "${THREADS}", "--worker-class", "gthread", "--timeout", "${TIMEOUT}", "app:app"]

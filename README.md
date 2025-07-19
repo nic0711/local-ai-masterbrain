@@ -1,26 +1,22 @@
 # Self-hosted AI Package
 
-**Self-hosted AI Package** is an open, docker compose template that
-quickly bootstraps a fully featured Local AI and Low Code development
-environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, and authentication. 
+**Self-hosted AI MAsterbrain** is an open, docker compose template that quickly bootstraps a fully featured Local AI and Low Code development
+environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, authentication, crawl4ai for scraping and a python container for NLP work and more.
 
-This is Cole's version with a couple of improvements and the addition of Supabase, Open WebUI, Flowise, Neo4j, Langfuse, SearXNG, and Caddy!
-Also, the local RAG AI Agent workflows from the video will be automatically in your 
+This is Nic's version with a couple of improvements and the addition of Crawl4ai, NPL-Container and (soon) an UI!
+
+Also, the local RAG AI Agent workflows from the video (by Cole) will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
 
 **IMPORANT**: Supabase has updated a couple environment variables so you may have to add some new default values in your .env that I have in my .env.example if you have had this project up and running already and are just pulling new changes. Specifically, you need to add "POOLER_DB_POOL_SIZE=5" to your .env. This is required if you have had the package running before June 14th.
 
 ## Important Links
 
-- [Local AI community](https://thinktank.ottomator.ai/c/local-ai/18) forum over in the oTTomator Think Tank
-
-- [GitHub Kanban board](https://github.com/users/coleam00/projects/2/views/1) for feature implementation and bug squashing.
-
 - [Original Local AI Starter Kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) by the n8n team
 
-- Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
+- [Based on the Local AI Packaged](https://github.com/coleam00/local-ai-packaged) by the coleam00 & team
 
-![n8n.io - Screenshot](https://raw.githubusercontent.com/n8n-io/self-hosted-ai-starter-kit/main/assets/n8n-demo.gif)
+- Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
 
 Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it combines the self-hosted n8n
 platform with a curated list of compatible AI products and components to
@@ -42,6 +38,10 @@ privately interact with your local models and N8N agents
 
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent
 builder that pairs very well with n8n
+
+✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM unsage
+
+✅ [**Python Flask Container**] - special container for python tools like flask, spyCy, pandas, and more
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
@@ -68,8 +68,8 @@ Before you begin, make sure you have the following software installed:
 
 Clone the repository and navigate to the project directory:
 ```bash
-git clone -b stable https://github.com/coleam00/local-ai-packaged.git
-cd local-ai-packaged
+git clone -b stable https://github.com/nic0711/local-ai-masterbrain
+cd local-ai-masterbrain
 ```
 
 Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
@@ -124,6 +124,7 @@ Before running the services, you need to set up your environment variables for S
    FLOWISE_HOSTNAME=:flowise.yourdomain.com
    SUPABASE_HOSTNAME=:supabase.yourdomain.com
    OLLAMA_HOSTNAME=:ollama.yourdomain.com
+   CRAWL4AI_HOSTNAME=:crawl4ai.yourdomain.com
    SEARXNG_HOSTNAME=searxng.yourdomain.com
    NEO4J_HOSTNAME=neo4j.yourdomain.com
    LETSENCRYPT_EMAIL=your-email-address
