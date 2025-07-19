@@ -64,3 +64,11 @@ services:
   ollama-gpu-amd:
     ports:
       - 127.0.0.1:11434:11434
+
+  python-nlp-service:
+    ports:
+      - 127.0.0.1:5050:5000
+
+  crawl4ai:
+    ports:
+      - 127.0.0.1:8082:11235

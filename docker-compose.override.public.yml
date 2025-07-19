@@ -7,3 +7,9 @@ services:
 
   supavisor:
     ports: !reset null
+
+  python-nlp-service:
+    ports: !reset null
+
+  crawl4ai:
+    ports: !reset null

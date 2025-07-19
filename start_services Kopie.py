@@ -46,12 +46,19 @@ def prepare_supabase_env():
     print("Copying .env in root to .env in supabase/docker...")
     shutil.copyfile(env_example_path, env_path)
 
-def stop_existing_containers(profile=None):
+def stop_existing_containers(profile=None, environment=None):
     print("Stopping and removing existing containers for the unified project 'localai'...")
     cmd = ["docker", "compose", "-p", "localai"]
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    cmd.extend(["-f", "docker-compose.yml", "down"])
+
+    # Ensure all relevant compose files are included for a clean shutdown
+    cmd.extend(["-f", "docker-compose.yml"])
+    if environment and environment == "private":
+        cmd.extend(["-f", "docker-compose.override.private.yml"])
+    if environment and environment == "public":
+        cmd.extend(["-f", "docker-compose.override.public.yml"])
+    cmd.extend(["down"])
     run_command(cmd)
 
 def start_supabase(environment=None):
@@ -72,8 +79,6 @@ def start_local_ai(profile=None, environment=None):
     cmd.extend(["-f", "docker-compose.yml"])
     if environment and environment == "private":
         cmd.extend(["-f", "docker-compose.override.private.yml"])
-    if profile and profile == "none":
-        cmd.extend(["-f", "docker-compose.override.none.yml"])
     if environment and environment == "public":
         cmd.extend(["-f", "docker-compose.override.public.yml"])
     cmd.extend(["up", "-d"])
@@ -234,7 +239,7 @@ def main():
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
 
-    stop_existing_containers(args.profile)
+    stop_existing_containers(args.profile, args.environment)
 
     # Start Supabase first
     start_supabase(args.environment)
