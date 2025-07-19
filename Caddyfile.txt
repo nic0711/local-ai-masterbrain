@@ -8,76 +8,6 @@
     # For domains, Caddy will automatically use Let's Encrypt
     # For localhost/port addresses, HTTPS won't be enabled
     reverse_proxy n8n:5678
-
-    # Logging
-    log {
-        output file ./log/caddy/n8n_access.log {
-            roll_size 10mb
-            roll_keep 5
-        },
-
-        output file ./log/caddy/n8n_error.log {
-            roll_size 10mb
-            roll_keep 5
-        }
-    }
-}
-
-# Python NLP Service (optional - für direkten externen Zugriff)
-nlp.{$DOMAIN_NAME} {
-    reverse_proxy python-nlp-service:5000
-    
-    # API Rate Limiting
-    rate_limit {
-        zone nlp_api {
-            key {remote_host}
-            events 100
-            window 1m
-        }
-    }
-    
-    # Nur für API-Endpunkte, keine statischen Dateien
-    @api path /process /health /status
-    handle @api {
-        reverse_proxy python-nlp-service:5000 {
-            # Timeout für längere NLP-Verarbeitung
-            timeout 30s
-            
-            # Health Check
-            health_uri /health
-            health_interval 30s
-        }
-    }
-    
-    # Alle anderen Requests blockieren
-    handle {
-        respond "API endpoint only" 404
-    }
-    
-    # Security Headers für API
-    header {
-        Access-Control-Allow-Origin "https://{$SUBDOMAIN}.{$DOMAIN_NAME}"
-        Access-Control-Allow-Methods "POST, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-        Content-Type "application/json"
-        -Server
-    }
-    
-    # CORS Preflight
-    @cors_preflight method OPTIONS
-    handle @cors_preflight {
-        header Access-Control-Allow-Origin "https://{$SUBDOMAIN}.{$DOMAIN_NAME}"
-        header Access-Control-Allow-Methods "POST, OPTIONS"
-        header Access-Control-Allow-Headers "Content-Type, Authorization"
-        respond "" 204
-    }
-    
-    log {
-        output file /var/log/caddy/nlp_api_access.log {
-            roll_size 5mb
-            roll_keep 3
-        }
-    }
 }
 
 # Open WebUI
@@ -108,12 +38,6 @@ nlp.{$DOMAIN_NAME} {
 # Neo4j
 {$NEO4J_HOSTNAME} {
     reverse_proxy neo4j:7474
-}
-
-# crawl4ai
-{$CRAWL4AI_HOSTNAME} {
-    # Leitet Anfragen an den crawl4ai-Container auf dem in docker-compose.yml definierten Port weiter
-    reverse_proxy crawl4ai:8082
 }
 
 import /etc/caddy/addons/*.conf
@@ -175,4 +99,4 @@ import /etc/caddy/addons/*.conf
 #         # https://github.com/searx/searx-docker/issues/24
 #         header_up Connection "close"
 #     }
-#}
+# }
