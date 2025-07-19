@@ -28,7 +28,7 @@ x-n8n: &service-n8n
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - WEBHOOK_URL=${N8N_HOSTNAME:+https://}${N8N_HOSTNAME:-http://localhost:5678}
-    - OLLAMA_HOST=host.docker.internal:11434
+    - OLLAMA_HOST=ollama:11434
 
 x-ollama: &service-ollama
   image: ollama/ollama:latest
@@ -100,18 +100,19 @@ services:
       dockerfile: Dockerfile
     restart: always
     expose:
-      - 5000  # Nur interner Port für Container-Kommunikation
-    ports:
-      - "5050:5000"  # Für direkten Zugriff (optional)
+      - 5000
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - WORKERS=2      # Anzahl der Gunicorn Worker-Prozesse
+      - THREADS=4      # Anzahl der Threads pro Worker
+      - TIMEOUT=120    # Timeout in Sekunden, bevor ein Worker neu gestartet wird
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 60s
     deploy:
       resources:
         limits:
@@ -130,8 +131,8 @@ services:
       - ./n8n/backup:/backup
       - ./shared:/data/shared
     depends_on:
-      python-nlp-service:  # Korrigiert: Doppelpunkt hinzugefügt
-        condition: service_started
+      # python-nlp-service:  # Korrigiert: Doppelpunkt hinzugefügt
+      #   condition: service_started
       n8n-import:
           condition: service_completed_successfully
 
@@ -366,8 +367,8 @@ services:
     image: unclecode/crawl4ai:latest
     container_name: crawl4ai
     restart: unless-stopped
-    ports:
-      - "8082:11235"  # Crawl4AI läuft intern auf Port 11235
+    expose:
+      - "11235"
     environment:
       - LLM_PROVIDER=ollama/deepseek-r1:8b
       - LLM_BASE_URL=http://host.docker.internal:11434
