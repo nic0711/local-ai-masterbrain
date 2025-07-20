@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Masterbrain - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<!-- Der Body ist standardmäßig unsichtbar, bis die Auth geprüft wurde -->
+<body id="protected-dashboard" style="visibility: hidden;">
+    <div class="container">
+        <header class="dashboard-header">
+            <div>
+                <h1>Local AI Masterbrain</h1>
+                <p>Service Dashboard</p>
+            </div>
+            <button id="logout-button">Abmelden</button>
+        </header>
+        <main class="grid">
+            <!-- Die Links hier sind für die 'private' Umgebung. Sie können dynamisch angepasst werden. -->
+            <a href="http://localhost:5678" target="_blank" class="card">
+                <h2>n8n</h2>
+                <p>Low-Code Automation</p>
+            </a>
+            <a href="http://localhost:8080" target="_blank" class="card">
+                <h2>Open WebUI</h2>
+                <p>Chat Interface für LLMs</p>
+            </a>
+            <a href="http://localhost:8000" target="_blank" class="card">
+                <h2>Supabase Studio</h2>
+                <p>Datenbank & Auth</p>
+            </a>
+            <a href="http://localhost:3000" target="_blank" class="card">
+                <h2>Langfuse</h2>
+                <p>LLM Observability</p>
+            </a>
+            <a href="http://localhost:3001" target="_blank" class="card">
+                <h2>Flowise</h2>
+                <p>AI Agent Builder</p>
+            </a>
+            <a href="http://localhost:8081" target="_blank" class="card">
+                <h2>SearXNG</h2>
+                <p>Metasuchmaschine</p>
+            </a>
+            <a href="http://localhost:7474" target="_blank" class="card">
+                <h2>Neo4j Browser</h2>
+                <p>Graph-Datenbank</p>
+            </a>
+            <a href="http://localhost:6333/dashboard" target="_blank" class="card">
+                <h2>Qdrant</h2>
+                <p>Vector Store</p>
+            </a>
+             <a href="http://localhost:8082" target="_blank" class="card">
+                <h2>Crawl4AI</h2>
+                <p>Web Scraper</p>
+            </a>
+            <a href="http://localhost:9011" target="_blank" class="card">
+                <h2>MinIO</h2>
+                <p>S3 Object Storage</p>
+            </a>
+            <a href="http://localhost:5050/status" target="_blank" class="card">
+                <h2>Python NLP Service</h2>
+                <p>Custom NLP Endpoints</p>
+            </a>
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+</body>
+</html>
