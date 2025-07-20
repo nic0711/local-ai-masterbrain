@@ -1,9 +1,9 @@
 # Self-hosted AI Package
 
-**Self-hosted AI MAsterbrain** is an open, docker compose template that quickly bootstraps a fully featured Local AI and Low Code development
+**Self-hosted AI Masterbrain** is an open, docker compose template that quickly bootstraps a fully featured Local AI and Low Code development
 environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, authentication, crawl4ai for scraping and a python container for NLP work and more.
 
-This is Nic's version with a couple of improvements and the addition of Crawl4ai, NPL-Container and (soon) an UI!
+This is Wolf's version with a couple of improvements and the addition of Crawl4ai, NLP-Container and Dashboard with Auth. 
 
 Also, the local RAG AI Agent workflows from the video (by Cole) will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
@@ -16,7 +16,7 @@ n8n instance if you use this setup instead of the base one provided by n8n!
 
 - [Based on the Local AI Packaged](https://github.com/coleam00/local-ai-packaged) by the coleam00 & team
 
-- Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
+- Download Cole's N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
 
 Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it combines the self-hosted n8n
 platform with a curated list of compatible AI products and components to
@@ -26,6 +26,9 @@ quickly get started with building self-hosted AI workflows.
 
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400
 integrations and advanced AI components
+
+✅ [**New: Dashboard with Auth**] - Grid overview of all available services with 
+auth when public (vps), no auth on local (work in progress)
 
 ✅ [**Supabase**](https://supabase.com/) - Open source database as a service -
 most widely used database for AI agents
@@ -39,9 +42,9 @@ privately interact with your local models and N8N agents
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent
 builder that pairs very well with n8n
 
-✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM unsage
+✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM usage or data aggregation, screenshots, etc. 
 
-✅ [**Python Flask Container**] - special container for python tools like flask, spyCy, pandas, and more
+✅ [**New: Python NLP Container**] - special container for python tools like flask, spyCy, pandas, and more
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
@@ -72,7 +75,7 @@ git clone -b stable https://github.com/nic0711/local-ai-masterbrain
 cd local-ai-masterbrain
 ```
 
-Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
+## Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
 
 1. Make a copy of `.env.example` and rename it to `.env` in the root directory of the project
 2. Set the following required environment variables:
@@ -128,11 +131,14 @@ Before running the services, you need to set up your environment variables for S
    SEARXNG_HOSTNAME=searxng.yourdomain.com
    NEO4J_HOSTNAME=neo4j.yourdomain.com
    LETSENCRYPT_EMAIL=your-email-address
+   DASHBOARD_HOSTNAME=dashboard.yourdomain.com
    ```   
 
 ---
 
 The project includes a `start_services.py` script that handles starting both the Supabase and local AI services. The script accepts a `--profile` flag to specify which GPU configuration to use.
+## Update: 
+I added an override yaml for handling the local use of Ollama for the "none" profile. 
 
 ### For Nvidia GPU users
 
@@ -244,6 +250,258 @@ to the IP address of your cloud instance.
 - sudo mkdir -p /usr/local/lib/docker/cli-plugins
 - sudo ln -s /usr/local/bin/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
 
+# Update:
+# Security and Reliability Updates for Cloud Deployment
+
+This section provides enhanced security measures and best practices to improve the production deployment described above.
+
+## Enhanced Security Configuration
+
+### User Management and Permissions
+
+**⚠️ Important: Avoid running as root**
+
+Instead of running commands as root, create a dedicated service user:
+
+```bash
+# Create service user
+sudo adduser --system --group --home /opt/appservice appservice
+sudo usermod -aG docker appservice
+
+# Run deployment commands as service user
+sudo -u appservice python3 start_services.py --profile gpu-nvidia --environment public
+```
+
+### Firewall Configuration Fix
+
+The UFW-Docker integration issue mentioned in the warning above can be resolved:
+
+```bash
+# Method 1: Configure UFW to work with Docker
+echo 'DEFAULT_FORWARD_POLICY="DROP"' | sudo tee -a /etc/default/ufw
+sudo ufw reload
+
+# Method 2: Use iptables rules for Docker (recommended)
+sudo iptables -I DOCKER-USER -i eth0 ! -s 192.168.0.0/16 -j DROP
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+
+# Make iptables rules persistent
+sudo apt install iptables-persistent
+```
+
+### SSH Security Hardening
+
+```bash
+# Disable password authentication (use SSH keys only)
+sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sudo systemctl restart sshd
+```
+
+## Production Readiness Enhancements
+
+### Automated Security Updates
+
+```bash
+# Enable unattended security updates
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+### System Monitoring and Logging
+
+```bash
+# Configure log rotation
+sudo journalctl --vacuum-time=30d
+
+# Install and configure fail2ban for brute-force protection
+sudo apt install fail2ban
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+### Docker Security Improvements
+
+Add these configurations to your Docker setup:
+
+```bash
+# Enable Docker Content Trust
+export DOCKER_CONTENT_TRUST=1
+
+# Configure Docker daemon for security
+sudo tee /etc/docker/daemon.json <<EOF
+{
+  "live-restore": true,
+  "userland-proxy": false,
+  "no-new-privileges": true,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+sudo systemctl restart docker
+```
+
+### SSL/TLS Hardening
+
+Enhance your Caddy configuration with these security headers:
+
+```caddyfile
+{
+  # Global options
+  auto_https prefer_wildcard
+}
+
+your-domain.com {
+  header {
+    # Security headers
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Content-Security-Policy "default-src 'self'"
+  }
+  
+  # Your existing configuration...
+}
+```
+
+### Backup and Recovery
+
+Implement automated backups:
+
+```bash
+# Create backup script
+sudo tee /opt/backup-script.sh <<EOF
+#!/bin/bash
+BACKUP_DIR="/opt/backups/\$(date +%Y%m%d_%H%M%S)"
+mkdir -p "\$BACKUP_DIR"
+
+# Backup Docker volumes
+docker run --rm -v your-app-data:/data -v "\$BACKUP_DIR":/backup alpine tar czf /backup/app-data.tar.gz -C /data .
+
+# Backup configuration files
+cp -r /path/to/config "\$BACKUP_DIR/"
+
+# Clean old backups (keep last 7 days)
+find /opt/backups -type d -mtime +7 -exec rm -rf {} +
+EOF
+
+chmod +x /opt/backup-script.sh
+
+# Schedule daily backups
+echo "0 2 * * * /opt/backup-script.sh" | sudo crontab -
+```
+
+### Health Monitoring
+
+Extend your `start_services.py` script with health checks:
+
+```python
+import requests
+import ssl
+import socket
+from datetime import datetime, timedelta
+
+def check_ssl_certificate(domain, port=443):
+    """Check SSL certificate validity"""
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, port), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+                exp_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+                days_until_expiry = (exp_date - datetime.now()).days
+                
+                if days_until_expiry < 30:
+                    print(f"⚠️  SSL certificate for {domain} expires in {days_until_expiry} days")
+                return days_until_expiry > 0
+    except Exception as e:
+        print(f"❌ SSL check failed for {domain}: {e}")
+        return False
+
+def check_service_health(url):
+    """Check if service is responding"""
+    try:
+        response = requests.get(url, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Health check failed for {url}: {e}")
+        return False
+
+# Add to your start_services.py
+if __name__ == "__main__":
+    # ... existing code ...
+    
+    # Run health checks after deployment
+    if args.environment == "public":
+        print("Running post-deployment health checks...")
+        domains = ["your-domain.com", "subdomain.your-domain.com"]  # Update with your domains
+        
+        for domain in domains:
+            if check_ssl_certificate(domain):
+                print(f"✅ SSL certificate valid for {domain}")
+            
+            if check_service_health(f"https://{domain}"):
+                print(f"✅ Service healthy at {domain}")
+```
+
+## Additional Security Considerations
+
+### Network Segmentation
+
+```bash
+# Create isolated Docker networks
+docker network create --driver bridge app-network
+docker network create --driver bridge db-network
+```
+
+### Environment Variable Security
+
+Instead of using `.env` files in production, consider using Docker secrets:
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    secrets:
+      - db_password
+    environment:
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+```
+
+### Regular Security Audits
+
+```bash
+# Schedule weekly security scans
+echo "0 1 * * 0 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL your-image" | sudo crontab -
+```
+
+## Deployment Checklist
+
+Before going live, ensure:
+
+- [ ] Non-root user configured
+- [ ] SSH key authentication enabled
+- [ ] Firewall properly configured with Docker
+- [ ] SSL certificates valid and auto-renewing
+- [ ] Security headers configured
+- [ ] Automated backups scheduled
+- [ ] Health monitoring implemented
+- [ ] Log rotation configured
+- [ ] Fail2ban installed and configured
+- [ ] Security updates automated
+
+These enhancements significantly improve the security posture and reliability of your cloud deployment while maintaining the simplicity of the original setup process.
+
 ## ⚡️ Quick start and usage
 
 The main component of the self-hosted AI starter kit is a docker compose file
@@ -324,6 +582,8 @@ Note: The `start_services.py` script itself does not update containers - it only
 ## Troubleshooting
 
 Here are solutions to common issues you might encounter:
+
+> **➡️ Troubleshooting and Deployment Guide in TIPPS.md**
 
 ### Supabase Issues
 
