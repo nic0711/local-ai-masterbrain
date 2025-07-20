@@ -42,9 +42,9 @@ privately interact with your local models and N8N agents
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent
 builder that pairs very well with n8n
 
-✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM unsage
+✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM usage or data aggregation, screenshots, etc. 
 
-✅ [**New: Python Flask Container**] - special container for python tools like flask, spyCy, pandas, and more
+✅ [**New: Python NLP Container**] - special container for python tools like flask, spyCy, pandas, and more
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
