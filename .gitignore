@@ -1,8 +1,46 @@
+# ################## #
+#  Secrets & Config  #
+# ################## #
+
+# Ignoriere die zentrale .env-Datei, die alle Secrets enthält.
 .env
+
+# Ignoriere die dynamisch generierte Dashboard-Konfiguration, da sie Secrets enthalten kann.
+dashboard/config.js
+
+# ###################### #
+#  Anwendungsdaten & DB  #
+# ###################### #
+
+# Ignoriere die n8n-Backup-Dateien (enthalten Credentials und Workflows).
+/n8n/backup/
+
+# Ignoriere die Daten- und Log-Verzeichnisse von Neo4j.
+/neo4j/
+
+# Ignoriere die Daten von Crawl4AI.
+/crawl4ai-data/
+
+# Ignoriere die Daten von Flowise (falls es in das Projektverzeichnis schreibt).
+/.flowise/
+
+# ################# #
+#  Abhängigkeiten   #
+# ################# #
+
+# Ignoriere das geklonte Supabase-Repository, um Submodule-Konflikte zu vermeiden.
+/supabase/
+
+# Python-spezifische Ignorierungen
+__pycache__/
+*.pyc
+
+# macOS-spezifische Systemdateien
+.DS_Store
+
+
 volumes/
 shared/
-neo4j/
 shared-backup/
-.env.test
 searxng/settings.yml
 searxng/uwsgi*
