@@ -3,6 +3,21 @@
     email {$LETSENCRYPT_EMAIL}
 }
 
+# Auth-Snippet für geschützte Dienste (nur im public-Modus relevant)
+(protected_service) {
+    forward_auth auth-gateway:5001 {
+        uri /verify
+        # Extrahiere das JWT aus dem Supabase-Cookie und setze es als Bearer-Token
+        header_up Authorization "Bearer {cookie.sb-access-token}"
+        
+        # Wenn der Auth-Gateway 401 zurückgibt, leite zum Login um
+        handle_response 401 {
+            # Ersetze dashboard.yourdomain.com mit der Domain deines Dashboards
+            redir https://{$DASHBOARD_HOSTNAME}/login.html 302
+        }
+    }
+}
+
 # N8N
 {$N8N_HOSTNAME} {
     # For domains, Caddy will automatically use Let's Encrypt
@@ -12,11 +27,13 @@
 
 # Open WebUI
 {$WEBUI_HOSTNAME} {
+    import protected_service
     reverse_proxy open-webui:8080
 }
 
 # Flowise
 {$FLOWISE_HOSTNAME} {
+    import protected_service
     reverse_proxy flowise:3001
 }
 
@@ -38,6 +55,16 @@
 # Neo4j
 {$NEO4J_HOSTNAME} {
     reverse_proxy neo4j:7474
+}
+
+# Dashboard
+{$DASHBOARD_HOSTNAME} {
+    # Das Dashboard selbst muss auch geschützt werden, aber die Login-Seite muss ausgenommen werden
+    @notLogin path_regexp ^(?!/login.html|/auth.js|/config.js|/style.css).*$
+    route @notLogin {
+        import protected_service
+    }
+    reverse_proxy dashboard-ui:80
 }
 
 import /etc/caddy/addons/*.conf
