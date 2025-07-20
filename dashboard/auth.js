@@ -2,22 +2,23 @@
 
 // --- Konfiguration ---
 // Die Konfiguration wird aus der dynamisch generierten config.js geladen.
-const AUTH_ENABLED = window.APP_CONFIG ? window.APP_CONFIG.authEnabled : true;
-
-// Für die lokale Entwicklung (private environment):
-const LOCAL_SUPABASE_URL = 'http://localhost:8000';
-
-// Für die Produktion auf einem VPS (public environment):
-const PUBLIC_SUPABASE_URL = 'https://supabase.deinedomain.com'; // WICHTIG: Ersetzen!
-const SUPABASE_URL = AUTH_ENABLED ? PUBLIC_SUPABASE_URL : LOCAL_SUPABASE_URL;
-
-// Den ANON_KEY aus deiner .env-Datei entnehmen.
-// Es ist sicher, diesen Key im Frontend zu verwenden.
-const SUPABASE_ANON_KEY = 'DEIN_SUPABASE_ANON_KEY'; // WICHTIG: Ersetzen!
+const AUTH_ENABLED = window.APP_CONFIG?.authEnabled ?? true;
+const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl;
+const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey;
 
 // --- Initialisierung ---
 const { createClient } = supabase;
-const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Initialisiere Supabase nur, wenn die Konfiguration vorhanden ist.
+const _supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+if (!_supabase && AUTH_ENABLED) {
+    console.error("Supabase-Konfiguration fehlt, aber die Authentifizierung ist aktiviert. Bitte überprüfe config.js.");
+    // Zeige eine Fehlermeldung im UI an, da die App nicht funktionieren wird.
+    document.body.innerHTML = "<h1>Konfigurationsfehler</h1><p>Die Supabase-URL oder der Anon-Key konnte nicht geladen werden. Bitte überprüfe die Konfiguration.</p>";
+}
 
 /**
  * Leitet den Benutzer zur Login-Seite, wenn er nicht authentifiziert ist.
@@ -36,9 +37,11 @@ async function protectPage() {
     }
 
     // Wenn die Authentifizierung aktiviert ist (öffentliche Umgebung)
+    if (!_supabase) return; // Nichts tun, wenn Supabase nicht initialisiert ist
+
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) {
-        window.location.href = '/login.html';
+        window.location.href = 'login.html';
     } else {
         // Benutzer ist eingeloggt, zeige den Inhalt an
         document.body.style.visibility = 'visible';
@@ -52,7 +55,7 @@ const loginForm = document.getElementById('login-form');
 if (loginForm) {
     // Wenn Auth deaktiviert ist, leiten wir direkt zum Dashboard weiter.
     if (!AUTH_ENABLED) {
-        window.location.href = '/index.html';
+        window.location.href = 'index.html';
     }
 
     loginForm.addEventListener('submit', async (e) => {
@@ -61,12 +64,17 @@ if (loginForm) {
         const password = document.getElementById('password').value;
         const errorMessage = document.getElementById('error-message');
 
+        if (!_supabase) {
+            errorMessage.textContent = 'Fehler: Supabase-Client nicht initialisiert.';
+            return;
+        }
+
         const { error } = await _supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
             errorMessage.textContent = 'Fehler beim Anmelden: ' + error.message;
         } else {
-            window.location.href = '/index.html';
+            window.location.href = 'index.html';
         }
     });
 }
@@ -75,6 +83,7 @@ if (loginForm) {
 const logoutButton = document.getElementById('logout-button');
 if (logoutButton) {
     logoutButton.addEventListener('click', async () => {
+        if (!_supabase) return;
         await _supabase.auth.signOut();
         window.location.href = '/login.html';
     });
