@@ -72,3 +72,7 @@ services:
   crawl4ai:
     ports:
       - 127.0.0.1:8082:11235
+
+  dashboard:
+    ports:
+      - 127.0.0.1:8888:80
