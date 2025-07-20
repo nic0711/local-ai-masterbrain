@@ -1,9 +1,9 @@
 # Self-hosted AI Package
 
-**Self-hosted AI MAsterbrain** is an open, docker compose template that quickly bootstraps a fully featured Local AI and Low Code development
+**Self-hosted AI Masterbrain** is an open, docker compose template that quickly bootstraps a fully featured Local AI and Low Code development
 environment including Ollama for your local LLMs, Open WebUI for an interface to chat with your N8N agents, and Supabase for your database, vector store, authentication, crawl4ai for scraping and a python container for NLP work and more.
 
-This is Nic's version with a couple of improvements and the addition of Crawl4ai, NPL-Container and (soon) an UI!
+This is Wolf's version with a couple of improvements and the addition of Crawl4ai, NPL-Container and (soon) an UI!
 
 Also, the local RAG AI Agent workflows from the video (by Cole) will be automatically in your 
 n8n instance if you use this setup instead of the base one provided by n8n!
@@ -26,6 +26,9 @@ quickly get started with building self-hosted AI workflows.
 
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400
 integrations and advanced AI components
+
+✅ [**Dashboard for all services**] - Grid overview of all available services with 
+auth when public (vps), no auth on local (work in progress)
 
 ✅ [**Supabase**](https://supabase.com/) - Open source database as a service -
 most widely used database for AI agents
