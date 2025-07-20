@@ -466,6 +466,7 @@ Instead of using `.env` files in production, consider using Docker secrets:
 
 ```yaml
 # docker-compose.yml
+
 services:
   app:
     secrets:
