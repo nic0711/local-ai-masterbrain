@@ -16,7 +16,7 @@ n8n instance if you use this setup instead of the base one provided by n8n!
 
 - [Based on the Local AI Packaged](https://github.com/coleam00/local-ai-packaged) by the coleam00 & team
 
-- Download my N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
+- Download Cole's N8N + OpenWebUI integration [directly on the Open WebUI site.](https://openwebui.com/f/coleam/n8n_pipe/) (more instructions below)
 
 Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it combines the self-hosted n8n
 platform with a curated list of compatible AI products and components to
@@ -27,7 +27,7 @@ quickly get started with building self-hosted AI workflows.
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400
 integrations and advanced AI components
 
-✅ [**Dashboard for all services**] - Grid overview of all available services with 
+✅ [**New: Dashboard with Auth**] - Grid overview of all available services with 
 auth when public (vps), no auth on local (work in progress)
 
 ✅ [**Supabase**](https://supabase.com/) - Open source database as a service -
@@ -42,9 +42,9 @@ privately interact with your local models and N8N agents
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent
 builder that pairs very well with n8n
 
-✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM unsage
+✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM unsage
 
-✅ [**Python Flask Container**] - special container for python tools like flask, spyCy, pandas, and more
+✅ [**New: Python Flask Container**] - special container for python tools like flask, spyCy, pandas, and more
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
@@ -75,7 +75,7 @@ git clone -b stable https://github.com/nic0711/local-ai-masterbrain
 cd local-ai-masterbrain
 ```
 
-Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
+## Before running the services, you need to set up your environment variables for Supabase following their [self-hosting guide](https://supabase.com/docs/guides/self-hosting/docker#securing-your-services).
 
 1. Make a copy of `.env.example` and rename it to `.env` in the root directory of the project
 2. Set the following required environment variables:
@@ -131,11 +131,14 @@ Before running the services, you need to set up your environment variables for S
    SEARXNG_HOSTNAME=searxng.yourdomain.com
    NEO4J_HOSTNAME=neo4j.yourdomain.com
    LETSENCRYPT_EMAIL=your-email-address
+   DASHBOARD_HOSTNAME=dashboard.yourdomain.com
    ```   
 
 ---
 
 The project includes a `start_services.py` script that handles starting both the Supabase and local AI services. The script accepts a `--profile` flag to specify which GPU configuration to use.
+## Update: 
+I added an override yaml for handling the local use of Ollama for the "none" profile. 
 
 ### For Nvidia GPU users
 
