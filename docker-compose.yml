@@ -188,9 +188,6 @@ services:
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
       - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-":8009"}
-      - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-":8010"}
-      - MINIO_HOSTNAME=${MINIO_HOSTNAME:-":8011"}
-      - PYTHON_NLP_HOSTNAME=${PYTHON_NLP_HOSTNAME:-":8012"}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -382,8 +379,8 @@ services:
     container_name: searxng
     image: docker.io/searxng/searxng:latest
     restart: unless-stopped
-    expose: # Der interne Port von SearXNG ist 8080
-      - 8080/tcp
+    expose:
+      - 8081/tcp
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
