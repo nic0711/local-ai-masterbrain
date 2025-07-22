@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Local AI Masterbrain - Dashboard</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
 </head>
 <!-- Der Body ist standardmäßig unsichtbar, bis die Auth geprüft wurde -->
+
 <body id="protected-dashboard" style="visibility: hidden;">
     <div class="container">
         <header class="dashboard-header">
@@ -16,57 +19,109 @@
             </div>
             <button id="logout-button">Abmelden</button>
         </header>
-        <main class="grid">
-            <!-- Die Links hier sind für die 'private' Umgebung. Sie können dynamisch angepasst werden. -->
-            <a href="http://localhost:5678" target="_blank" class="card">
-                <h2>n8n</h2>
-                <p>Low-Code Automation</p>
-            </a>
-            <a href="http://localhost:8080" target="_blank" class="card">
-                <h2>Open WebUI</h2>
-                <p>Chat Interface für LLMs</p>
-            </a>
-            <a href="http://localhost:8000" target="_blank" class="card">
-                <h2>Supabase Studio</h2>
-                <p>Datenbank & Auth</p>
-            </a>
-            <a href="http://localhost:3000" target="_blank" class="card">
-                <h2>Langfuse</h2>
-                <p>LLM Observability</p>
-            </a>
-            <a href="http://localhost:3001" target="_blank" class="card">
-                <h2>Flowise</h2>
-                <p>AI Agent Builder</p>
-            </a>
-            <a href="http://localhost:8081" target="_blank" class="card">
-                <h2>SearXNG</h2>
-                <p>Metasuchmaschine</p>
-            </a>
-            <a href="http://localhost:7474" target="_blank" class="card">
-                <h2>Neo4j Browser</h2>
-                <p>Graph-Datenbank</p>
-            </a>
-            <a href="http://localhost:6333/dashboard" target="_blank" class="card">
-                <h2>Qdrant</h2>
-                <p>Vector Store</p>
-            </a>
-             <a href="http://localhost:8082" target="_blank" class="card">
-                <h2>Crawl4AI</h2>
-                <p>Web Scraper</p>
-            </a>
-            <a href="http://localhost:9011" target="_blank" class="card">
-                <h2>MinIO</h2>
-                <p>S3 Object Storage</p>
-            </a>
-            <a href="http://localhost:5050/status" target="_blank" class="card">
-                <h2>Python NLP Service</h2>
-                <p>Custom NLP Endpoints</p>
-            </a>
+        <main>
+            <section class="grid-section">
+                <h2>AI & Automation Tools</h2>
+                <div class="grid">
+                    <a id="link-n8n" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>n8n</h2>
+                            <p>Low-Code Automation</p>
+                        </div>
+                        <img src="assets/logos/n8n.svg" alt="n8n Logo" class="card-logo">
+                    </a>
+                    <a id="link-openWebui" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Open WebUI</h2>
+                            <p>Chat Interface für LLMs</p>
+                        </div>
+                        <img src="assets/logos/openwebui.png" alt="Open WebUI Logo" class="card-logo invert">
+                    </a>
+                    <a id="link-searxng" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>SearXNG</h2>
+                            <p>Metasuchmaschine</p>
+                        </div>
+                        <img src="assets/logos/search.svg" alt="SearXNG Logo" class="card-logo invert">
+                    </a>
+                    <a id="link-flowise" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Flowise</h2>
+                            <p>AI Agent Builder</p>
+                        </div>
+                        <img src="assets/logos/flowise.svg" alt="Flowise Logo" class="card-logo">
+                    </a>
+                </div>
+            </section>
+
+            <section class="grid-section">
+                <h2>Infrastructure & Data Services</h2>
+                <div class="grid">
+                    <a id="link-supabase" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Supabase</h2>
+                            <p>Datenbank & Auth</p>
+                        </div>
+                        <img src="assets/logos/supabase.png" alt="Supabase Logo" class="card-logo">
+                    </a>
+                    <a id="link-langfuse" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Langfuse</h2>
+                            <p>LLM Observability</p>
+                        </div>
+                        <img src="assets/logos/langfuse.svg" alt="Langfuse Logo" class="card-logo">
+                    </a>
+                    <a id="link-neo4j" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Neo4j</h2>
+                            <p>Graph-Datenbank</p>
+                        </div>
+                        <img src="assets/logos/neo4j.svg" alt="Neo4j Logo" class="card-logo">
+                    </a>
+                    <a id="link-qdrant" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Qdrant</h2>
+                            <p>Vector Store</p>
+                        </div>
+                        <img src="assets/logos/qdrant.svg" alt="Qdrant Logo" class="card-logo">
+                    </a>
+                    <a id="link-minio" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>MinIO</h2>
+                            <p>S3 Object Storage</p>
+                        </div>
+                        <img src="assets/logos/minio.svg" alt="MinIO Logo" class="card-logo">
+                    </a>
+                    <a id="link-crawl4ai" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Crawl4AI</h2>
+                            <p>Web Scraper</p>
+                        </div>
+                        <img src="assets/logos/crawl4ai.png" alt="Crawl4AI Logo" class="card-logo invert">
+                    </a>
+                    <a id="link-clickhouse" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Clickhouse</h2>
+                            <p>Custom Endpoints</p>
+                        </div>
+                        <img src="assets/logos/clickhouse.svg" alt="Python Logo" class="card-logo">
+                    </a>
+                    <a id="link-pythonNlp" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Python NLP</h2>
+                            <p>Custom Endpoints</p>
+                        </div>
+                        <img src="assets/logos/python.svg" alt="Python Logo" class="card-logo">
+                    </a>
+                </div>
+            </section>
         </main>
     </div>
 
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+    <script src="main.js"></script>
 </body>
+
 </html>
