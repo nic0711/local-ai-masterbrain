@@ -26,7 +26,8 @@ body {
     margin-bottom: 3rem;
 }
 
-header h1, .dashboard-header h1 {
+header h1,
+.dashboard-header h1 {
     font-size: 2.5rem;
     font-weight: 700;
     color: #fff;
@@ -40,14 +41,33 @@ header p {
     margin-top: 0;
 }
 
+main {
+    width: 100%;
+}
+
+.grid-section {
+    margin-bottom: 4rem;
+}
+
+.grid-section h2 {
+    font-size: 1.8rem;
+    color: #ccc;
+    text-align: left;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #333;
+    font-weight: 600;
+}
+
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-auto-rows: auto;
     gap: 1.5rem;
 }
 
 .card {
-    background-color: #1e1e1e;
+    background-color: #3e3e3e;
     border: 1px solid #333;
     border-radius: 8px;
     padding: 1.5rem;
@@ -55,6 +75,10 @@ header p {
     text-decoration: none;
     color: #e0e0e0;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .card:hover {
@@ -62,16 +86,39 @@ header p {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
-.card h2 {
+.card-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.card-content h2 {
     margin-top: 0;
     margin-bottom: 0.5rem;
     color: #fff;
 }
 
-.card p {
+.card-content p {
     margin: 0;
     color: #a0a0a0;
     font-size: 0.9rem;
+}
+
+.card-logo {
+    max-height: 40px;
+    max-width: 100px;
+    margin-bottom: 1em;
+    object-fit: contain;
+    order: -1;
+    display: flex;
+    flex-wrap: nowrap;
+    align-self: flex-end;
+}
+
+.invert {
+    filter: invert(1);
+    -webkit-filter: invert(1);
 }
 
 #logout-button {
