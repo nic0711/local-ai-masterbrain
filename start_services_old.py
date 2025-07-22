@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Verbesserte Container-Management Funktionen für start_services.py
-Kombiniert Funktionen aus alter und neuer Version.
+start_services.py
+
+This script starts the Supabase stack first, waits for it to initialize, and then starts
+the local AI stack. Both stacks use the same Docker Compose project name ("localai")
+so they appear together in Docker Desktop.
 """
 
 import os
@@ -11,13 +14,11 @@ import time
 import argparse
 import platform
 import sys
-import socket # Benötigt für wait_for_service_ready
 
-def run_command(cmd, cwd=None, env=None, check=True, capture_output=False):
+def run_command(cmd, cwd=None, env=None, check=True):
     """Run a shell command and print it."""
     print("Running:", " ".join(cmd))
-    result = subprocess.run(cmd, cwd=cwd, check=check, env=env, capture_output=capture_output, text=True)
-    return result
+    subprocess.run(cmd, cwd=cwd, check=check, env=env)
 
 def get_env_vars(env_file=".env"):
     """Reads key-value pairs from an .env file."""
@@ -34,33 +35,6 @@ def get_env_vars(env_file=".env"):
     except FileNotFoundError:
         print(f"Warning: .env file not found at {env_file}")
     return variables
-
-def get_all_compose_files(profile=None, environment=None):
-    """Get all relevant compose files for the current configuration."""
-    compose_files = []
-    
-    # Main compose files
-    compose_files.extend(["-f", "docker-compose.yml"])
-    
-    # Environment-specific overrides
-    if environment == "private":
-        compose_files.extend(["-f", "docker-compose.override.private.yml"])
-    elif environment == "public":
-        compose_files.extend(["-f", "docker-compose.override.public.yml"])
-    
-    # Profile-specific overrides
-    if profile == "none":
-        compose_files.extend(["-f", "docker-compose.override.none.yml"])
-    
-    # Supabase compose file
-    compose_files.extend(["-f", "supabase/docker/docker-compose.yml"])
-    
-    # Supabase environment overrides
-    if environment == "public":
-        if os.path.exists("docker-compose.override.public.supabase.yml"):
-            compose_files.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    
-    return compose_files
 
 def clone_supabase_repo():
     """Clone the Supabase repository using sparse checkout if not already present."""
@@ -84,172 +58,49 @@ def clone_supabase_repo():
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
     env_path = os.path.join("supabase", "docker", ".env")
-    env_example_path = os.path.join(".env") # Annahme: .env ist im Root-Verzeichnis
+    env_example_path = os.path.join(".env")
     print("Copying .env in root to .env in supabase/docker...")
-    if os.path.exists(env_example_path):
-        shutil.copyfile(env_example_path, env_path)
-    else:
-        print(f"Warning: Root .env file not found at {env_example_path}. Skipping copy to Supabase.")
+    shutil.copyfile(env_example_path, env_path)
 
-def stop_existing_containers(profile=None, environment=None, compose_env=None, remove_volumes=False):
-    """Stop and remove existing containers with comprehensive cleanup."""
+def stop_existing_containers(profile=None, compose_env=None):
     print("Stopping and removing existing containers for the unified project 'localai'...")
-    
-    # Get all compose files
-    compose_files = get_all_compose_files(profile, environment)
-    
-    # Build the docker compose command
     cmd = ["docker", "compose", "-p", "localai"]
-    
-    # Add profile only if explicitly specified and not 'none'
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    
-    # Add all compose files
-    cmd.extend(compose_files)
-    
-    # Add down command with options
-    down_options = ["down", "--remove-orphans"]
-    
-    # Add volume removal if requested
-    if remove_volumes:
-        down_options.append("--volumes")
-        print("⚠️  WARNING: Removing volumes - all data will be lost!")
-    
-    cmd.extend(down_options)
-    
-    try:
-        run_command(cmd, env=compose_env)
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: Docker compose down failed with error: {e}")
-        print("Attempting fallback cleanup...")
-        fallback_cleanup(compose_env)
-    
-    # Wait for ports to be released
-    print("Waiting for ports to be released...")
-    time.sleep(5)
-    
-    # Verify cleanup
-    verify_cleanup()
 
-def fallback_cleanup(compose_env=None):
-    """Fallback cleanup method if regular compose down fails."""
-    print("Performing fallback cleanup...")
-    
-    try:
-        # Stop all containers with the localai project name
-        result = run_command([
-            "docker", "ps", "-a", 
-            "--filter", "label=com.docker.compose.project=localai",
-            "--format", "{{.ID}}"
-        ], capture_output=True, check=False)
-        
-        if result.returncode == 0 and result.stdout.strip():
-            container_ids = result.stdout.strip().split('\n')
-            print(f"Found {len(container_ids)} containers to stop")
-            
-            # Stop containers
-            run_command(["docker", "stop"] + container_ids, check=False)
-            
-            # Remove containers
-            run_command(["docker", "rm"] + container_ids, check=False)
-        
-        # Clean up networks
-        result = run_command([
-            "docker", "network", "ls",
-            "--filter", "label=com.docker.compose.project=localai",
-            "--format", "{{.ID}}"
-        ], capture_output=True, check=False)
-        
-        if result.returncode == 0 and result.stdout.strip():
-            network_ids = result.stdout.strip().split('\n')
-            for network_id in network_ids:
-                run_command(["docker", "network", "rm", network_id], check=False)
-                
-    except Exception as e:
-        print(f"Fallback cleanup encountered error: {e}")
-
-def verify_cleanup():
-    """Verify that all containers have been properly stopped."""
-    try:
-        result = run_command([
-            "docker", "ps", "-a",
-            "--filter", "label=com.docker.compose.project=localai",
-            "--format", "{{.Names}} {{.Status}}"
-        ], capture_output=True, check=False)
-        
-        if result.returncode == 0 and result.stdout.strip():
-            print("⚠️  Warning: Some containers are still running:")
-            print(result.stdout)
-            return False
-        else:
-            print("✅ All containers successfully stopped")
-            return True
-            
-    except Exception as e:
-        print(f"Could not verify cleanup: {e}")
-        return False
-
-def wait_for_service_ready(service_name, port, host="localhost", timeout=60):
-    """Wait for a service to be ready by checking its port."""
-    print(f"Waiting for {service_name} to be ready on {host}:{port}...")
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(1)
-                result = sock.connect_ex((host, port))
-                if result == 0:
-                    print(f"✅ {service_name} is ready!")
-                    return True
-        except Exception:
-            pass
-        
-        time.sleep(2)
-    
-    print(f"⚠️  {service_name} did not become ready within {timeout} seconds")
-    return False
+    # Include all relevant compose files for a clean shutdown
+    cmd.extend(["-f", "docker-compose.yml"])
+    # We don't know the environment here, but including the overrides won't hurt for `down`.
+    # A better approach would be to pass the environment to this function.
+    # For now, let's add the main ones.
+    cmd.extend(["-f", "docker-compose.override.private.yml"])
+    cmd.extend(["-f", "docker-compose.override.public.yml"])
+    cmd.extend(["down"]) # <-- This was the missing command
+    run_command(cmd, env=compose_env)
 
 def start_supabase(environment=None, compose_env=None):
-    """Start the Supabase services with proper health checks."""
+    """Start the Supabase services (using its compose file)."""
     print("Starting Supabase services...")
-    
     cmd = ["docker", "compose", "-p", "localai", "-f", "supabase/docker/docker-compose.yml"]
-    
-    if environment == "public" and os.path.exists("docker-compose.override.public.supabase.yml"):
+    if environment and environment == "public":
         cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    
     cmd.extend(["up", "-d"])
-    
     run_command(cmd, env=compose_env)
-    
-    # Wait for Supabase to be ready
-    wait_for_service_ready("Supabase", 8000)
 
 def start_local_ai(profile=None, environment=None, compose_env=None):
-    """Start the local AI services with proper dependency handling."""
+    """Start the local AI services (using its compose file)."""
     print("Starting local AI services...")
-    
     cmd = ["docker", "compose", "-p", "localai"]
-    
-    # Add profile only if explicitly specified and not 'none'
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    
     cmd.extend(["-f", "docker-compose.yml"])
-    
-    if environment == "private":
+    if environment and environment == "private":
         cmd.extend(["-f", "docker-compose.override.private.yml"])
-    elif environment == "public":
-        cmd.extend(["-f", "docker-compose.override.public.yml"])
-    
-    # Handle 'none' profile specifically
-    if profile == "none":
+    if profile and profile == "none":
         cmd.extend(["-f", "docker-compose.override.none.yml"])
-    
+    if environment and environment == "public":
+        cmd.extend(["-f", "docker-compose.override.public.yml"])
     cmd.extend(["up", "-d"])
-    
     run_command(cmd, env=compose_env)
 
 def generate_searxng_secret_key():
@@ -438,63 +289,39 @@ window.APP_CONFIG = {{
         print(f"Error generating dashboard config: {e}")
 
 def main():
-    """Enhanced main function with volume management options."""
     parser = argparse.ArgumentParser(description='Start the local AI and Supabase services.')
     parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='cpu',
-                      help='Profile to use for Docker Compose (default: cpu)') # Geändert von None auf 'cpu'
+                      help='Profile to use for Docker Compose (default: cpu)')
     parser.add_argument('--environment', choices=['private', 'public'], default='private',
                       help='Environment to use for Docker Compose (default: private)')
-    parser.add_argument('--remove-volumes', action='store_true',
-                      help='Remove all volumes (WARNING: This will delete all data!)')
-    parser.add_argument('--no-cleanup', action='store_true',
-                      help='Skip the cleanup phase (for debugging)')
-    
     args = parser.parse_args()
 
-    # Safety check for volume removal
-    if args.remove_volumes:
-        print("⚠️  WARNING: You have requested to remove all volumes!")
-        print("⚠️  This will permanently delete all data including databases, configurations, etc.")
-        response = input("Are you absolutely sure? Type 'DELETE_ALL_DATA' to confirm: ")
-        if response != 'DELETE_ALL_DATA':
-            print("Volume removal cancelled. Proceeding without removing volumes.")
-            args.remove_volumes = False
-
     env_vars = get_env_vars()
-    
+
     # Prepare environment for docker compose commands
     compose_env = os.environ.copy()
     compose_env['DOMAIN'] = env_vars.get('DOMAIN', 'localhost')
     compose_env['IS_PUBLIC_PROFILE'] = 'true' if args.environment == 'public' else 'false'
 
-    # Pre-startup preparations
     clone_supabase_repo()
     prepare_supabase_env()
     generate_dashboard_config(args.environment, env_vars)
+
+    # Generate SearXNG secret key and check docker-compose.yml
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
 
-    # Cleanup existing containers if not skipped
-    if not args.no_cleanup:
-        stop_existing_containers(
-            args.profile, 
-            args.environment, # Übergabe des environments an stop_existing_containers
-            compose_env=compose_env,
-            remove_volumes=args.remove_volumes
-        )
+    stop_existing_containers(args.profile, compose_env=compose_env)
 
-    # Start services
+    # Start Supabase first
     start_supabase(args.environment, compose_env=compose_env)
-    
-    # Wartezeit wurde in start_supabase durch wait_for_service_ready ersetzt, 
-    # kann aber bei Bedarf auch hier noch eingefügt werden, falls weitere Services 
-    # von Supabase abhängen und etwas mehr Zeit benötigen.
-    # print("Waiting for Supabase to initialize...")
-    # time.sleep(10) # Kann beibehalten oder entfernt werden, je nach Bedarf
 
+    # Give Supabase some time to initialize
+    print("Waiting for Supabase to initialize...")
+    time.sleep(10)
+
+    # Then start the local AI services
     start_local_ai(args.profile, args.environment, compose_env=compose_env)
-    
-    print("🎉 All services started successfully!")
 
 if __name__ == "__main__":
     main()
