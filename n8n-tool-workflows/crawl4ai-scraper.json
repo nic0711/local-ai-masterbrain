@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "id": "c0000000-0000-0000-0000-000000000000",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:11235/crawl",
+        "method": "POST",
+        "body": "={\n  \"url\": \"https://www.example-webshop.de/category/products\",\n  \"limit\": 10, \n  \"strategy\": \"full\",\n  \"selectors\": [\n    {\n      \"id\": \"product\",\n      \"selector\": \".product-item\",\n      \"type\": \"list\",\n      \"fields\": [\n        {\n          \"id\": \"title\",\n          \"selector\": \".product-title\"\n        },\n        {\n          \"id\": \"price\",\n          \"selector\": \".product-price\",\n          \"type\": \"text\"\n        },\n        {\n          \"id\": \"description\",\n          \"selector\": \".product-description\",\n          \"type\": \"text\"\n        },\n        {\n          \"id\": \"image_url\",\n          \"selector\": \".product-image\",\n          \"attr\": \"src\"\n        },\n        {\n          \"id\": \"product_url\",\n          \"selector\": \".product-title a\",\n          \"attr\": \"href\"\n        }\n      ]\n    }\n  ],\n  \"maxConcurrency\": 5,\n  \"headless\": true,\n  \"includeLinks\": false,\n  \"includeImages\": false,\n  \"outputFormat\": \"json\"\n}",
+        "jsonParameters": true,
+        "sendOnlySetParameters": true,
+        "options": {
+          "retryOnNetworkError": true,
+          "retryAttempts": 3
+        },
+        "queryParameters": []
+      },
+      "name": "Start Crawl4AI Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "id": "c1111111-1111-1111-1111-111111111111",
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = [];\n\nfor (const item of $json.data.result) {\n  if (item.data && item.data.product) {\n    for (const product of item.data.product) {\n      items.push({\n        json: {\n          title: product.title || 'N/A',\n          price: product.price ? product.price.replace(/[^\\d.,]+/g, '').replace(',', '.') : 'N/A', // Preis bereinigen\n          description: product.description || 'N/A',\n          image_url: product.image_url ? new URL(product.image_url, item.url).href : 'N/A', // Absolute URL\n          product_url: product.product_url ? new URL(product.product_url, item.url).href : 'N/A', // Absolute URL\n          source_url: item.url\n        }\n      });\n    }\n  }\n}\n\nreturn items;",
+        "options": {}
+      },
+      "name": "Process Crawled Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "id": "c2222222-2222-2222-2222-222222222222",
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "operation": "appendRow",
+        "spreadsheetId": "={{$node[\"Google Sheets Credentials\"].parameters.spreadsheetId}}",
+        "sheetName": "Crawled Products",
+        "values": "={{$json}}",
+        "convertBoolean": true,
+        "doNotSendDoubleZeroAsEmpty": true,
+        "returnFullData": false
+      },
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "id": "c3333333-3333-3333-3333-333333333333",
+      "position": [840, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "your-google-sheets-credentials-id",
+          "name": "Google Sheets Credentials"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": [
+      [
+        {
+          "node": "Start Crawl4AI Job",
+          "type": "main"
+        }
+      ]
+    ],
+    "Start Crawl4AI Job": [
+      [
+        {
+          "node": "Process Crawled Data",
+          "type": "main"
+        }
+      ]
+    ],
+    "Process Crawled Data": [
+      [
+        {
+          "node": "Save to Google Sheets",
+          "type": "main"
+        }
+      ]
+    ]
+  }
+}

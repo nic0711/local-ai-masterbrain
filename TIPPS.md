@@ -1,44 +1,144 @@
-# Konfiguration & Wichtige Hinweise
+# Anleitung & Tipps zur Supabase-Integration
 
-Dieser Stack ist so vorkonfiguriert, dass die Dienste nahtlos zusammenarbeiten. Hier sind die wichtigsten Punkte, die du für Anpassungen oder zum Debugging kennen solltest.
+## Schritt-für-Schritt-Anleitung: Supabase in bestehenden Stack integrieren
 
-### 1. Caddy als zentraler Reverse Proxy
-- **Alle Anfragen** von außen (z.B. `http://localhost:8001` oder `https://n8n.deinedomain.de`) laufen über den **Caddy-Container**.
-- Caddy leitet die Anfragen an die internen Docker-Services weiter.
-- Die Hostnamen (lokal die Ports, public die Domains) werden zentral über die `.env`-Datei und die `environment`-Sektion des Caddy-Services in der `docker-compose.yml` gesteuert.
+### 1. Supabase Docker Compose einbinden
+- Supabase-Repo klonen (nur Docker-Ordner nötig):
+  ```bash
+  git clone --filter=blob:none --no-checkout https://github.com/supabase/supabase.git
+  cd supabase
+  git sparse-checkout init --cone
+  git sparse-checkout set docker
+  git checkout master
+  cd ..
+  ```
+  *(Alternativ: Nur den Ordner `supabase/docker` in dein Projekt kopieren.)*
 
-### 2. n8n-Anbindung an die Supabase-Datenbank
-- Um n8n mit der Postgres-Datenbank von Supabase zu verbinden, nutze folgende Einstellungen in den n8n-Credentials:
-  - **Host**: `db` (Dies ist der interne Service-Name des Postgres-Containers im Docker-Netzwerk).
-  - **User**: `postgres`
-  - **Passwort**: Das `POSTGRES_PASSWORD` aus deiner `.env`-Datei.
-  - **Datenbank**: `postgres`
+- In deiner Haupt-`docker-compose.yml` ganz oben einfügen:
+  ```yaml
+  include:
+    - ./supabase/docker/docker-compose.yml
+  ```
+  *(Oder die Supabase-Services manuell in deine Compose-Datei übernehmen.)*
 
-### 3. Dashboard-Konfiguration
-- Die Links auf dem Dashboard werden dynamisch über die Datei `dashboard/config.js` gesteuert.
-- Für die **lokale Entwicklung** ist eine statische `config.js` mit `localhost`-Links ausreichend.
-- Für das **Public-Deployment** muss diese Datei angepasst werden, um die öffentlichen Domains zu verwenden und die Authentifizierung zu aktivieren. Siehe Anleitung unten.
+### 2. .env-Datei vorbereiten
+- `.env` im Projekt-Root anlegen/ergänzen:
+  ```env
+  POSTGRES_PASSWORD=deinSicheresPasswort
+  JWT_SECRET=deinJWTSecret
+  ANON_KEY=deinSupabaseAnonKey
+  SERVICE_ROLE_KEY=deinServiceRoleKey
+  DASHBOARD_USERNAME=admin
+  DASHBOARD_PASSWORD=deinDashboardPasswort
+  POOLER_TENANT_ID=irgendeinWert
+  ```
+  *(Weitere Variablen für Caddy, n8n, Langfuse etc. ergänzen.)*
+
+### 3. Supabase-Ports & Netzwerk prüfen
+- Standardmäßig läuft Supabase auf Port 8000 (API Gateway/Kong).
+- Stelle sicher, dass Port 8000 nicht von anderen Diensten belegt ist.
+- Optional: Passe Ports in `supabase/docker/docker-compose.yml` an, falls nötig.
+
+### 4. Caddy Reverse Proxy konfigurieren
+- In deiner `Caddyfile` hinzufügen:
+  ```caddyfile
+  supabase.deinedomain.tld {
+      reverse_proxy localhost:8000
+  }
+  ```
+  *(Oder nutze die Variable wie im Beispiel: `{$SUPABASE_HOSTNAME}`)*
+- Umgebungsvariable für Caddy setzen (in `.env`):
+  ```env
+  SUPABASE_HOSTNAME=supabase.deinedomain.tld
+  ```
+
+### 5. Supabase starten
+- Mit Docker Compose starten:
+  ```bash
+  docker compose up -d
+  ```
+  *(Oder: `docker compose -f supabase/docker/docker-compose.yml up -d` falls separat.)*
+- Logs prüfen:
+  ```bash
+  docker compose logs -f kong
+  docker compose logs -f db
+  ```
+
+### 6. Supabase Studio & API testen
+- Studio öffnen: http://localhost:8000 (bzw. deine Domain/Subdomain)
+- Mit Dashboard-User einloggen (siehe `.env`).
+- API-Keys in Supabase Studio kopieren, falls du sie für n8n brauchst.
+
+### 7. n8n/Backend anbinden
+- In n8n neue Credentials für Supabase anlegen:
+  - Host: `db` (so heißt der Service im Compose-Netzwerk)
+  - User: `postgres`
+  - Passwort: wie in `.env`
+  - DB: `postgres`
+  - Für Vector Store: Supabase-API-URL und Key aus Studio verwenden
+- Workflows anpassen:
+  - Nutze die Supabase-Nodes für Datenbank- und Vektor-Operationen.
+  - Beispiel: `@n8n/n8n-nodes-langchain.vectorStoreSupabase`
+
+### 8. (Optional) Backup & Persistenz
+- Volumes für Supabase-Datenbank und Storage prüfen/definieren (in Compose).
+- Regelmäßige Backups einrichten (z.B. per pg_dump oder Supabase-Tools).
+
+### 9. (Optional) Sicherheit & Produktion
+- Starke Passwörter und Secrets verwenden!
+- Caddy TLS/HTTPS aktivieren (Let's Encrypt).
+- Firewall/Netzwerkzugriffe absichern.
+- Supabase-Admin-Panel ggf. nur intern zugänglich machen.
 
 ---
 
-# Tipps & Troubleshooting
+# Tipps & Troubleshooting für Supabase-Integration
 
 ## Supabase Troubleshooting
 
 ### 1. Supabase Pooler Container startet ständig neu
-- **Lösung:** Folge den Anweisungen in diesem GitHub-Issue.
+- **Lösung:** Folge den Anweisungen in diesem [GitHub-Issue](https://github.com/supabase/supabase/issues/30210#issuecomment-2456955578).
 
-### 2. Supabase-Container (z.B. Analytics) startet nach Passwort-Änderung nicht mehr
-- **Lösung:** Lösche den Ordner `supabase/docker/volumes/db/data` und starte die Container neu. Dadurch wird die Datenbank neu initialisiert (**Achtung: Datenverlust der Postgres-DB!**).
+### 2. Supabase Analytics startet nach Passwort-Änderung nicht mehr
+- **Lösung:** Lösche den Ordner `supabase/docker/volumes/db/data` und starte die Container neu. Dadurch wird die Datenbank neu initialisiert (Achtung: Datenverlust möglich!).
 
 ### 3. Supabase Service nicht erreichbar
 - **Lösung:**
-  - Stelle sicher, dass **kein "@"-Zeichen** im `POSTGRES_PASSWORD` verwendet wird. Das führt zu Verbindungsproblemen.
+  - Stelle sicher, dass **kein "@"-Zeichen** im Postgres-Passwort verwendet wird. Das führt zu Problemen mit der Verbindung.
+  - Prüfe, ob andere Sonderzeichen im Passwort ebenfalls Probleme verursachen.
   - Prüfe die Logs des Kong-Containers (`docker compose logs -f kong`).
+  - Prüfe, ob der Port 8000 frei ist und nicht von anderen Diensten belegt wird.
 
-### 4. Supabase Studio Login schlägt fehl
+### 4. Docker Desktop: Daemon nicht erreichbar
+- **Lösung:** In den Docker-Einstellungen "Expose daemon on tcp://localhost:2375 without TLS" aktivieren.
+
+### 5. Verbindung von n8n zu Supabase/Postgres schlägt fehl
 - **Lösung:**
-  - Der Login für das Supabase Studio (erreichbar über den Dashboard-Link) verwendet **nicht** die `DASHBOARD_USERNAME`/`PASSWORD` aus älteren `.env`-Versionen. Der Standard-Login ist `supabase@example.com` mit dem Passwort `this-is-a-safe-password`. Dies sollte für den Produktivbetrieb unbedingt geändert werden.
+  - Hostname in n8n-Credentials muss `db` sein (so heißt der Service im Compose-Netzwerk).
+  - User: `postgres`, Passwort und DB wie in `.env`.
+  - Prüfe, ob die Supabase-Container laufen (`docker compose ps`).
+
+### 6. Supabase Studio Login schlägt fehl
+- **Lösung:**
+  - Nutze die in `.env` hinterlegten Dashboard-Userdaten.
+  - Prüfe, ob die Studio-URL korrekt ist (meist http://localhost:8000 oder deine Subdomain).
+
+### 7. Caddy Reverse Proxy funktioniert nicht
+- **Lösung:**
+  - Prüfe, ob die Umgebungsvariable `SUPABASE_HOSTNAME` korrekt gesetzt ist.
+  - Prüfe die Caddyfile auf Tippfehler.
+  - Prüfe, ob Caddy neu gestartet wurde nach Änderungen.
+
+### 8. Datenpersistenz/Backups
+- **Tipp:**
+  - Stelle sicher, dass die Volumes für Supabase/Postgres korrekt gemountet sind.
+  - Richte regelmäßige Backups ein (z.B. mit `pg_dump`).
+
+### 9. Sicherheit
+- **Tipp:**
+  - Verwende starke, zufällige Passwörter und Secrets.
+  - Setze Supabase Studio und Admin-Panel nur intern oder mit Authentifizierung aus.
+  - Aktiviere HTTPS in Caddy für alle externen Dienste.
 
 ---
 
@@ -61,119 +161,8 @@ Dieser Stack ist so vorkonfiguriert, dass die Dienste nahtlos zusammenarbeiten. 
 
 ---
 
-# Anleitung: Deployment auf einem öffentlichen Server (VPS)
-
-Diese Anleitung beschreibt, wie du den gesamten Stack von der lokalen Entwicklungsumgebung auf einen öffentlichen Server (VPS) für den produktiven Einsatz umziehst. Die Architektur ist darauf ausgelegt, diesen Wechsel so einfach wie möglich zu gestalten.
-
-## Voraussetzungen
-
-1.  Ein VPS mit einem Linux-Betriebssystem (z.B. Ubuntu 22.04).
-2.  Docker und Docker Compose sind auf dem VPS installiert.
-3.  Eine Domain (z.B. `deinedomain.de`) und die Möglichkeit, DNS-Einträge zu verwalten.
-
-## Schritt 1: DNS Konfigurieren
-
-Leite alle Subdomains, die du verwenden möchtest, per **A-Record** auf die öffentliche IP-Adresse deines VPS.
-
-**Beispiel-DNS-Einträge:**
-- `dashboard.deinedomain.de` -> `A` -> `DEINE_VPS_IP`
-- `n8n.deinedomain.de` -> `A` -> `DEINE_VPS_IP`
-- `webui.deinedomain.de` -> `A` -> `DEINE_VPS_IP`
-- `supabase.deinedomain.de` -> `A` -> `DEINE_VPS_IP`
-- ... und so weiter für alle Dienste.
-
-## Schritt 2: Projekt auf den Server kopieren
-
-Klone oder kopiere das gesamte Projektverzeichnis auf deinen VPS.
-
-```bash
-git clone https://github.com/dein-repo/local-ai-packaged.git
-cd local-ai-packaged
-```
-
-## Schritt 3: `.env`-Datei für die Produktion anpassen
-
-Erstelle im Hauptverzeichnis des Projekts eine `.env`-Datei. Hier werden alle Umgebungsvariablen zentral verwaltet. Dies ist der **einzige Ort**, den du für den Wechsel von lokal zu public anpassen musst.
-
-**Beispiel `.env` für den Public-Betrieb:**
-```env
-# --- Caddy Hostnames ---
-# Ersetze die Beispiel-Domains durch deine eigenen.
-DASHBOARD_HOSTNAME=dashboard.deinedomain.de
-N8N_HOSTNAME=n8n.deinedomain.de
-WEBUI_HOSTNAME=webui.deinedomain.de
-FLOWISE_HOSTNAME=flowise.deinedomain.de
-SUPABASE_HOSTNAME=supabase.deinedomain.de
-SEARXNG_HOSTNAME=search.deinedomain.de
-LANGFUSE_HOSTNAME=langfuse.deinedomain.de
-NEO4J_HOSTNAME=neo4j.deinedomain.de
-CRAWL4AI_HOSTNAME=crawl.deinedomain.de
-QDRANT_HOSTNAME=qdrant.deinedomain.de
-MINIO_HOSTNAME=minio.deinedomain.de
-PYTHON_NLP_HOSTNAME=nlp-api.deinedomain.de
-
-# --- Caddy SSL ---
-# Wichtig, damit Caddy gültige SSL-Zertifikate von Let's Encrypt erhält.
-LETSENCRYPT_EMAIL=deine-echte-email@deinedomain.de
-
-# --- Supabase & Auth ---
-# Starke, zufällige Passwörter und Secrets verwenden!
-POSTGRES_PASSWORD=DEIN_STARKES_POSTGRES_PASSWORT
-JWT_SECRET=DEIN_SEHR_LANGES_UND_SICHERES_JWT_SECRET
-ANON_KEY=DEIN_SUPABASE_ANON_KEY_HIER_EINFUEGEN
-SERVICE_ROLE_KEY=DEIN_SUPABASE_SERVICE_ROLE_KEY_HIER_EINFUEGEN
-```
-
-## Schritt 4: Dashboard-Konfiguration anpassen
-
-Die Datei `dashboard/config.js` muss für den Produktivbetrieb angepasst werden, damit die Links auf die öffentlichen Domains zeigen und die Authentifizierung aktiviert wird.
-
-**Ersetze den Inhalt von `dashboard/config.js` mit folgendem Code:**
-
-```javascript
-// dashboard/config.js für den Public-Betrieb
-window.APP_CONFIG = {
-  // --- Authentifizierung ---
-  // Für den Public-Betrieb auf `true` setzen, um die Login-Seite zu aktivieren.
-  authEnabled: true,
-
-  // --- Supabase-Konfiguration ---
-  // Ersetze die Werte durch deine öffentlichen Domains und Keys aus der .env-Datei.
-  supabaseUrl: "https://supabase.deinedomain.de",
-  supabaseAnonKey: "DEIN_SUPABASE_ANON_KEY_HIER_EINFUEGEN",
-
-  // --- Service Hostnamen für die Links ---
-  // Ersetze die Domains durch deine eigenen.
-  n8nHostname: "https://n8n.deinedomain.de",
-  openWebuiHostname: "https://webui.deinedomain.de",
-  searxngHostname: "https://search.deinedomain.de",
-  flowiseHostname: "https://flowise.deinedomain.de",
-  supabaseHostname: "https://supabase.deinedomain.de", // Link zum Supabase Studio
-  langfuseHostname: "https://langfuse.deinedomain.de",
-  neo4jHostname: "https://neo4j.deinedomain.de",
-  qdrantHostname: "https://qdrant.deinedomain.de",
-  minioHostname: "https://minio.deinedomain.de",
-  crawl4aiHostname: "https://crawl.deinedomain.de",
-  pythonNlpHostname: "https://nlp-api.deinedomain.de/status", // Link zum Status-Endpunkt
-};
-```
-
-## Schritt 5: Firewall konfigurieren
-
-Stelle sicher, dass die Firewall deines VPS die Ports für Web-Traffic zulässt:
-```bash
-sudo ufw allow 80/tcp   # HTTP
-sudo ufw allow 443/tcp  # HTTPS
-sudo ufw enable
-```
-
-## Schritt 6: Stack starten
-
-Starte alle Container. Da wir nun eine `.env`-Datei mit Hostnamen haben, wird Caddy automatisch versuchen, SSL-Zertifikate für diese zu beziehen. Der `public`-Profil wird ebenfalls aktiviert, was den `auth-gateway` startet.
-
-```bash
-docker compose --profile public up -d
-```
-
-Dein Dashboard sollte nun unter `https://dashboard.deinedomain.de` erreichbar sein und die Login-Seite anzeigen. Alle anderen Dienste sind ebenfalls über ihre jeweiligen Subdomains erreichbar.
-
+**Weitere Hilfe:**
+- [Supabase Self-Hosting Guide](https://supabase.com/docs/guides/self-hosting/docker)
+- [Supabase GitHub Issues](https://github.com/supabase/supabase/issues)
+- [n8n Community](https://community.n8n.io/)
+- [Caddy Doku](https://caddyserver.com/docs/) 
