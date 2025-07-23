@@ -10,10 +10,10 @@ SEARXNG_LOCAL_URL="http://localhost:8081"
 FLOWISE_LOCAL_URL="http://localhost:3001"
 SUPABASE_LOCAL_URL="http://localhost:8000"
 LANGFUSE_LOCAL_URL="http://localhost:3000"
-NEO4J_LOCAL_URL="http://localhost:7373"
+NEO4J_LOCAL_URL="http://localhost:7474"
 QDRANT_LOCAL_URL="http://localhost:6333"
-MINIO_LOCAL_URL="http://localhost:9001" # Console port
-CRAWL4AI_LOCAL_URL="http://localhost:11235"
+MINIO_LOCAL_URL="http://localhost:9011" # Console port
+CRAWL4AI_LOCAL_URL="http://localhost:8082"
 PYTHON_NLP_LOCAL_URL="http://localhost:5050"
 CLICKHOUSE_URL="http://localhost:8123"
 
