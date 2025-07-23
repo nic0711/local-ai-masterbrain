@@ -107,12 +107,12 @@ services:
       - WORKERS=2      # Anzahl der Gunicorn Worker-Prozesse
       - THREADS=4      # Anzahl der Threads pro Worker
       - TIMEOUT=120    # Timeout in Sekunden, bevor ein Worker neu gestartet wird
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -179,18 +179,15 @@ services:
       - caddy-data:/data:rw
       - caddy-config:/config:rw
     environment:
-      - N8N_HOSTNAME=${N8N_HOSTNAME:-":8001"}
-      - WEBUI_HOSTNAME=${WEBUI_HOSTNAME:-":8002"}
-      - FLOWISE_HOSTNAME=${FLOWISE_HOSTNAME:-":8003"}
-      - OLLAMA_HOSTNAME=${OLLAMA_HOSTNAME:-":8004"}
-      - SUPABASE_HOSTNAME=${SUPABASE_HOSTNAME:-":8005"}
-      - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
-      - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
-      - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
-      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-":8009"}
-      - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-":8010"}
-      - MINIO_HOSTNAME=${MINIO_HOSTNAME:-":8011"}
-      - PYTHON_NLP_HOSTNAME=${PYTHON_NLP_HOSTNAME:-":8012"}
+      - N8N_HOSTNAME=${N8N_HOSTNAME:-n8n.${DOMAIN}}
+      - WEBUI_HOSTNAME=${WEBUI_HOSTNAME:-webui.${DOMAIN}}
+      - FLOWISE_HOSTNAME=${FLOWISE_HOSTNAME:-flowise.${DOMAIN}}
+      - OLLAMA_HOSTNAME=${OLLAMA_HOSTNAME:-ollama.${DOMAIN}}
+      - SUPABASE_HOSTNAME=${SUPABASE_HOSTNAME:-supabase.${DOMAIN}}
+      - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-searxng.${DOMAIN}}
+      - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-langfuse.${DOMAIN}}
+      - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-neo4j.${DOMAIN}}
+      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-crawl4ai.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -219,7 +216,7 @@ services:
     environment: &langfuse-worker-env
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
       SALT: ${LANGFUSE_SALT}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
       TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
       CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
@@ -382,8 +379,8 @@ services:
     container_name: searxng
     image: docker.io/searxng/searxng:latest
     restart: unless-stopped
-    expose: # Der interne Port von SearXNG ist 8080
-      - 8080/tcp
+    expose:
+      - 8081/tcp
     volumes:
       - ./searxng:/etc/searxng:rw
     environment:
@@ -449,9 +446,13 @@ services:
     image: nginx:1.25-alpine
     restart: unless-stopped
     volumes:
-      - ./dashboard:/usr/share/nginx/html:ro
+      - ./dashboard:/usr/share/nginx/html:rw
     expose:
       - 80/tcp
+    entrypoint: /usr/share/nginx/html/entrypoint.sh
+    environment:
+      - IS_PUBLIC_PROFILE=${IS_PUBLIC_PROFILE:-false}
+      - SUPABASE_ANON_KEY=${ANON_KEY}
 
   auth-gateway:
     container_name: auth-gateway

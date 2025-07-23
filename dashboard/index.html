@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Local AI Masterbrain - Dashboard</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
 </head>
 <!-- Der Body ist standardmäßig unsichtbar, bis die Auth geprüft wurde -->
+
 <body id="protected-dashboard" style="visibility: hidden;">
     <div class="container">
         <header class="dashboard-header">
@@ -39,7 +42,7 @@
                             <h2>SearXNG</h2>
                             <p>Metasuchmaschine</p>
                         </div>
-                        <img src="assets/logos/searxng.svg" alt="SearXNG Logo" class="card-logo invert">
+                        <img src="assets/logos/search.svg" alt="SearXNG Logo" class="card-logo invert">
                     </a>
                     <a id="link-flowise" href="#" target="_blank" class="card">
                         <div class="card-content">
@@ -96,6 +99,13 @@
                         </div>
                         <img src="assets/logos/crawl4ai.png" alt="Crawl4AI Logo" class="card-logo invert">
                     </a>
+                    <a id="link-clickhouse" href="#" target="_blank" class="card">
+                        <div class="card-content">
+                            <h2>Clickhouse</h2>
+                            <p>Custom Endpoints</p>
+                        </div>
+                        <img src="assets/logos/clickhouse.svg" alt="Python Logo" class="card-logo">
+                    </a>
                     <a id="link-pythonNlp" href="#" target="_blank" class="card">
                         <div class="card-content">
                             <h2>Python NLP</h2>
@@ -113,4 +123,5 @@
     <script src="auth.js"></script>
     <script src="main.js"></script>
 </body>
+
 </html>

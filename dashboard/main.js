@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'minio': config.minioHostname,
         'crawl4ai': config.crawl4aiHostname,
         'pythonNlp': config.pythonNlpHostname,
+        'clickhouse': config.clickhouseHostname,
     };
 
     // Iteriere durch die Dienste und aktualisiere die Links.
