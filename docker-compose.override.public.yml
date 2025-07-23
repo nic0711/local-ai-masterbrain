@@ -13,3 +13,7 @@ services:
 
   crawl4ai:
     ports: !reset null
+
+  dashboard:
+    environment:
+      - IS_PUBLIC_PROFILE=true

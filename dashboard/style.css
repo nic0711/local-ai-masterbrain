@@ -26,7 +26,8 @@ body {
     margin-bottom: 3rem;
 }
 
-header h1, .dashboard-header h1 {
+header h1,
+.dashboard-header h1 {
     font-size: 2.5rem;
     font-weight: 700;
     color: #fff;
@@ -84,6 +85,7 @@ main {
     transform: translateY(-5px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
+
 .card-content {
     flex-grow: 1;
     display: flex;
