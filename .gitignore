@@ -44,3 +44,8 @@ shared/
 shared-backup/
 searxng/settings.yml
 searxng/uwsgi*
+
+conversation_log.md
+start_service Kopie.py
+start_service_old.py
+efactoring-attempt-7a435a6.patch
