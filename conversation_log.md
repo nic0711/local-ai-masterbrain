@@ -1,1 +1,0 @@
-Dies ist ein Platzhalter für die Konversationshistorie. Die tatsächliche Konversation wird hier eingefügt, sobald die Funktionalität verfügbar ist.
