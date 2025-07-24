@@ -64,22 +64,24 @@ def get_all_compose_files(profile=None, environment=None):
 
 def clone_supabase_repo():
     """Clone the Supabase repository using sparse checkout if not already present."""
-    if not os.path.exists("supabase"):
-        print("Cloning the Supabase repository...")
+    supabase_docker_dir = os.path.join("supabase", "docker")
+    if os.path.exists(supabase_docker_dir):
+        print("Supabase repository already exists, updating...")
+        # Use -C to run git command in supabase directory without changing current dir
+        run_command(["git", "-C", "supabase", "pull"])
+    else:
+        if os.path.exists("supabase"):
+            print("Incomplete Supabase directory found, re-cloning...")
+            shutil.rmtree("supabase")
+
+        print("Cloning Supabase repository (sparse checkout for 'docker' directory)...")
         run_command([
             "git", "clone", "--filter=blob:none", "--no-checkout",
             "https://github.com/supabase/supabase.git"
         ])
-        os.chdir("supabase")
-        run_command(["git", "sparse-checkout", "init", "--cone"])
-        run_command(["git", "sparse-checkout", "set", "docker"])
-        run_command(["git", "checkout", "master"])
-        os.chdir("..")
-    else:
-        print("Supabase repository already exists, updating...")
-        os.chdir("supabase")
-        run_command(["git", "pull"])
-        os.chdir("..")
+        run_command(["git", "-C", "supabase", "sparse-checkout", "init", "--cone"])
+        run_command(["git", "-C", "supabase", "sparse-checkout", "set", "docker"])
+        run_command(["git", "-C", "supabase", "checkout", "master"])
 
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
