@@ -38,6 +38,7 @@ __pycache__/
 # macOS-spezifische Systemdateien
 .DS_Store
 
+*.sql
 
 volumes/
 shared/
