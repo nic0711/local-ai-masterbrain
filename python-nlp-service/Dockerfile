@@ -1,45 +1,56 @@
-# Stage 1: Builder - Installiert Abhängigkeiten und lädt Modelle
-FROM python:3.11-slim-bookworm AS builder
+# Stage 1: Builder - Abhängigkeiten installieren und Modelle laden
+FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /app
 
-# Systemabhängigkeiten für den Fall, dass Pakete kompiliert werden müssen
-# Update system packages to patch vulnerabilities
+# Systemabhängigkeiten nur für den Build (kompilieren von Paketen)
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
-    apt-get install -y --no-install-recommends build-essential curl && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+# Virtual Environment erstellen - sauberer als direktes Kopieren von site-packages
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # requirements.txt kopieren und Abhängigkeiten installieren
-# Dies wird gecached, solange sich die requirements.txt nicht ändert
+# (gecached solange sich requirements.txt nicht ändert)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --upgrade -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
-# SpaCy-Modell herunterladen
-RUN python -m spacy download de_core_news_sm
+# SpaCy-Modell: de_core_news_md = bestes RAM/Leistungs-Verhältnis ohne GPU
+# sm: ~13 MB (zu ungenau), md: ~43 MB (gutes Gleichgewicht), lg: ~542 MB, trf: GPU nötig
+RUN python -m spacy download de_core_news_md
 
-# Stage 2: Runner - Das eigentliche, schlanke Image
-FROM python:3.11-slim-bookworm
 
-# Update system packages to patch vulnerabilities
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Stage 2: Runner - Schlankes Laufzeit-Image
+FROM python:3.12-slim-bookworm
+
+# curl für HEALTHCHECK - kein build-essential benötigt
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Einen non-root user erstellen und verwenden für mehr Sicherheit
-RUN useradd --create-home appuser
+# Non-root user mit fixer UID für Reproduzierbarkeit
+RUN useradd --create-home --uid 1001 appuser
+
+# Virtual Environment aus Builder übernehmen (nur Runtime-Abhängigkeiten, kein pip/build-tools)
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# App-Code kopieren und Rechte setzen
+COPY --chown=appuser:appuser . .
+RUN chmod +x /app/entrypoint.sh
+
 USER appuser
 
-# Abhängigkeiten und SpaCy-Modell aus dem Builder-Stage kopieren
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Docker-nativer Health Check (nutzt /health Endpoint)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
 
-# App-Code kopieren
-COPY --chown=appuser:appuser . .
-
-# Entrypoint-Skript kopieren und ausführbar machen
-COPY --chown=appuser:appuser entrypoint.sh .
-
-# Port freigeben, auf dem Gunicorn lauschen wird
+# Port freigeben, auf dem Gunicorn lauscht
 EXPOSE 5000
 
 # Umgebungsvariablen für Gunicorn mit Standardwerten
