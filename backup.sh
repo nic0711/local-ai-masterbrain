@@ -118,6 +118,17 @@ else
     echo "INFO: Directory ~/.flowise not found. Skipping."
 fi
 
+# --- .env Backup (enthält Secrets – restriktive Berechtigungen) ---
+echo "Backing up .env configuration..."
+ENV_FILE="${PROJECT_DIR}/.env"
+if [[ -f "$ENV_FILE" ]]; then
+    echo "  - Backing up .env (contains secrets – keep secure!)"
+    cp "${ENV_FILE}" "${BACKUP_DIR}/.env"
+    chmod 600 "${BACKUP_DIR}/.env"
+else
+    echo "INFO: .env file not found at ${ENV_FILE}. Skipping."
+fi
+
 # --- Cleanup Old Backups ---
 echo "Cleaning up old backups (older than ${RETENTION_DAYS} days)..."
 find "${BACKUP_BASE_DIR}" -type d -mtime +${RETENTION_DAYS} -exec echo "  - Deleting old backup: {}" \; -exec rm -rf {} \;

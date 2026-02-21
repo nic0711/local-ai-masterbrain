@@ -6,6 +6,9 @@ import spacy
 
 app = Flask(__name__)
 
+# Schutz vor übermäßig großen Eingaben (DoS-Prävention)
+MAX_TEXT_LENGTH = 50_000  # ~50k Zeichen ≈ 10k Tokens
+
 # Logging konfigurieren
 logging.basicConfig(
     level=logging.INFO,
@@ -23,8 +26,9 @@ def initialize_nlp_models():
     global service_ready, nlp
     try:
         # Deutsches spaCy-Modell laden
-        logger.info("Lade deutsches spaCy-Modell 'de_core_news_sm'...")
-        nlp = spacy.load("de_core_news_sm")
+        # de_core_news_md: bestes RAM/Leistungs-Verhältnis ohne GPU
+        logger.info("Lade deutsches spaCy-Modell 'de_core_news_md'...")
+        nlp = spacy.load("de_core_news_md")
         
         logger.info("NLP-Modelle erfolgreich geladen")
         service_ready = True
@@ -82,7 +86,12 @@ def process_text():
         text = data.get('text')
         if not text:
             return jsonify({"error": "Kein 'text' im Request gefunden."}), 400
-        
+
+        if len(text) > MAX_TEXT_LENGTH:
+            return jsonify({
+                "error": f"Text zu lang. Maximum: {MAX_TEXT_LENGTH} Zeichen, eingereicht: {len(text)} Zeichen."
+            }), 413
+
         # NLP-Verarbeitung mit spaCy: Entitätserkennung
         doc = nlp(text)
         entities = [{"text": ent.text, "label": ent.label_} for ent in doc.ents]
