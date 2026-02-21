@@ -3,10 +3,29 @@
     email {$LETSENCRYPT_EMAIL}
 }
 
+# Security Headers Snippet – in jedem vHost mit `import security_headers` einbinden
+(security_headers) {
+    header {
+        # HSTS – Browser erzwingt HTTPS für 1 Jahr
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Verhindert MIME-Type-Sniffing
+        X-Content-Type-Options "nosniff"
+        # Verhindert Clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Kein Referrer bei Cross-Origin-Requests
+        Referrer-Policy "no-referrer-when-downgrade"
+        # Browser-Feature-Einschränkungen
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=()"
+        # Server-Header entfernen (kein Fingerprinting)
+        -Server
+    }
+}
+
 # N8N
 {$N8N_HOSTNAME} {
     # For domains, Caddy will automatically use Let's Encrypt
     # For localhost/port addresses, HTTPS won't be enabled
+    import security_headers
     reverse_proxy n8n:5678
 
     # Logging
@@ -26,7 +45,7 @@
 # Python NLP Service (optional - für direkten externen Zugriff)
 # nlp.{$DOMAIN_NAME} {
 #     reverse_proxy python-nlp-service:5000
-    
+
 #     # API Rate Limiting
 #     rate_limit {
 #         zone nlp_api {
@@ -35,25 +54,25 @@
 #             window 1m
 #         }
 #     }
-    
+
 #     # Nur für API-Endpunkte, keine statischen Dateien
 #     @api path /process /health /status
 #     handle @api {
 #         reverse_proxy python-nlp-service:5000 {
 #             # Timeout für längere NLP-Verarbeitung
 #             timeout 30s
-            
+
 #             # Health Check
 #             health_uri /health
 #             health_interval 30s
 #         }
 #     }
-    
+
 #     # Alle anderen Requests blockieren
 #     handle {
 #         respond "API endpoint only" 404
 #     }
-    
+
 #     # Security Headers für API
 #     header {
 #         Access-Control-Allow-Origin "https://{$SUBDOMAIN}.{$DOMAIN_NAME}"
@@ -62,7 +81,7 @@
 #         Content-Type "application/json"
 #         -Server
 #     }
-    
+
 #     # CORS Preflight
 #     @cors_preflight method OPTIONS
 #     handle @cors_preflight {
@@ -71,7 +90,7 @@
 #         header Access-Control-Allow-Headers "Content-Type, Authorization"
 #         respond "" 204
 #     }
-    
+
 #     log {
 #         output file /data/logs/nlp_api_access.log {
 #             roll_size 5mb
@@ -82,16 +101,19 @@
 
 # Open WebUI
 {$WEBUI_HOSTNAME} {
+    import security_headers
     reverse_proxy open-webui:8080
 }
 
 # Flowise
 {$FLOWISE_HOSTNAME} {
+    import security_headers
     reverse_proxy flowise:3001
 }
 
 # Langfuse
 {$LANGFUSE_HOSTNAME} {
+    import security_headers
     reverse_proxy langfuse-web:3000
 }
 
@@ -102,17 +124,20 @@
 
 # Supabase
 {$SUPABASE_HOSTNAME} {
+    import security_headers
     reverse_proxy kong:8000
 }
 
 # Neo4j
 {$NEO4J_HOSTNAME} {
+    import security_headers
     reverse_proxy neo4j:7474
 }
 
 # crawl4ai
 {$CRAWL4AI_HOSTNAME} {
     # Leitet Anfragen an den crawl4ai-Container auf dem in docker-compose.yml definierten Port weiter
+    import security_headers
     reverse_proxy crawl4ai:8082
 }
 
@@ -121,7 +146,7 @@ import /etc/caddy/addons/*.conf
 # # SearXNG
 # {$SEARXNG_HOSTNAME} {
 #     encode zstd gzip
-    
+
 #     @api {
 #         path /config
 #         path /healthz
@@ -137,7 +162,7 @@ import /etc/caddy/addons/*.conf
 #     @static {
 #         path /static/*
 #     }
-    
+
 #     header {
 #         # CSP (https://content-security-policy.com)
 #         Content-Security-Policy "upgrade-insecure-requests; default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self' https://github.com/searxng/searxng/issues/new; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; connect-src 'self' https://overpass-api.de; img-src * data:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.dailymotion.com https://www.deezer.com https://www.mixcloud.com https://w.soundcloud.com https://embed.spotify.com;"
@@ -154,12 +179,12 @@ import /etc/caddy/addons/*.conf
 #         # Remove "Server" header
 #         -Server
 #     }
-    
+
 #     header @api {
 #         Access-Control-Allow-Methods "GET, OPTIONS"
 #         Access-Control-Allow-Origin "*"
 #     }
-    
+
 #     route {
 #         # Cache policy
 #         header Cache-Control "max-age=0, no-store"
@@ -167,7 +192,7 @@ import /etc/caddy/addons/*.conf
 #         header @imageproxy Cache-Control "max-age=604800, public"
 #         header @static Cache-Control "max-age=31536000, public, immutable"
 #     }
-    
+
 #     # SearXNG (uWSGI)
 #     reverse_proxy searxng:8080 {
 #         header_up X-Forwarded-Port {http.request.port}
@@ -175,4 +200,4 @@ import /etc/caddy/addons/*.conf
 #         # https://github.com/searx/searx-docker/issues/24
 #         header_up Connection "close"
 #     }
-# } 
+# }
