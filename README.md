@@ -114,6 +114,34 @@ python start_services.py --profile cpu  # see "03_start_script.md" for more prof
 
 ## 📋 Changelog
 
+### 2026-02 – Dependency Updates
+
+**Python packages updated to latest (CVE-clean, verified via OSV.dev)**
+
+| Paket | Alt | Neu | Dateien |
+|-------|-----|-----|---------|
+| `flask` | 3.1.1 | **3.1.3** | auth-gateway, python-nlp-service |
+| `gunicorn` | 23.0.0 | **25.1.0** | auth-gateway, python-nlp-service |
+| `werkzeug` | 3.1.5 | **3.1.6** | python-nlp-service |
+| `requests` | 2.32.4 | **2.32.5** | python-nlp-service |
+| `spacy` | 3.8.3 | **3.8.11** | python-nlp-service |
+| `numpy` | 2.2.3 | **2.4.2** | python-nlp-service |
+| `pandas` | 2.2.3 | **3.0.1** ⚠️ Major | python-nlp-service |
+| `textblob` | 0.18.0 | **0.19.0** | python-nlp-service |
+| `python-json-logger` | 3.0.0 | **4.0.0** ⚠️ Major | python-nlp-service |
+
+**Supabase Submodule-Pointer aktualisiert**
+
+| Komponente | Alt | Neu |
+|-----------|-----|-----|
+| Pointer | `169e3d9` | `571e060` |
+| supabase-studio | 2025.11.10 | **2026.02.16** |
+| gotrue (auth) | v2.182.1 | **v2.186.0** |
+| postgrest | v13.0.7 | **v14.5** ⚠️ Major |
+| realtime | v2.63.0 | **v2.76.5** |
+
+---
+
 ### 2026-02 – Docker Compose & Infrastructure
 
 **`docker-compose.yml` – Bug fixes & improvements**
