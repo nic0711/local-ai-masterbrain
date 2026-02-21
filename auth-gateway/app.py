@@ -20,6 +20,13 @@ except Exception as e:
     logging.error(f"Failed to initialize Supabase client: {e}")
     supabase = None
 
+@app.route('/health', methods=['GET'])
+def health():
+    """Health Check Endpoint für Docker und Caddy."""
+    if supabase is None:
+        return "Service Unavailable", 503
+    return "OK", 200
+
 @app.route('/verify', methods=['GET'])
 def verify_auth():
     if not supabase:
@@ -43,5 +50,6 @@ def verify_auth():
         logging.error(f"JWT validation error: {e}")
         # Absichtlich keine Details leaken, einfach ablehnen
 
-    logging.warning(f"Failed authentication attempt with token: {jwt[:10]}...")
+    # Kein Token-Fragment loggen – verhindert versehentliche Credential-Exposition
+    logging.warning("Failed authentication attempt - invalid or expired token.")
     return "Unauthorized", 401
