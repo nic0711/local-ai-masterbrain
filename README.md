@@ -192,7 +192,7 @@ python start_services.py --profile cpu  # see "03_start_script.md" for more prof
 | Prio | Komponente | Was | Fix |
 |------|-----------|-----|-----|
 | 🔴 Sicherheit | `Dockerfile` | Root-User, kein multi-stage Build, keine feste UID, kein `HEALTHCHECK`, kein `apt-get upgrade` | Multi-stage Build + Virtual Environment `/opt/venv`, Non-root UID 1002, `HEALTHCHECK`, `apt-get upgrade` |
-| 🔴 Sicherheit | `app.py` | JWT-Fragment (`jwt[:10]`) in Logs geschrieben → potenzielle Credential-Exposition | Fragment vollständig entfernt; generische Warning-Message |
+| 🔴 Sicherheit | `app.py` | Sensitive Token-Daten wurden in Logs geschrieben → potenzielle Credential-Exposition | Sensible Daten vollständig entfernt; generische Warning-Message |
 | 🟠 Stability | `app.py` | Kein `/health`-Endpoint → `HEALTHCHECK` und Monitoring nicht möglich | `/health`-Endpoint hinzugefügt |
 | 🟠 Versions | `requirements.txt` | `flask==3.0.0`, `gunicorn==21.2.0`, `supabase==2.4.2` (>1 Jahr alt) | `flask==3.1.0`, `gunicorn==23.0.0`, `supabase==2.28.0` |
 
@@ -200,7 +200,7 @@ python start_services.py --profile cpu  # see "03_start_script.md" for more prof
 
 | Prio | Komponente | Was | Fix |
 |------|-----------|-----|-----|
-| 🔴 Sicherheit | `/process` Endpoint | Keine Eingabegrößenbeschränkung → beliebig große Texte möglich (DoS) | `MAX_TEXT_LENGTH = 50_000` Zeichen; HTTP 413 bei Überschreitung |
+| 🔴 Sicherheit | `/process` Endpoint | Keine Eingabegrößenbeschränkung → beliebig große Texte möglich (DoS) | Maximale Eingabegröße begrenzt; HTTP 413 bei Überschreitung |
 
 **`Caddyfile` – Security Headers**
 
