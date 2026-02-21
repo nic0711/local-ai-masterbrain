@@ -1,34 +1,31 @@
 # requirements.txt
 
 # Web Framework
-flask==3.0.0
-werkzeug==3.0.1
+flask==3.1.1
+werkzeug==3.1.5
 
 # Production WSGI Server
-gunicorn==21.2.0
+gunicorn==23.0.0
 
 # NLP Core
-spacy==3.7.5
+# spacy 3.8.x ist kompatibel mit NumPy 2.x
+spacy==3.8.3
 spacy-lookups-data==1.0.5
 
 # HTTP Client (für Health Checks im Container)
-requests==2.31.0
+requests==2.32.4
 
 # Logging und Monitoring
-python-json-logger==2.0.7
+python-json-logger==3.0.0
 
 # Performance und Utils
-numpy==1.26.3
-pandas==2.1.4
+# NumPy 2.x: Breaking Changes gegenüber 1.x, aber spacy 3.8.x und pandas 2.2.x sind kompatibel
+numpy==2.2.3
+pandas==2.2.3
 
 # Optional: Erweiterte NLP Features
-textblob==0.17.1          # Sentiment Analysis
-# nltk==3.8.1               # Zusätzliche NLP Tools
-# transformers==4.36.2      # Hugging Face Models (Achtung: sehr groß!)
-
-# Development/Debug (nur für lokale Tests)
-# flask-cors==4.0.0         # Falls CORS-Probleme auftreten
+textblob==0.18.0          # Sentiment Analysis
 
 # System Dependencies werden im Dockerfile installiert:
-# - curl (für Health Checks)
-# - build-essential (für manche Python-Pakete)
+# - curl (für HEALTHCHECK)
+# - build-essential (für manche Python-Pakete, nur im Builder-Stage)

@@ -372,22 +372,23 @@ def check_and_fix_docker_compose_for_searxng():
         except Exception as e:
             print(f"Error checking Docker container: {e} - assuming first run")
 
-        if is_first_run and "cap_drop: - ALL" in content:
-            print("First run detected for SearXNG. Temporarily removing 'cap_drop: - ALL' directive...")
-            # Temporarily comment out the cap_drop line
-            modified_content = content.replace("cap_drop: - ALL", "# cap_drop: - ALL  # Temporarily commented out for first run")
+        # SearXNG-spezifischer cap_drop-Block (eindeutig durch nachfolgendes cap_add: CHOWN)
+        # Muss als Multi-Line-String verglichen werden, da YAML über mehrere Zeilen geht
+        SEARXNG_CAP_DROP = "    cap_drop:\n      - ALL\n    cap_add:\n      - CHOWN"
+        SEARXNG_CAP_DROP_COMMENTED = "    # cap_drop:  # Temporarily disabled for SearXNG first run\n    #   - ALL\n    cap_add:\n      - CHOWN"
 
-            # Write the modified content back
+        if is_first_run and SEARXNG_CAP_DROP in content:
+            print("First run detected for SearXNG. Temporarily disabling cap_drop directive...")
+            modified_content = content.replace(SEARXNG_CAP_DROP, SEARXNG_CAP_DROP_COMMENTED)
+
             with open(docker_compose_path, 'w') as file:
                 file.write(modified_content)
 
-            print("Note: After the first run completes successfully, you should re-add 'cap_drop: - ALL' to docker-compose.yml for security reasons.")
-        elif not is_first_run and "# cap_drop: - ALL  # Temporarily commented out for first run" in content:
-            print("SearXNG has been initialized. Re-enabling 'cap_drop: - ALL' directive for security...")
-            # Uncomment the cap_drop line
-            modified_content = content.replace("# cap_drop: - ALL  # Temporarily commented out for first run", "cap_drop: - ALL")
+            print("Note: After the first run completes, cap_drop will be automatically re-enabled on next start.")
+        elif not is_first_run and SEARXNG_CAP_DROP_COMMENTED in content:
+            print("SearXNG has been initialized. Re-enabling cap_drop directive for security...")
+            modified_content = content.replace(SEARXNG_CAP_DROP_COMMENTED, SEARXNG_CAP_DROP)
 
-            # Write the modified content back
             with open(docker_compose_path, 'w') as file:
                 file.write(modified_content)
 
