@@ -12,7 +12,7 @@ gunicorn==25.1.0
 spacy==3.8.11
 spacy-lookups-data==1.0.5
 
-# HTTP Client (für Health Checks im Container)
+# HTTP Client (für Ollama-Calls und Health Checks)
 requests==2.32.5
 
 # Logging und Monitoring
@@ -25,6 +25,10 @@ pandas==3.0.1
 
 # Optional: Erweiterte NLP Features
 textblob==0.19.0          # Sentiment Analysis
+
+# Dokument- und PDF-Verarbeitung
+PyMuPDF==1.24.3           # PDF-Text-Extraktion und PDF→PNG (fitz)
+Pillow==10.4.0            # Bildverarbeitung für OCR-Vorbereitung
 
 # System Dependencies werden im Dockerfile installiert:
 # - curl (für HEALTHCHECK)
