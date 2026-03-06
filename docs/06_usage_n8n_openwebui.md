@@ -10,8 +10,14 @@ to get started.
 1. Open <http://localhost:5678/> in your browser to set up n8n. You’ll only
    have to do this once. You are NOT creating an account with n8n in the setup here,
    it is only a local account for your instance!
-2. Open the included workflow:
-   <http://localhost:5678/workflow/vTN9y2dLXqTiDfPT>
+2. Import the included workflows manually:
+   - Go to **Settings → Import workflow** in n8n
+   - Import the JSON files from `n8n/backup/workflows/`:
+     - `V1_Local_RAG_AI_Agent.json` – Basic RAG Agent
+     - `V2_Local_Supabase_RAG_AI_Agent.json` – RAG with Supabase vector store
+     - `V3_Local_Agentic_RAG_AI_Agent.json` – Full Agentic RAG
+   > **Note:** The `n8n-import` auto-import service has been removed. Workflows are now imported manually.
+
 3. Create credentials for every service:
    
    Ollama URL: http://ollama:11434
@@ -57,6 +63,17 @@ language model and Qdrant as your vector store.
 > workflows. While it’s not fully optimized for production environments, it
 > combines robust components that work well together for proof-of-concept
 > projects. You can customize it to meet your specific needs
+
+
+## Enabling LocalFileTrigger & ExecuteCommand Nodes
+
+These nodes are disabled by default in n8n v2+. To enable them, uncomment the following line in `docker-compose.yml` under the `x-n8n` section:
+
+```yaml
+- NODES_EXCLUDE=[]
+```
+
+Then restart n8n: `docker compose restart n8n`
 
 ## Upgrading
 

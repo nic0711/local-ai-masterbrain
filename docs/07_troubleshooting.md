@@ -141,3 +141,22 @@ docker-compose logs -f n8n
 
 - **Cause:** `depends_on: condition: service_healthy` – n8n wartet auf `healthy` Status.
 - **Solution:** Prüfe `docker ps` ob python-nlp-service als `healthy` läuft. Bei persistenten Problemen Logs prüfen: `docker logs python-nlp-service`.
+
+---
+
+### Upstream Sync / Migration
+
+**Issue: Stack startet nicht nach Update – `LANGFUSE_ENCRYPTION_KEY` fehlt.**
+
+- **Cause:** `LANGFUSE_ENCRYPTION_KEY` wurde durch `ENCRYPTION_KEY` ersetzt. Wer das Projekt vor März 2026 aufgesetzt hat, hat noch den alten Key.
+- **Solution:** In der `.env` den Wert von `LANGFUSE_ENCRYPTION_KEY` in `ENCRYPTION_KEY` umbenennen (oder sicherstellen dass `ENCRYPTION_KEY` gesetzt ist).
+
+**Issue: n8n-Workflows nach Update weg / nicht importiert.**
+
+- **Cause:** Der `n8n-import`-Service wurde entfernt. Workflows werden nicht mehr automatisch beim Start importiert.
+- **Solution:** Workflows manuell importieren: n8n → **Settings → Import workflow** → JSON-Dateien aus `n8n/backup/workflows/` laden.
+
+**Issue: Supabase storage-api startet nicht nach Update.**
+
+- **Cause:** Die neueste `storage-api`-Version benötigt neue Env-Variablen (`GLOBAL_S3_BUCKET`, `REGION`, `STORAGE_TENANT_ID` etc.).
+- **Solution:** Fehlende Variablen aus `.env.example` in die `.env` kopieren. Die `stub`-Standardwerte funktionieren für lokalen File-Storage ohne S3.
