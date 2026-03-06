@@ -12,8 +12,11 @@ dashboard/config.js
 #  Anwendungsdaten & DB  #
 # ###################### #
 
-# Ignoriere die n8n-Backup-Dateien (enthalten Credentials und Workflows).
-/n8n/backup/
+# Ignoriere n8n-Backup-Dateien (Credentials), aber Workflows tracken
+/n8n/backup/credentials/
+/n8n/backup/*.json
+# Workflows explizit tracken:
+!/n8n/backup/workflows/
 
 # Ignoriere die Daten- und Log-Verzeichnisse von Neo4j.
 /neo4j/
