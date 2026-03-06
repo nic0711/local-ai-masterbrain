@@ -38,6 +38,14 @@ NEXTAUTH_SECRET=
 ENCRYPTION_KEY=  
 
 ############
+# Python NLP / Document Service
+############
+# Ollama-Endpunkt fuer OCR (glm-ocr). Auf Mac: host.docker.internal, auf Server: http://ollama:11434
+# OLLAMA_HOST=http://host.docker.internal:11434
+# OCR-Modell in Ollama (muss vorab gepullt werden: ollama pull glm-ocr)
+# OCR_MODEL=glm-ocr
+
+############
 # Caddy Config
 ############
 
