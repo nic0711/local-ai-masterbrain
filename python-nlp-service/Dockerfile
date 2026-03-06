@@ -18,9 +18,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# SpaCy-Modell: de_core_news_md = bestes RAM/Leistungs-Verhältnis ohne GPU
+# SpaCy-Modelle: md = bestes RAM/Leistungs-Verhältnis ohne GPU
 # sm: ~13 MB (zu ungenau), md: ~43 MB (gutes Gleichgewicht), lg: ~542 MB, trf: GPU nötig
-RUN python -m spacy download de_core_news_md
+RUN python -m spacy download de_core_news_md && \
+    python -m spacy download en_core_web_md
 
 
 # Stage 2: Runner - Schlankes Laufzeit-Image

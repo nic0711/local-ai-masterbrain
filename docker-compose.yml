@@ -102,20 +102,24 @@ services:
     volumes:
       - ./n8n/backup:/backup
 
-  # Neuer Python NLP Service
+  # Python NLP + Document Service (NER, OCR via Ollama glm-ocr, PDF-Extraktion)
   python-nlp-service:
     container_name: python-nlp-service
-    build: 
+    build:
       context: ./python-nlp-service
       dockerfile: Dockerfile
     restart: unless-stopped
     expose:
       - 5000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PYTHONUNBUFFERED=1
       - WORKERS=2
       - THREADS=4
       - TIMEOUT=120
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - OCR_MODEL=${OCR_MODEL:-glm-ocr}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
@@ -125,9 +129,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1500M
         reservations:
-          memory: 512M
+          memory: 768M
     logging:
       driver: "json-file"
       options:
@@ -145,10 +149,10 @@ services:
       - ./n8n/backup:/backup
       - ./shared:/home/node/.n8n-files/shared
     depends_on:
-      # python-nlp-service:  # Korrigiert: Doppelpunkt hinzugefügt
-      #   condition: service_started
+      python-nlp-service:
+        condition: service_healthy
       n8n-import:
-          condition: service_completed_successfully
+        condition: service_completed_successfully
 
   qdrant:
     image: qdrant/qdrant
@@ -425,8 +429,8 @@ services:
       - SEARXNG_BASE_URL=http://${SEARXNG_HOSTNAME:-localhost:8081}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
-    cap_drop:
-      - ALL
+    # cap_drop:  # Temporarily disabled for SearXNG first run
+    #   - ALL
     cap_add:
       - CHOWN
       - SETGID

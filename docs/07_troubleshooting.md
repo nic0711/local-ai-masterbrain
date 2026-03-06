@@ -111,3 +111,33 @@ docker-compose logs -f n8n
   1.  **Verify Host Drivers:** Ensure `nvidia-smi` runs successfully on your host machine.
   2.  **Install NVIDIA Container Toolkit:** Follow the official installation guide for your Linux distribution.
   3.  **Docker Desktop (Windows/macOS):** GPU passthrough on macOS is not supported. On Windows, ensure you are using the WSL 2 backend and that GPU support is enabled in Docker Desktop settings.
+---
+
+### Python NLP / Document Service
+
+**Issue: OCR schlägt fehl mit "Ollama nicht erreichbar".**
+
+- **Cause:** `OLLAMA_HOST` zeigt auf falsche Adresse, oder das glm-ocr-Modell ist nicht gepullt.
+- **Solution:**
+  1. Prüfe die Env-Variable: `docker exec python-nlp-service env | grep OLLAMA`
+  2. Stelle sicher, dass das Modell vorhanden ist:
+     ```sh
+     # Mac (Ollama lokal):
+     ollama list | grep glm-ocr
+     ollama pull glm-ocr
+
+     # Server (Ollama im Container):
+     docker exec ollama ollama list
+     docker exec ollama ollama pull glm-ocr
+     ```
+  3. Auf dem Server: `OLLAMA_HOST=http://ollama:11434` in der `.env` setzen.
+
+**Issue: Service startet, aber `/health` gibt `503 starting` zurück.**
+
+- **Cause:** SpaCy-Modelle werden noch geladen (kann beim ersten Start 30–60s dauern).
+- **Solution:** Warten. `docker logs python-nlp-service` zeigt den Ladefortschritt.
+
+**Issue: n8n startet nicht, wartet ewig auf python-nlp-service.**
+
+- **Cause:** `depends_on: condition: service_healthy` – n8n wartet auf `healthy` Status.
+- **Solution:** Prüfe `docker ps` ob python-nlp-service als `healthy` läuft. Bei persistenten Problemen Logs prüfen: `docker logs python-nlp-service`.

@@ -46,7 +46,7 @@ builder that pairs very well with n8n
 
 ✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM usage or data aggregation, screenshots, etc. 
 
-✅ [**Python NLP Service**] - Production-ready NLP container with Flask/Gunicorn, SpaCy `de_core_news_md` (German NER, best RAM/performance ratio without GPU), NumPy 2.x compatible stack, runs as non-root user, Docker-native HEALTHCHECK. OCR is handled via Ollama.
+✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
 store with an comprehensive API. Even though you can use Supabase for RAG, this was
@@ -68,7 +68,7 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 - ✅ Local or server hosted Ollama and/or public LLMs
 - ✅ Authenticated dashboard access (Caddy)
 - ✅ Supabase with vector store & authentication
-- ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP (SpaCy `de_core_news_md`), MimIO, Open WebUI, ...
+- ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
 - ✅ Automated startup & cleanup via `start_services.py`
 
 ---
@@ -108,11 +108,31 @@ python start_services.py --profile cpu  # see "03_start_script.md" for more prof
 | Troubleshooting          | [07_troubleshooting.md](docs/07_troubleshooting.md) |
 | Backup & recovery        | [08_backup_and_recovery.md](docs/08_backup_and_recovery.md) |
 | FAQ & tips               | [09_faq.md](docs/09_faq.md) |
+| Python NLP/Document Service | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
 | Links & resources        | [tips_links.md](docs/tips_links.md) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-03 – Python NLP/Document Service v2.0
+
+**`python-nlp-service/` – OCR + multilingual NER**
+
+| Komponente | Alt | Neu |
+|-----------|-----|-----|
+| Funktion | Nur deutsches NER | NER (DE+EN) + OCR + PDF-Extraktion |
+| SpaCy-Modelle | `de_core_news_md` | `de_core_news_md` + `en_core_web_md` |
+| OCR | — | Via Ollama `glm-ocr` (konfigurierbar via `OCR_MODEL`) |
+| PDF-Extraktion | — | PyMuPDF (direkt + OCR-Fallback für gescannte PDFs) |
+| Neuer Haupt-Endpoint | — | `POST /document/analyze` (Text + Entities in einem Call) |
+| Compat-Endpoints | — | `/pdf/extract`, `/pdf/analyze-type`, `/pdf/to-png-smart` |
+| RAM-Limit | 1 GB | 1.5 GB (zwei SpaCy-Modelle) |
+| Neue Env-Variablen | — | `OLLAMA_HOST`, `OCR_MODEL` |
+| extra_hosts | — | `host.docker.internal:host-gateway` (Linux-Kompatibilität) |
+| n8n depends_on | auskommentiert | aktiv (`service_healthy`) |
+
+---
 
 ### 2026-02 – Dependency Updates
 
