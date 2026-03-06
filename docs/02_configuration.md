@@ -23,6 +23,16 @@ DASHBOARD_PASSWORD=
 POOLER_TENANT_ID=
 
 ############
+# Supabase Storage
+############
+GLOBAL_S3_BUCKET=stub
+REGION=stub
+STORAGE_TENANT_ID=stub
+S3_PROTOCOL_ACCESS_KEY_ID=   # generate secure value for prod
+S3_PROTOCOL_ACCESS_KEY_SECRET=   # generate secure value for prod
+# Docs: https://supabase.com/docs/guides/self-hosting/self-hosted-s3
+
+############
 # Neo4j Secrets
 ############   
 NEO4J_AUTH=
@@ -35,7 +45,8 @@ CLICKHOUSE_PASSWORD=
 MINIO_ROOT_PASSWORD=
 LANGFUSE_SALT=
 NEXTAUTH_SECRET=
-ENCRYPTION_KEY=  
+ENCRYPTION_KEY=   # openssl rand -hex 32
+# Note: LANGFUSE_ENCRYPTION_KEY wurde entfernt – ENCRYPTION_KEY ersetzt es
 
 ############
 # Python NLP / Document Service
