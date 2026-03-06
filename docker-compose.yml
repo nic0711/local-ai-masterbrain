@@ -29,6 +29,8 @@ x-n8n: &service-n8n
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - WEBHOOK_URL=${N8N_HOSTNAME:+https://}${N8N_HOSTNAME:-http://localhost:5678}
     - OLLAMA_HOST=ollama:11434
+    # Uncomment to enable LocalFileTrigger and ExecuteCommand nodes (disabled by default in n8n v2+)
+    # - NODES_EXCLUDE=[]
   logging:
     driver: "json-file"
     options:
@@ -92,15 +94,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  n8n-import:
-    <<: *service-n8n
-    container_name: n8n-import
-    entrypoint: /bin/sh
-    command:
-      - "-c"
-      - "n8n import:credentials --separate --input=/backup/credentials && n8n import:workflow --separate --input=/backup/workflows"
-    volumes:
-      - ./n8n/backup:/backup
 
   # Python NLP + Document Service (NER, OCR via Ollama glm-ocr, PDF-Extraktion)
   python-nlp-service:
@@ -147,12 +140,10 @@ services:
     volumes:
       - n8n_storage:/home/node/.n8n
       - ./n8n/backup:/backup
-      - ./shared:/home/node/.n8n-files/shared
+      - ./shared:/data/shared
     depends_on:
       python-nlp-service:
         condition: service_healthy
-      n8n-import:
-        condition: service_completed_successfully
 
   qdrant:
     image: qdrant/qdrant
@@ -246,7 +237,7 @@ services:
     environment: &langfuse-worker-env
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
       SALT: ${LANGFUSE_SALT}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
       CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
