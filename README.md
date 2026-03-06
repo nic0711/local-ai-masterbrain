@@ -260,3 +260,22 @@ Fixes angewendet in `auth-gateway/requirements.txt` und `python-nlp-service/requ
 ---
 
 📜 License: Apache 2.0 – see [LICENSE](LICENSE)
+
+---
+
+### 2026-03 – Upstream Sync (coleam00/local-ai-packaged)
+
+Selektive Übernahme von 13 Upstream-Commits. Unsere Ergänzungen (auth-gateway, dashboard, docs, python-nlp-service) bleiben vollständig erhalten.
+
+| Was | Upstream-Commit | Übernahme |
+|---|---|---|
+| `n8n-import`-Service entfernt | `48c186a`, `8d02114` | ✅ Service + `depends_on`-Eintrag entfernt |
+| n8n `LocalFileTrigger` + `ExecuteCommand` aktivierbar | `ce882b7` | ✅ `NODES_EXCLUDE`-Kommentar in x-n8n hinzugefügt |
+| Neue Supabase Storage Env-Vars | `57c194a` | ✅ In `.env.example` ergänzt |
+| Neue n8n Workflow-Dateien (V1/V2/V3 RAG Agent) | `5c55af2` | ✅ In `n8n/backup/workflows/` kopiert |
+| shared-Volume-Pfad: `:/home/node/.n8n-files/shared` → `:/data/shared` | `8d02114` | ✅ Übernommen |
+| `LANGFUSE_ENCRYPTION_KEY` → `ENCRYPTION_KEY` | — | ✅ In `docker-compose.yml` + `.env.example` |
+| Caddy-Hostnames ohne `${DOMAIN}` | — | ⏭️ Nicht übernommen (unser Setup nutzt `${DOMAIN}`) |
+| `open-webui:latest` → `:main` | — | ⏭️ Nicht übernommen (`:latest` stabiler) |
+| `crawl4ai` entfernt | — | ⏭️ Nicht übernommen (Teil unseres Stacks) |
+| `neo4j` restart: always, kein Healthcheck | — | ⏭️ Nicht übernommen (unser Healthcheck behalten) |
