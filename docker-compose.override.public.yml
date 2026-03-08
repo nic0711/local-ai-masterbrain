@@ -17,3 +17,4 @@ services:
   dashboard:
     environment:
       - IS_PUBLIC_PROFILE=true
+

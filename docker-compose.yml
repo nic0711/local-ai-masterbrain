@@ -208,7 +208,10 @@ services:
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-searxng.${DOMAIN}}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-langfuse.${DOMAIN}}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-neo4j.${DOMAIN}}
-      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-crawl4ai.${DOMAIN}}
+      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-crawl.${DOMAIN}}
+      - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-qdrant.${DOMAIN}}
+      - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
+      - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -486,6 +489,18 @@ services:
     environment:
       - IS_PUBLIC_PROFILE=${IS_PUBLIC_PROFILE:-false}
       - SUPABASE_ANON_KEY=${ANON_KEY}
+      - DOMAIN=${DOMAIN}
+      - N8N_HOSTNAME=${N8N_HOSTNAME:-n8n.${DOMAIN}}
+      - WEBUI_HOSTNAME=${WEBUI_HOSTNAME:-webui.${DOMAIN}}
+      - FLOWISE_HOSTNAME=${FLOWISE_HOSTNAME:-flowise.${DOMAIN}}
+      - SUPABASE_HOSTNAME=${SUPABASE_HOSTNAME:-supabase.${DOMAIN}}
+      - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-langfuse.${DOMAIN}}
+      - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-neo4j.${DOMAIN}}
+      - CRAWL4AI_HOSTNAME=${CRAWL4AI_HOSTNAME:-crawl.${DOMAIN}}
+      - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-search.${DOMAIN}}
+      - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-qdrant.${DOMAIN}}
+      - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
+      - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
 
   auth-gateway:
     container_name: auth-gateway
@@ -498,4 +513,4 @@ services:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
     profiles:
-      - public
+      - auth

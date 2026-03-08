@@ -1,121 +1,119 @@
 # 9. FAQ
 
-### Q: How do I add a new AI model to Ollama?
+### Wie lege ich den ersten Benutzer an?
 
-**A:** You can pull new models directly from the command line while the stack is running.
+Ein Signup-Formular gibt es nicht – der erste Benutzer wird per API angelegt:
 
-1.  First, find the model you want in the [Ollama Library](https://ollama.com/library).
-2.  Execute the `pull` command inside the running Ollama container. The container name depends on the profile you used to start the services.
+```bash
+ANON_KEY=$(grep "^ANON_KEY=" .env | cut -d= -f2 | tr -d ' ')
 
-    ```sh
-    # If you started with the cpu or gpu profile
-    docker-compose exec ollama-cpu ollama pull <model_name>:<tag>
+curl -s -X POST "https://supabase.brain.local/auth/v1/signup" \
+  -H "apikey: $ANON_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"deine@email.de","password":"sicherespasswort"}'
+```
 
-    # Example
-    docker-compose exec ollama-cpu ollama pull llama3:8b-instruct-q4_K_M
-    ```
-    The model will be downloaded to the `ollama_storage` volume and will be available in Open WebUI and other connected services immediately.
-
----
-
-### Q: What are the minimum system requirements?
-
-**A:** This depends heavily on the models you intend to run.
--   **CPU-only:** A modern multi-core CPU (e.g., 4+ cores), 16GB+ RAM, and a fast SSD are recommended. At least 8GB of RAM is required for basic 7B models.
--   **GPU:** For good performance with 7B models, a dedicated NVIDIA GPU with at least 8GB of VRAM is recommended (e.g., RTX 3060 or better). For larger models, more VRAM is necessary.
--   **Disk Space:** At least 50GB of free space is recommended to accommodate the OS, Docker, and several AI models.
+Danach `DISABLE_SIGNUP=true` in `.env` setzen.
 
 ---
 
-### Q: How do I expose the services to my local network (not just `localhost`)?
+### Wie setze ich ein vergessenes Passwort zurück?
 
-**A:** By default, services are mapped to `127.0.0.1` for security. To expose them, you need to edit `docker-compose.override.private.yml`.
+```bash
+USER_ID=$(docker exec supabase-db psql -U postgres -d postgres -tAc \
+  "SELECT id FROM auth.users WHERE email='user@example.com';" | tr -d ' ')
+SERVICE_KEY=$(grep "^SERVICE_ROLE_KEY=" .env | cut -d= -f2 | tr -d ' ')
 
--   **Change this:**
-    ```yaml
-    # Example for n8n
-    ports:
-      - "127.0.0.1:5678:5678"
-    ```
--   **To this (to allow access from any IP on your network):**
-    ```yaml
-    ports:
-      - "0.0.0.0:5678:5678"
-    # Or just this, which defaults to 0.0.0.0
-    # ports:
-    #   - "5678:5678"
-    ```
-    You will need to do this for each service you want to expose. Restart the stack for changes to take effect by running the `start_services.py` script again with your chosen profile.
-
----
-
-### Q: Can I use this stack with other AI providers like OpenAI or Anthropic?
-
-**A:** Yes. The services are not exclusively tied to Ollama.
--   **n8n:** The n8n "LLM" nodes support various providers. You can configure them directly in the workflow editor by adding your API keys as credentials.
--   **Flowise:** Flowise also has built-in nodes for OpenAI, Anthropic, and many other model providers.
--   **Open WebUI:** While it's a great client for Ollama, it can also be configured to connect to any OpenAI-compatible API endpoint.
-
----
-
-### Q: How do I update the stack to the latest version?
-
-**A:** Updating involves pulling the latest changes from the Git repository and restarting the stack with the `start_services.py` script.
-
-```sh
-# 1. Stop all running services
-docker-compose down
-
-# 2. Pull the latest changes from the main branch
-git pull origin main
-
-# 3. Run the start script again with your profile.
-# The script handles pulling the latest Docker images and starting the services.
-python start_services.py --profile <your_profile>
-
-# Example for CPU profile
-python start_services.py --profile cpu
+curl -s -X PUT "http://localhost:8000/auth/v1/admin/users/$USER_ID" \
+  -H "apikey: $SERVICE_KEY" \
+  -H "Authorization: Bearer $SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"password":"neuespasswort"}'
 ```
 
 ---
 
-### Q: Is it possible to disable services I don't need?
+### Wie richte ich 2FA ein?
 
-**A:** Yes. The easiest way is to comment out the service definition in the main `docker-compose.yml` file.
+1. Login unter `https://brain.local`
+2. **„2FA einrichten"** im Header klicken
+3. QR-Code mit Authenticator-App scannen (Google Authenticator, Authy etc.)
+4. 6-stelligen Code eingeben und bestätigen
+5. Ab sofort wird bei jedem Login der Code abgefragt
 
-For example, if you don't need Neo4j, you can open `docker-compose.yml` and comment out the service block:
+---
+
+### Was bedeuten die verschiedenen `--profile`-Optionen?
+
+| Profil | Beschreibung |
+|---|---|
+| `none` | Kein Ollama in Docker – Ollama läuft lokal (empfohlen für Mac) |
+| `cpu` | Ollama läuft in Docker auf CPU |
+| `gpu-nvidia` | Ollama in Docker mit Nvidia-GPU |
+| `gpu-amd` | Ollama in Docker mit AMD-GPU (Linux) |
+
+`--environment public` ist der Standard und muss nicht angegeben werden.
+
+---
+
+### Wie füge ich ein neues Ollama-Modell hinzu?
+
+```bash
+# Ollama lokal (Mac):
+ollama pull llama3.2
+
+# Ollama in Docker:
+docker exec ollama ollama pull llama3.2
+```
+
+---
+
+### Mindest-Systemanforderungen?
+
+- **CPU-only:** 4+ Kerne, 16 GB RAM, SSD
+- **GPU:** NVIDIA mit ≥8 GB VRAM (RTX 3060 oder besser)
+- **Speicherplatz:** ≥50 GB für OS, Docker und Modelle
+
+---
+
+### Kann ich Services deaktivieren die ich nicht brauche?
+
+Ja – in `docker-compose.yml` den entsprechenden Service-Block auskommentieren, dann `python3 start_services.py --profile <profil>` neu ausführen.
+
+---
+
+### Kann ich externe AI-Provider (OpenAI, Anthropic) nutzen?
+
+Ja. In n8n und Flowise können API-Keys als Credentials hinterlegt werden. Open WebUI kann auf beliebige OpenAI-kompatible Endpunkte konfiguriert werden.
+
+---
+
+### Wie update ich auf die neueste Version?
+
+```bash
+docker compose -p localai down
+git pull origin main
+docker compose -p localai -f docker-compose.yml pull
+python3 start_services.py --profile <dein-profil>
+```
+
+---
+
+### Funktioniert das auf Apple Silicon (M1/M2/M3)?
+
+Ja. Docker auf macOS unterstützt kein GPU-Passthrough, daher ist `--profile none` mit lokal installiertem Ollama die empfohlene Option für beste Performance.
+
+---
+
+### Wie exponiere ich Services im lokalen Netzwerk (ohne Auth)?
+
+Im `private`-Modus (`--environment private`) in `docker-compose.override.private.yml` die Port-Bindung anpassen:
 
 ```yaml
-# docker-compose.yml
 services:
-  # ... other services
-
-  # neo4j:
-  #   image: neo4j:latest
-  #   volumes:
-  #       - ./neo4j/logs:/logs
-  # ... etc.
+  n8n:
+    ports:
+      - "0.0.0.0:5678:5678"   # statt 127.0.0.1
 ```
-After saving the file, run `python start_services.py --profile <your_profile>`. The script will apply the changes, and the disabled service will not be started.
 
----
-
-### Q: Can I run Ollama outside of Docker?
-
-**A:** Yes. This is the recommended approach for macOS users who want GPU support.
-
-1.  Install Ollama directly on your host machine by following the official instructions.
-2.  Run a model to ensure it's working, e.g., `ollama run llama3`.
-3.  Start the stack using the `none` profile. This special profile tells the stack *not* to start its own Ollama container and to look for it on the host machine instead.
-    ```sh
-    python start_services.py --profile none
-    ```
-4.  The `docker-compose.override.none.yml` file automatically configures n8n and other services to connect to Ollama on your host at the special address `host.docker.internal:11434`.
-
----
-
-### Q: Does this work on Apple Silicon (M1/M2/M3)?
-
-**A:** Yes, the stack runs well on Apple Silicon. However, Docker on macOS does not support GPU passthrough, so you cannot use the `gpu-nvidia` profile.
-
-For the best performance, you should run Ollama natively on your Mac to get GPU acceleration, and then start the stack using the `none` profile as described in the previous question.
+> Für den Produktivbetrieb lieber `--environment public` (Standard) nutzen – dann läuft alles über Caddy mit Auth.
