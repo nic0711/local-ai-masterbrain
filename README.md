@@ -29,8 +29,7 @@ quickly get started with building self-hosted AI workflows.
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400
 integrations and advanced AI components
 
-✅ [**New: Dashboard with Auth**] - Grid overview of all available services with 
-auth when public (vps), no auth on local (work in progress)
+✅ [**Dashboard mit Auth**] - Übersichtsseite aller Services mit JWT-basierter Authentifizierung (Email + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
 
 ✅ [**Supabase**](https://supabase.com/) - Open source database as a service -
 most widely used database for AI agents
@@ -66,8 +65,9 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 ## 🌟 Features
 
 - ✅ Local or server hosted Ollama and/or public LLMs
-- ✅ Authenticated dashboard access (Caddy)
-- ✅ Supabase with vector store & authentication
+- ✅ JWT-Auth via Caddy `forward_auth` – alle Services geschützt
+- ✅ TOTP/2FA via Supabase GoTrue (kein extra Container)
+- ✅ Supabase mit Vector Store & Authentifizierung
 - ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
 - ✅ Automated startup & cleanup via `start_services.py`
 
@@ -86,12 +86,17 @@ Before you begin, make sure you have the following software installed:
 ```bash
 git clone -b stable https://github.com/nic0711/local-ai-masterbrain
 cd local-ai-masterbrain
-cp .env.example .env 	# !! Edit the .env and fill the secrets
-python start_services.py --profile cpu  # see "03_start_script.md" for more profiles, eg. For MacOS
+cp .env.example .env   # Secrets eintragen!
+python3 start_services.py --profile none        # Mac (Ollama lokal)
+# python3 start_services.py --profile cpu       # CPU / kein lokales Ollama
+# python3 start_services.py --profile gpu-nvidia  # Nvidia GPU
 ```
 
-👉 n8n: http://localhost:5678/  
-👉 Open WebUI: http://localhost:3000/
+> Weitere Details zu `--profile` und `--environment`: [docs/03_start_services.md](docs/03_start_services.md)
+
+👉 Dashboard: https://brain.local
+👉 n8n: https://n8n.brain.local
+👉 Open WebUI: https://webui.brain.local
 
 ---
 
@@ -114,6 +119,26 @@ python start_services.py --profile cpu  # see "03_start_script.md" for more prof
 ---
 
 ## 📋 Changelog
+
+### 2026-03 – Auth-System: Caddy forward_auth + TOTP/2FA
+
+**Vollständige JWT-basierte Authentifizierung für alle Services**
+
+| Komponente | Was |
+|---|---|
+| `auth-gateway/app.py` | Cookie-Fallback: liest `sb-access-token` aus Cookie falls kein Authorization-Header |
+| `dashboard/auth.js` | Cookie-Management: setzt JWT nach Login als `sb-access-token` Cookie auf `.brain.local`; `onAuthStateChange` hält Cookie bei Token-Refresh aktuell |
+| `dashboard/auth.js` | TOTP/2FA-Flow: nach Passwort-Login automatische MFA-Prüfung, TOTP-Challenge-Schritt |
+| `dashboard/auth.js` | 2FA-Enrollment: QR-Code-Anzeige via Supabase `mfa.enroll()`, Bestätigung mit 6-stelligem Code |
+| `dashboard/login.html` | Zweistufiges Login-Formular (Passwort → TOTP), initialer TOTP-Schritt versteckt |
+| `dashboard/index.html` | „2FA einrichten"-Button + Modal mit QR-Code und Enrollment-Flow |
+| `Caddyfile` | `(protected)`-Snippet: `forward_auth auth-gateway:5001` mit Cookie-Weitergabe als Bearer-Header; Dashboard ohne `forward_auth` (verhindert Redirect-Loop) |
+| `Caddyfile` | SearXNG, Qdrant (`qdrant:6333`), Minio (`minio:9001`) als neue geschützte vHosts |
+| `Caddyfile` | Crawl4AI-Port korrigiert: `8082` → `11235` |
+| `docker-compose.yml` | auth-gateway: Profil `public` → `auth` (wird via `--profile auth` aktiviert) |
+| `start_services.py` | `--environment public` ist neuer Standard; `--profile auth` + `public.supabase.yml` automatisch bei `--environment public` |
+| `docker-compose.override.public.supabase.yml` | GoTrue TOTP aktiviert: `GOTRUE_MFA_ENABLED=true`, `GOTRUE_MFA_TOTP_ENABLED=true` |
+| `.env.example` | `QDRANT_HOSTNAME`, `MINIO_HOSTNAME` ergänzt; Produktions-Beispiel auf `yourdomain.com` |
 
 ### 2026-03 – Python NLP/Document Service v2.0
 
