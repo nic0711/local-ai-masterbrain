@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Local AI Masterbrain</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,9 +12,18 @@
         <div class="login-box">
             <h2>Dashboard Login</h2>
             <form id="login-form">
-                <input type="email" id="email" placeholder="Email" required>
-                <input type="password" id="password" placeholder="Passwort" required>
-                <button type="submit">Anmelden</button>
+                <!-- Schritt 1: Email + Passwort -->
+                <div id="password-step">
+                    <input type="email" id="email" placeholder="Email" autocomplete="email" required>
+                    <input type="password" id="password" placeholder="Passwort" autocomplete="current-password" required>
+                    <button type="submit">Anmelden</button>
+                </div>
+                <!-- Schritt 2: TOTP-Code (wird nach erfolgreichem Passwort eingeblendet) -->
+                <div id="totp-step" class="hidden">
+                    <p class="totp-hint">Bitte gib den 6-stelligen Code aus deiner Authenticator-App ein.</p>
+                    <input type="text" id="totp-code" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                    <button type="submit">Code bestätigen</button>
+                </div>
             </form>
             <p id="error-message" class="error-message"></p>
         </div>

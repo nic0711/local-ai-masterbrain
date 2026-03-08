@@ -17,8 +17,26 @@
                 <h1>Local AI Masterbrain</h1>
                 <p>Service Dashboard</p>
             </div>
-            <button id="logout-button">Abmelden</button>
+            <div class="header-actions">
+                <button id="setup-2fa-button">2FA einrichten</button>
+                <button id="logout-button">Abmelden</button>
+            </div>
         </header>
+
+        <!-- 2FA Enrollment Modal -->
+        <div id="mfa-modal" class="hidden modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>2FA einrichten (TOTP)</h3>
+                    <button id="close-mfa-modal" class="modal-close">&times;</button>
+                </div>
+                <p>Scanne den QR-Code mit deiner Authenticator-App (z.B. Google Authenticator oder Authy).</p>
+                <div id="qr-code-container" style="text-align:center;margin:1rem 0;"></div>
+                <input type="text" id="enroll-totp-code" placeholder="6-stelligen Code eingeben" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                <button id="verify-2fa-button">Code bestätigen &amp; 2FA aktivieren</button>
+                <p id="enroll-status" class="error-message"></p>
+            </div>
+        </div>
         <main>
             <section class="grid-section">
                 <h2>AI & Automation Tools</h2>

@@ -1,96 +1,85 @@
-# 6. Using n8n & Open WebUI
+# 6. Nutzung: n8n, Open WebUI & weitere Services
 
-The main component of the self-hosted AI starter kit is a docker compose file
-pre-configured with network and disk so there isn’t much else you need to
-install. After completing the installation steps above, follow the steps below
-to get started.
+## Zugriff (lokal)
 
---> Dashboard: http://localhost:8888/
+Alle Services sind nach dem Login unter `https://brain.local` erreichbar.
+Das Dashboard verlinkt direkt auf alle Services.
 
-1. Open <http://localhost:5678/> in your browser to set up n8n. You’ll only
-   have to do this once. You are NOT creating an account with n8n in the setup here,
-   it is only a local account for your instance!
-2. Import the included workflows manually:
-   - Go to **Settings → Import workflow** in n8n
-   - Import the JSON files from `n8n/backup/workflows/`:
-     - `V1_Local_RAG_AI_Agent.json` – Basic RAG Agent
-     - `V2_Local_Supabase_RAG_AI_Agent.json` – RAG with Supabase vector store
-     - `V3_Local_Agentic_RAG_AI_Agent.json` – Full Agentic RAG
-   > **Note:** The `n8n-import` auto-import service has been removed. Workflows are now imported manually.
+| Service       | URL                          |
+|---------------|------------------------------|
+| Dashboard     | https://brain.local          |
+| n8n           | https://n8n.brain.local      |
+| Open WebUI    | https://webui.brain.local    |
+| Flowise       | https://flowise.brain.local  |
+| Langfuse      | https://langfuse.brain.local |
+| SearXNG       | https://search.brain.local   |
+| Neo4j         | https://neo4j.brain.local    |
+| Qdrant        | https://qdrant.brain.local   |
+| Minio         | https://minio.brain.local    |
 
-3. Create credentials for every service:
-   
-   Ollama URL: http://ollama:11434
+---
 
-   Postgres (through Supabase): use DB, username, and password from .env. IMPORTANT: Host is 'db'
-   Since that is the name of the service running Supabase
+## n8n einrichten
 
-   Qdrant URL: http://qdrant:6333 (API key can be whatever since this is running locally)
+1. `https://n8n.brain.local` aufrufen (nach Login im Dashboard automatisch zugänglich)
+2. Credentials für die verwendeten Services anlegen:
 
-   Google Drive: Follow [this guide from n8n](https://docs.n8n.io/integrations/builtin/credentials/google/).
-   Don't use localhost for the redirect URI, just use another domain you have, it will still work!
-   Alternatively, you can set up [local file triggers](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.localfiletrigger/).
-4. Select **Test workflow** to start running the workflow.
-5. If this is the first time you’re running the workflow, you may need to wait
-   until Ollama finishes downloading Llama3.1. You can inspect the docker
-   console logs to check on the progress.
-6. Make sure to toggle the workflow as active and copy the "Production" webhook URL!
-7. Open <http://localhost:3000/> in your browser to set up Open WebUI.
-You’ll only have to do this once. You are NOT creating an account with Open WebUI in the 
-setup here, it is only a local account for your instance!
-8. Go to Workspace -> Functions -> Add Function -> Give name + description then paste in
-the code from `n8n_pipe.py`
+   | Service | Verbindung |
+   |---|---|
+   | Ollama | `http://ollama:11434` (Docker) oder `http://host.docker.internal:11434` (lokal) |
+   | Supabase DB | Host: `db`, Port: `5432`, DB/User/PW aus `.env` |
+   | Qdrant | `http://qdrant:6333` |
 
-   The function is also [published here on Open WebUI's site](https://openwebui.com/f/coleam/n8n_pipe/).
+3. Workflows importieren: **Settings → Import workflow** → JSON-Dateien aus `n8n/backup/workflows/`
 
-9. Click on the gear icon and set the n8n_url to the production URL for the webhook
-you copied in a previous step.
-10. Toggle the function on and now it will be available in your model dropdown in the top left! 
+### LocalFileTrigger & ExecuteCommand aktivieren
 
-To open n8n at any time, visit <http://localhost:5678/> in your browser.
-To open Open WebUI at any time, visit <http://localhost:3000/>.
-
-With your n8n instance, you’ll have access to over 400 integrations and a
-suite of basic and advanced AI nodes such as
-[AI Agent](https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.agent/),
-[Text classifier](https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.text-classifier/),
-and [Information Extractor](https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.information-extractor/)
-nodes. To keep everything local, just remember to use the Ollama node for your
-language model and Qdrant as your vector store.
-
-> [!NOTE]
-> This starter kit is designed to help you get started with self-hosted AI
-> workflows. While it’s not fully optimized for production environments, it
-> combines robust components that work well together for proof-of-concept
-> projects. You can customize it to meet your specific needs
-
-
-## Enabling LocalFileTrigger & ExecuteCommand Nodes
-
-These nodes are disabled by default in n8n v2+. To enable them, uncomment the following line in `docker-compose.yml` under the `x-n8n` section:
+Diese Nodes sind in n8n v2+ standardmäßig deaktiviert. In `docker-compose.yml` unter `x-n8n` einkommentieren:
 
 ```yaml
 - NODES_EXCLUDE=[]
 ```
 
-Then restart n8n: `docker compose restart n8n`
+Dann n8n neu starten: `docker compose -p localai restart n8n`
 
-## Upgrading
+---
 
-To update all containers to their latest versions (n8n, Open WebUI, etc.), run these commands:
+## Open WebUI einrichten
+
+1. `https://webui.brain.local` aufrufen
+2. n8n-Pipe-Funktion einrichten:
+   - **Workspace → Functions → Add Function**
+   - Code aus `n8n_pipe.py` einfügen
+   - Gear-Icon → `n8n_url` auf den Produktions-Webhook-URL setzen
+3. Funktion aktivieren → in der Modell-Auswahl verfügbar
+
+---
+
+## Stack upgraden
 
 ```bash
-# Stop all services
-docker compose -p localai -f docker-compose.yml --profile <your-profile> down
+# Services stoppen
+docker compose -p localai down
 
-# Pull latest versions of all containers
-docker compose -p localai -f docker-compose.yml --profile <your-profile> pull
+# Neueste Images pullen
+docker compose -p localai -f docker-compose.yml pull
 
-# Start services again with your desired profile
-python start_services.py --profile <your-profile>
+# Stack neu starten
+python3 start_services.py --profile <dein-profil>
 ```
 
-Replace `<your-profile>` with one of: `cpu`, `gpu-nvidia`, `gpu-amd`, or `none`.
+> `start_services.py` allein pullt keine neuen Images – `docker compose pull` ist dafür nötig.
 
-Note: The `start_services.py` script itself does not update containers - it only restarts them or pulls them if you are downloading these containers for the first time. To get the latest versions, you must explicitly run the commands above.
+---
 
+## Ollama-Modelle hinzufügen
+
+```bash
+# Wenn Ollama im Docker-Container läuft:
+docker exec ollama ollama pull llama3.2
+
+# Wenn Ollama lokal auf dem Mac läuft:
+ollama pull llama3.2
+```
+
+Modelle sind danach sofort in Open WebUI und n8n verfügbar.

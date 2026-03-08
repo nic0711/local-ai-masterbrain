@@ -7,3 +7,11 @@ services:
 
   supavisor:
     ports: !reset null
+
+  # TOTP / MFA für GoTrue aktivieren
+  auth:
+    environment:
+      GOTRUE_MFA_ENABLED: "true"
+      GOTRUE_MFA_TOTP_ENABLED: "true"
+      GOTRUE_MFA_TOTP_ISSUER: "Local AI Masterbrain"
+      GOTRUE_MFA_MAX_ENROLLED_FACTORS: "10"
