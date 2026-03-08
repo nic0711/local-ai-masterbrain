@@ -103,10 +103,14 @@ def stop_existing_containers(profile=None, environment=None, compose_env=None, r
     # Build the docker compose command
     cmd = ["docker", "compose", "-p", "localai"]
     
-    # Add profile only if explicitly specified and not 'none'
+    # Hardware profile (cpu / gpu-nvidia / gpu-amd)
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    
+
+    # Auth-Gateway only in public environment
+    if environment == "public":
+        cmd.extend(["--profile", "auth"])
+
     # Add all compose files
     cmd.extend(compose_files)
     
@@ -234,18 +238,24 @@ def start_local_ai(profile=None, environment=None, compose_env=None):
     print("Starting local AI services...")
     
     cmd = ["docker", "compose", "-p", "localai"]
-    
-    # Add profile only if explicitly specified and not 'none'
+
+    # Hardware profile (cpu / gpu-nvidia / gpu-amd)
     if profile and profile != "none":
         cmd.extend(["--profile", profile])
-    
+
+    # Auth-Gateway only in public environment
+    if environment == "public":
+        cmd.extend(["--profile", "auth"])
+
     cmd.extend(["-f", "docker-compose.yml"])
-    
+
     if environment == "private":
         cmd.extend(["-f", "docker-compose.override.private.yml"])
     elif environment == "public":
         cmd.extend(["-f", "docker-compose.override.public.yml"])
-    
+        if os.path.exists("docker-compose.override.public.supabase.yml"):
+            cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
+
     # Handle 'none' profile specifically
     if profile == "none":
         cmd.extend(["-f", "docker-compose.override.none.yml"])
@@ -445,8 +455,8 @@ def main():
     parser = argparse.ArgumentParser(description='Start the local AI and Supabase services.')
     parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='cpu',
                       help='Profile to use for Docker Compose (default: cpu)') # Geändert von None auf 'cpu'
-    parser.add_argument('--environment', choices=['private', 'public'], default='private',
-                      help='Environment to use for Docker Compose (default: private)')
+    parser.add_argument('--environment', choices=['private', 'public'], default='public',
+                      help='Environment to use for Docker Compose (default: public)')
     parser.add_argument('--remove-volumes', action='store_true',
                       help='Remove all volumes (WARNING: This will delete all data!)')
     parser.add_argument('--no-cleanup', action='store_true',

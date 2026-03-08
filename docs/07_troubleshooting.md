@@ -1,162 +1,150 @@
 # 7. Troubleshooting
 
-This guide provides solutions to common issues. The first and most important step for any problem is to **check the container logs**. You can do this by running:
+Erste Maßnahme bei jedem Problem: **Logs prüfen**
 
-```sh
-docker-compose logs <service_name>
-
-# Example for checking n8n logs
-docker-compose logs n8n
-
-# Follow logs in real-time
-docker-compose logs -f n8n
+```bash
+docker logs <container-name>          # z.B. docker logs n8n
+docker logs caddy 2>&1 | tail -30
+docker logs auth-gateway
 ```
 
 ---
 
-### General Docker & Networking Issues
+## Auth & Login
 
-**Issue: `Permission Denied` on a mounted directory (e.g., for SearXNG, Neo4j).**
+**Problem: Login-Formular lädt, aber Anmeldung schlägt fehl ("Invalid login credentials")**
 
-- **Cause:** The Docker container runs with an internal user that doesn't have the necessary read/write permissions for the local directory you've mounted.
-- **Solution:** Adjust the permissions on your local machine. For example, for SearXNG:
-  ```sh
-  chmod -R 755 ./searxng
+- Passwort zurücksetzen:
+  ```bash
+  USER_ID=$(docker exec supabase-db psql -U postgres -d postgres -tAc \
+    "SELECT id FROM auth.users WHERE email='user@example.com';" | tr -d ' ')
+  SERVICE_KEY=$(grep "^SERVICE_ROLE_KEY=" .env | cut -d= -f2 | tr -d ' ')
+  curl -s -X PUT "http://localhost:8000/auth/v1/admin/users/$USER_ID" \
+    -H "apikey: $SERVICE_KEY" \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"password":"neuespasswort"}'
   ```
-  For Neo4j, ensure the user running Docker has ownership or write access to the `./neo4j/data`, `./neo4j/logs`, etc. directories.
 
-**Issue: `Port is already allocated` or `address already in use`.**
+**Problem: Seite bleibt weiß / leere Seite nach Login**
 
-- **Cause:** Another service on your host machine is using a port that a container needs.
-- **Solution:** 
-  1. Identify the conflicting service using `sudo lsof -i -P -n | grep LISTEN` or `netstat -tulpn`.
-  2. Stop the conflicting service or change the port mapping in the `docker-compose.override.private.yml` file. For example, to change the n8n port from `5678` to `5679`:
-     ```yaml
-     # docker-compose.override.private.yml
-     services:
-       n8n:
-         ports:
-           - "127.0.0.1:5679:5678"
-     ```
+- `https://supabase.brain.local` im Browser öffnen und das Self-Signed-Zertifikat akzeptieren
+- Browser-Konsole (F12) auf Fehler prüfen
+- `docker logs dashboard-ui` prüfen
 
-**Issue: Containers fail to start after a system reboot.**
+**Problem: Redirect-Loop (immer wieder zu login.html)**
 
-- **Cause:** Docker daemon might not have started, or network services are not ready.
-- **Solution:** Ensure the Docker service is enabled to start on boot (`sudo systemctl enable docker`). Manually restart the stack with `docker-compose down && docker-compose up -d`.
+- Cookie wird nicht gesetzt: Browser-DevTools → Application → Cookies → prüfen ob `sb-access-token` auf `.brain.local` vorhanden
+- `docker logs auth-gateway` prüfen – auth-gateway muss laufen
+- Stack mit korrekten Compose-Dateien gestartet?
+  ```bash
+  python3 start_services.py --profile none   # startet auth-gateway automatisch
+  ```
 
----
+**Problem: n8n/Flowise etc. zeigt 502**
 
-### Ollama & AI Models
+- auth-gateway läuft nicht:
+  ```bash
+  docker ps | grep auth-gateway
+  # Falls nicht: Stack komplett neu starten
+  python3 start_services.py --profile none
+  ```
 
-**Issue: Ollama container exits or models fail to pull.**
+**Problem: `auth-gateway` zeigt "invalid number of segments"**
 
-- **Cause:** Insufficient disk space, network issues, or problems with the base Ollama image.
-- **Solution:**
-  1.  **Check Disk Space:** Run `df -h` to ensure you have enough space for the models.
-  2.  **Check Logs:** Run `docker-compose logs ollama-cpu` (or `-gpu`) for specific error messages.
-  3.  **Manual Pull:** Try pulling a model manually to isolate the issue:
-      ```sh
-      docker-compose exec ollama-cpu ollama pull llama3
-      ```
-
-**Issue: Poor performance or high CPU usage.**
-
-- **Cause:** The model is too large for your hardware, or the container is not configured with enough resources.
-- **Solution:**
-  1.  **Use a Smaller Model:** Quantized models (e.g., `q4_0`) are smaller and faster. Check the Ollama library for available tags.
-  2.  **Adjust `OLLAMA_` environment variables** in `docker-compose.yml` to optimize performance for your hardware.
+- Cookie hat falsche oder fehlende Domain – Cookie wird nicht cross-subdomain gesendet
+- Prüfen: `DOMAIN=brain.local` in `.env` (nicht `DOMAIN=local`)
+- Dashboard-Container neu starten: `docker compose -p localai restart dashboard`
 
 ---
 
-### Supabase
+## Netzwerk & Docker
 
-**Issue: Supabase containers fail to start, especially after changing the Postgres password.**
+**Problem: Port bereits belegt**
 
-- **Cause:** Inconsistent state or corrupted data in the database volume.
-- **Solution:** This is a destructive action. **Ensure you have a backup first.**
-  1.  Stop the stack: `docker-compose down`.
-  2.  Remove the database volume directory: `sudo rm -rf ./supabase/docker/volumes/db/data`.
-  3.  Restart the stack: `docker-compose up -d`. Supabase will re-initialize the database.
+```bash
+sudo lsof -i :<port>   # z.B. sudo lsof -i :443
+```
 
-**Issue: `supabase-pooler` is in a restart loop.**
+Konfliktierenden Prozess stoppen oder Port in `docker-compose.override.private.yml` ändern.
 
-- **Cause:** This is a known issue in some versions of Supabase.
-- **Solution:** Refer to the fix described in the [official Supabase GitHub issue](https://github.com/supabase/supabase/issues/30210#issuecomment-2456955578).
+**Problem: Container starten nach Neustart nicht**
 
-**Issue: Services like n8n can't connect to the Supabase database.**
+```bash
+sudo systemctl enable docker
+docker compose -p localai up -d
+```
 
-- **Cause:** An invalid character in your `POSTGRES_PASSWORD`. The `@` symbol is a known problematic character.
-- **Solution:** Change your `POSTGRES_PASSWORD` in the `.env` file to a password that does not contain special characters like `@`.
+**Problem: `PG_META_CRYPTO_KEY` Warnung beim Start**
 
----
-
-### n8n
-
-**Issue: Workflows are not saving or credentials are not working.**
-
-- **Cause:** Problems with the `n8n_storage` volume or incorrect `N8N_ENCRYPTION_KEY`.
-- **Solution:**
-  1.  **Check Logs:** `docker-compose logs n8n` will often show errors related to the database or encryption key.
-  2.  **Verify Encryption Key:** Ensure the `N8N_ENCRYPTION_KEY` in your `.env` file is set and has not been changed since your workflows/credentials were first saved.
-  3.  **Check Volume Permissions:** Run `docker volume inspect <project_name>-n8n_storage` and check the mount point for any permission issues.
+Harmlose Warnung von Supabase Meta – kein Handlungsbedarf.
 
 ---
 
-### GPU Support
+## Supabase
 
-**Issue: Ollama fails to start with the `gpu` profile.**
+**Problem: Supabase-Container starten nicht nach Passwort-Änderung**
 
-- **Cause:** NVIDIA drivers are not installed correctly on the host, or the NVIDIA Container Toolkit is missing or misconfigured.
-- **Solution:**
-  1.  **Verify Host Drivers:** Ensure `nvidia-smi` runs successfully on your host machine.
-  2.  **Install NVIDIA Container Toolkit:** Follow the official installation guide for your Linux distribution.
-  3.  **Docker Desktop (Windows/macOS):** GPU passthrough on macOS is not supported. On Windows, ensure you are using the WSL 2 backend and that GPU support is enabled in Docker Desktop settings.
----
+1. Stack stoppen: `docker compose -p localai down`
+2. DB-Volume löschen (⚠️ löscht alle Daten!): `sudo rm -rf ./supabase/docker/volumes/db/data`
+3. Stack neu starten
 
-### Python NLP / Document Service
+**Problem: `supabase-pooler` im Restart-Loop**
 
-**Issue: OCR schlägt fehl mit "Ollama nicht erreichbar".**
+Bekanntes Supabase-Problem: [GitHub Issue #30210](https://github.com/supabase/supabase/issues/30210#issuecomment-2456955578)
 
-- **Cause:** `OLLAMA_HOST` zeigt auf falsche Adresse, oder das glm-ocr-Modell ist nicht gepullt.
-- **Solution:**
-  1. Prüfe die Env-Variable: `docker exec python-nlp-service env | grep OLLAMA`
-  2. Stelle sicher, dass das Modell vorhanden ist:
-     ```sh
-     # Mac (Ollama lokal):
-     ollama list | grep glm-ocr
-     ollama pull glm-ocr
+**Problem: Services können nicht auf Supabase-DB zugreifen**
 
-     # Server (Ollama im Container):
-     docker exec ollama ollama list
-     docker exec ollama ollama pull glm-ocr
-     ```
-  3. Auf dem Server: `OLLAMA_HOST=http://ollama:11434` in der `.env` setzen.
-
-**Issue: Service startet, aber `/health` gibt `503 starting` zurück.**
-
-- **Cause:** SpaCy-Modelle werden noch geladen (kann beim ersten Start 30–60s dauern).
-- **Solution:** Warten. `docker logs python-nlp-service` zeigt den Ladefortschritt.
-
-**Issue: n8n startet nicht, wartet ewig auf python-nlp-service.**
-
-- **Cause:** `depends_on: condition: service_healthy` – n8n wartet auf `healthy` Status.
-- **Solution:** Prüfe `docker ps` ob python-nlp-service als `healthy` läuft. Bei persistenten Problemen Logs prüfen: `docker logs python-nlp-service`.
+- `@`-Zeichen im `POSTGRES_PASSWORD` vermeiden
+- Host in den Credentials muss `db` sein (Docker-Servicename), nicht `localhost`
 
 ---
 
-### Upstream Sync / Migration
+## Ollama & Modelle
 
-**Issue: Stack startet nicht nach Update – `LANGFUSE_ENCRYPTION_KEY` fehlt.**
+**Problem: Ollama-Container crasht oder Modelle laden nicht**
 
-- **Cause:** `LANGFUSE_ENCRYPTION_KEY` wurde durch `ENCRYPTION_KEY` ersetzt. Wer das Projekt vor März 2026 aufgesetzt hat, hat noch den alten Key.
-- **Solution:** In der `.env` den Wert von `LANGFUSE_ENCRYPTION_KEY` in `ENCRYPTION_KEY` umbenennen (oder sicherstellen dass `ENCRYPTION_KEY` gesetzt ist).
+```bash
+df -h           # Speicherplatz prüfen
+docker logs ollama
+docker exec ollama ollama list
+```
 
-**Issue: n8n-Workflows nach Update weg / nicht importiert.**
+**Problem: Ollama nicht erreichbar von n8n aus**
 
-- **Cause:** Der `n8n-import`-Service wurde entfernt. Workflows werden nicht mehr automatisch beim Start importiert.
-- **Solution:** Workflows manuell importieren: n8n → **Settings → Import workflow** → JSON-Dateien aus `n8n/backup/workflows/` laden.
+- Mac (Ollama lokal): `OLLAMA_HOST=http://host.docker.internal:11434` in `.env`
+- Server (Ollama in Docker): `OLLAMA_HOST=http://ollama:11434` in `.env`
 
-**Issue: Supabase storage-api startet nicht nach Update.**
+---
 
-- **Cause:** Die neueste `storage-api`-Version benötigt neue Env-Variablen (`GLOBAL_S3_BUCKET`, `REGION`, `STORAGE_TENANT_ID` etc.).
-- **Solution:** Fehlende Variablen aus `.env.example` in die `.env` kopieren. Die `stub`-Standardwerte funktionieren für lokalen File-Storage ohne S3.
+## Python NLP Service
+
+**Problem: OCR schlägt fehl ("Ollama nicht erreichbar")**
+
+```bash
+docker exec python-nlp-service env | grep OLLAMA
+ollama list | grep glm-ocr   # Modell vorhanden?
+ollama pull glm-ocr
+```
+
+**Problem: `/health` gibt `503 starting` zurück**
+
+SpaCy-Modelle laden beim ersten Start 30–60s. Warten und `docker logs python-nlp-service` beobachten.
+
+---
+
+## Migration / Upstream-Update
+
+**Problem: `LANGFUSE_ENCRYPTION_KEY` fehlt nach Update**
+
+In `.env` umbenennen: `LANGFUSE_ENCRYPTION_KEY` → `ENCRYPTION_KEY`
+
+**Problem: Workflows nach Update verschwunden**
+
+n8n-Import-Service wurde entfernt. Manuell importieren:
+n8n → **Settings → Import workflow** → JSON aus `n8n/backup/workflows/`
+
+**Problem: `storage-api` startet nicht**
+
+Fehlende Variablen aus `.env.example` kopieren:
+`GLOBAL_S3_BUCKET=stub`, `REGION=stub`, `STORAGE_TENANT_ID=stub`

@@ -32,12 +32,12 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     SUPABASE_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
     LANGFUSE_URL="${PROTOCOL}://${LANGFUSE_HOSTNAME}"
     NEO4J_URL="${PROTOCOL}://${NEO4J_HOSTNAME}"
-    QDRANT_URL="" # Typically not exposed publicly
-    MINIO_URL=""    # Typically not exposed publicly
+    QDRANT_URL="${PROTOCOL}://${QDRANT_HOSTNAME}"
+    MINIO_URL="${PROTOCOL}://${MINIO_HOSTNAME}"
     CRAWL4AI_URL="${PROTOCOL}://${CRAWL4AI_HOSTNAME}"
-    PYTHON_NLP_URL="${PROTOCOL}://${PYTHON_NLP_HOSTNAME}"
+    PYTHON_NLP_URL=""
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
-    CLICKHOUSE_URL
+    CLICKHOUSE_URL=""
 else
     # Private environment: Use local URLs
     N8N_URL="$N8N_LOCAL_URL"
@@ -53,6 +53,14 @@ else
     PYTHON_NLP_URL="$PYTHON_NLP_LOCAL_URL/health"
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
+fi
+
+# Cookie-Domain für alle Subdomains setzen (mit führendem Punkt)
+# Nur in der öffentlichen Umgebung mit einer echten Domain
+if [ "${IS_PUBLIC_PROFILE}" = "true" ] && [ -n "${DOMAIN}" ]; then
+    COOKIE_DOMAIN=".${DOMAIN}"
+else
+    COOKIE_DOMAIN=""
 fi
 
 # Generate config.js with the determined URLs
@@ -74,7 +82,10 @@ window.APP_CONFIG = {
     // Supabase specific config
     supabaseUrl: "${SUPABASE_FINAL_URL}",
     supabaseAnonKey: "${SUPABASE_ANON_KEY}",
-    authEnabled: ${IS_PUBLIC_PROFILE:-false}
+    authEnabled: ${IS_PUBLIC_PROFILE:-false},
+
+    // Cookie-Domain für Subdomain-übergreifenden Zugriff via Caddy forward_auth
+    cookieDomain: "${COOKIE_DOMAIN}"
 };
 EOF
 

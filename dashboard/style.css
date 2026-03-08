@@ -167,3 +167,129 @@ main {
     margin-top: 1rem;
     min-height: 1.2em;
 }
+
+.hidden {
+    display: none !important;
+}
+
+.totp-hint {
+    color: #a0a0a0;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+/* Header action buttons group */
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+#setup-2fa-button {
+    background-color: #1a3a5c;
+    color: #e0e0e0;
+    border: 1px solid #2a5a8c;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+#setup-2fa-button:hover {
+    background-color: #234e7a;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-box {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #fff;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #a0a0a0;
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.modal-box input {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.modal-box button:not(.modal-close) {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: #1a3a5c;
+    color: #e0e0e0;
+    border: 1px solid #2a5a8c;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+.modal-box button:not(.modal-close):hover {
+    background-color: #234e7a;
+}
+
+/* Login button */
+.login-box button[type="submit"] {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: #1a3a5c;
+    color: #e0e0e0;
+    border: 1px solid #2a5a8c;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+.login-box button[type="submit"]:hover {
+    background-color: #234e7a;
+}
