@@ -1,0 +1,417 @@
+{
+  "name": "V6 Obsidian Note Optimizer (AI → Vault)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "obsidian-optimize",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Notiz optimieren",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "obsidian-optimize"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst path = body.path || '';\nconst task = body.task || 'improve';\n\nif (!path) {\n  throw new Error('Pflichtfeld fehlt: path');\n}\n\nconst validTasks = ['summarize', 'improve', 'tag', 'connect'];\nif (!validTasks.includes(task)) {\n  throw new Error('Ungültige task. Erlaubt: ' + validTasks.join(', '));\n}\n\nreturn [{ json: { path, task } }];\n"
+      },
+      "id": "validate-input",
+      "name": "Eingabe validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:27123/vault/{{ encodeURIComponent($json.path) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "get-note",
+      "name": "Obsidian: Notiz lesen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "summarize",
+              "output": 0
+            },
+            {
+              "value": "improve",
+              "output": 1
+            },
+            {
+              "value": "tag",
+              "output": 2
+            },
+            {
+              "value": "connect",
+              "output": 3
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "task-switch",
+      "name": "Task auswählen",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.OLLAMA_MODEL || 'llama3.2' }}",
+        "options": {
+          "temperature": 0.3
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Du bist ein Assistent für Wissensmanagement. Antworte auf Deutsch. Erstelle eine prägnante Zusammenfassung (3–5 Sätze) der folgenden Notiz. Behalte die wichtigsten Konzepte und Fakten."
+            },
+            {
+              "role": "user",
+              "content": "={{ $('Obsidian: Notiz lesen').item.json.data || $('Obsidian: Notiz lesen').item.json }}"
+            }
+          ]
+        }
+      },
+      "id": "llm-summarize",
+      "name": "LLM: Zusammenfassen",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [1120, 160],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.OLLAMA_MODEL || 'llama3.2' }}",
+        "options": {
+          "temperature": 0.4
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Du bist ein Experte für technisches Schreiben. Verbessere die folgende Obsidian-Notiz: bessere Struktur, klarere Formulierungen, sinnvolle Überschriften. Behalte alle wichtigen Informationen. Antworte nur mit dem verbesserten Markdown-Text, ohne Erklärungen."
+            },
+            {
+              "role": "user",
+              "content": "={{ $('Obsidian: Notiz lesen').item.json.data || $('Obsidian: Notiz lesen').item.json }}"
+            }
+          ]
+        }
+      },
+      "id": "llm-improve",
+      "name": "LLM: Formulierung verbessern",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.OLLAMA_MODEL || 'llama3.2' }}",
+        "options": {
+          "temperature": 0.2
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Analysiere die folgende Obsidian-Notiz und schlage passende Tags vor. Antworte nur mit einer YAML-Frontmatter-Liste im Format:\ntags: [tag1, tag2, tag3]\nMaximal 8 Tags. Tags auf Englisch, snake_case."
+            },
+            {
+              "role": "user",
+              "content": "={{ $('Obsidian: Notiz lesen').item.json.data || $('Obsidian: Notiz lesen').item.json }}"
+            }
+          ]
+        }
+      },
+      "id": "llm-tag",
+      "name": "LLM: Tags vorschlagen",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [1120, 440],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.OLLAMA_MODEL || 'llama3.2' }}",
+        "options": {
+          "temperature": 0.5
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Du analysierst Obsidian-Notizen für ein Zettelkasten-System (LYT-Methode). Identifiziere fehlende Verbindungen zu anderen Themen und schlage [[Wiki-Links]] vor, die in die Notiz eingefügt werden sollten. Antworte auf Deutsch mit einer Liste von Vorschlägen."
+            },
+            {
+              "role": "user",
+              "content": "={{ $('Obsidian: Notiz lesen').item.json.data || $('Obsidian: Notiz lesen').item.json }}"
+            }
+          ]
+        }
+      },
+      "id": "llm-connect",
+      "name": "LLM: Verbindungen finden",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [1120, 580],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge all LLM outputs and prepare for writing back\nconst item = $input.first();\nconst originalPath = $('Eingabe validieren').first().json.path;\nconst task = $('Eingabe validieren').first().json.task;\nconst llmResult = item.json.text || item.json.response || item.json.content || String(item.json);\n\nlet writeBack = false;\nlet content = llmResult;\n\n// For 'improve' task: write back the improved note\n// For others: append as comment/section\nif (task === 'improve') {\n  writeBack = true;\n} else if (task === 'summarize') {\n  content = '\\n\\n---\\n## Zusammenfassung (AI-generiert)\\n\\n' + llmResult + '\\n';\n  writeBack = false; // Append only\n} else {\n  writeBack = false;\n}\n\nreturn [{ json: { path: originalPath, task, content, writeBack, llmResult } }];\n"
+      },
+      "id": "prepare-result",
+      "name": "Ergebnis aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "check-writeback",
+              "leftValue": "={{ $json.writeBack }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-writeback",
+      "name": "Zurückschreiben?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 380]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://host.docker.internal:27123/vault/{{ encodeURIComponent($json.path) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/markdown",
+        "body": "={{ $json.content }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "write-note",
+      "name": "Obsidian: Notiz überschreiben",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 280],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:27123/vault/{{ encodeURIComponent($json.path) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/markdown",
+        "body": "={{ $json.content }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "append-note",
+      "name": "Obsidian: Anhängen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"task\": $('Eingabe validieren').first().json.task, \"path\": $('Eingabe validieren').first().json.path, \"result\": $('Ergebnis aufbereiten').first().json.llmResult } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook: Ergebnis senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 380]
+    }
+  ],
+  "connections": {
+    "Webhook: Notiz optimieren": {
+      "main": [
+        [
+          { "node": "Eingabe validieren", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Eingabe validieren": {
+      "main": [
+        [
+          { "node": "Obsidian: Notiz lesen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Notiz lesen": {
+      "main": [
+        [
+          { "node": "Task auswählen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Task auswählen": {
+      "main": [
+        [
+          { "node": "LLM: Zusammenfassen", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "LLM: Formulierung verbessern", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "LLM: Tags vorschlagen", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "LLM: Verbindungen finden", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "LLM: Zusammenfassen": {
+      "main": [
+        [
+          { "node": "Ergebnis aufbereiten", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "LLM: Formulierung verbessern": {
+      "main": [
+        [
+          { "node": "Ergebnis aufbereiten", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "LLM: Tags vorschlagen": {
+      "main": [
+        [
+          { "node": "Ergebnis aufbereiten", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "LLM: Verbindungen finden": {
+      "main": [
+        [
+          { "node": "Ergebnis aufbereiten", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ergebnis aufbereiten": {
+      "main": [
+        [
+          { "node": "Zurückschreiben?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Zurückschreiben?": {
+      "main": [
+        [
+          { "node": "Obsidian: Notiz überschreiben", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Obsidian: Anhängen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Notiz überschreiben": {
+      "main": [
+        [
+          { "node": "Webhook: Ergebnis senden", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Anhängen": {
+      "main": [
+        [
+          { "node": "Webhook: Ergebnis senden", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": ["obsidian", "ai", "note-optimizer"],
+  "pinData": {}
+}
