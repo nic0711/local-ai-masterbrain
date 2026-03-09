@@ -1,0 +1,284 @@
+{
+  "name": "V4 Document Indexing Pipeline (PDF/URL → Qdrant)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "index-document",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Dokument empfangen",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "index-document"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-type",
+              "leftValue": "={{ $json.body.type }}",
+              "rightValue": "url",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-input-type",
+      "name": "URL oder PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "urls",
+              "value": "={{ [$json.body.url] }}"
+            },
+            {
+              "name": "crawler_params",
+              "value": "={{ { \"headless\": true } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "crawl-url",
+      "name": "Crawl4AI: URL crawlen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/process",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.results[0].markdown || $json.results[0].html || '' }}"
+            },
+            {
+              "name": "chunk_size",
+              "value": "500"
+            },
+            {
+              "name": "chunk_overlap",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "nlp-extract-url",
+      "name": "NLP: Text chunken (URL)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/process",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.body.text }}"
+            },
+            {
+              "name": "chunk_size",
+              "value": "500"
+            },
+            {
+              "name": "chunk_overlap",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "nlp-extract-pdf",
+      "name": "NLP: Text chunken (PDF/Text)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-chunks",
+      "name": "Chunks zusammenführen",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chunks = $input.all().flatMap(item => {\n  const data = item.json;\n  if (Array.isArray(data.chunks)) return data.chunks;\n  if (Array.isArray(data)) return data;\n  return [data];\n});\n\nreturn chunks.map((chunk, i) => ({\n  json: {\n    chunk_index: i,\n    text: typeof chunk === 'string' ? chunk : chunk.text || JSON.stringify(chunk)\n  }\n}));"
+      },
+      "id": "flatten-chunks",
+      "name": "Chunks flatten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/embeddings",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "nomic-embed-text"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "embed-chunk",
+      "name": "Ollama: Embedding erzeugen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst collectionName = $('Webhook: Dokument empfangen').first().json.body.collection || 'documents';\n\nconst points = items.map((item, i) => ({\n  id: Date.now() + i,\n  vector: item.json.embedding,\n  payload: {\n    text: item.json.text || '',\n    chunk_index: item.json.chunk_index || i,\n    source: $('Webhook: Dokument empfangen').first().json.body.url ||\n            $('Webhook: Dokument empfangen').first().json.body.source ||\n            'manual',\n    indexed_at: new Date().toISOString()\n  }\n}));\n\nreturn [{ json: { collection: collectionName, points } }];"
+      },
+      "id": "build-qdrant-payload",
+      "name": "Qdrant Payload bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://qdrant:6333/collections/{{ $json.collection }}/points",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "points",
+              "value": "={{ $json.points }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upsert-qdrant",
+      "name": "Qdrant: Punkte einfügen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"indexed_chunks\": $('Qdrant: Punkte einfügen').first().json.result?.operation_id ?? 0, \"collection\": $('Qdrant Payload bauen').first().json.collection } }}"
+      },
+      "id": "respond-success",
+      "name": "Antwort senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Dokument empfangen": {
+      "main": [
+        [{ "node": "URL oder PDF?", "type": "main", "index": 0 }]
+      ]
+    },
+    "URL oder PDF?": {
+      "main": [
+        [{ "node": "Crawl4AI: URL crawlen", "type": "main", "index": 0 }],
+        [{ "node": "NLP: Text chunken (PDF/Text)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Crawl4AI: URL crawlen": {
+      "main": [
+        [{ "node": "NLP: Text chunken (URL)", "type": "main", "index": 0 }]
+      ]
+    },
+    "NLP: Text chunken (URL)": {
+      "main": [
+        [{ "node": "Chunks zusammenführen", "type": "main", "index": 0 }]
+      ]
+    },
+    "NLP: Text chunken (PDF/Text)": {
+      "main": [
+        [{ "node": "Chunks zusammenführen", "type": "main", "index": 1 }]
+      ]
+    },
+    "Chunks zusammenführen": {
+      "main": [
+        [{ "node": "Chunks flatten", "type": "main", "index": 0 }]
+      ]
+    },
+    "Chunks flatten": {
+      "main": [
+        [{ "node": "Ollama: Embedding erzeugen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ollama: Embedding erzeugen": {
+      "main": [
+        [{ "node": "Qdrant Payload bauen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Qdrant Payload bauen": {
+      "main": [
+        [{ "node": "Qdrant: Punkte einfügen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Qdrant: Punkte einfügen": {
+      "main": [
+        [{ "node": "Antwort senden", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-08T00:00:00.000Z",
+  "versionId": "1"
+}

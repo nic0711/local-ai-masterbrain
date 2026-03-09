@@ -1,0 +1,328 @@
+{
+  "name": "V5 Obsidian Vault Sync (Vault → Qdrant)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule: täglich",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "obsidian-vault-sync",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Manueller Sync",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 460],
+      "webhookId": "obsidian-vault-sync"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:27123/vault/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-file-list",
+      "name": "Obsidian: Dateiliste holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      },
+      "id": "split-files",
+      "name": "Dateien aufteilen",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "is-md",
+              "leftValue": "={{ $json }}",
+              "rightValue": ".md",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith"
+              }
+            },
+            {
+              "id": "not-excalidraw",
+              "leftValue": "={{ $json }}",
+              "rightValue": ".excalidraw.md",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith",
+                "not": true
+              }
+            },
+            {
+              "id": "in-wissen",
+              "leftValue": "={{ $json }}",
+              "rightValue": "20_Wissen/",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-files",
+      "name": "Filter: nur 20_Wissen/*.md",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [920, 380]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "In Batches aufteilen",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1140, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:27123/vault/{{ encodeURIComponent($json) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "get-file-content",
+      "name": "Obsidian: Dateiinhalt holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json.data || item.json.body || String(item.json) || '';\n  const filePath = item.json.filePath || '';\n\n  // Frontmatter parsen\n  let frontmatter = {};\n  let content = raw;\n  const fmMatch = raw.match(/^---\\n([\\s\\S]*?)\\n---\\n?/);\n  if (fmMatch) {\n    const fmLines = fmMatch[1].split('\\n');\n    for (const line of fmLines) {\n      const sep = line.indexOf(':');\n      if (sep > -1) {\n        const key = line.slice(0, sep).trim();\n        const val = line.slice(sep + 1).trim();\n        frontmatter[key] = val;\n      }\n    }\n    content = raw.slice(fmMatch[0].length);\n  }\n\n  // Tags extrahieren\n  const tags = [];\n  if (frontmatter.tags) {\n    const tagStr = frontmatter.tags.replace(/[\\[\\]]/g, '');\n    tags.push(...tagStr.split(',').map(t => t.trim()).filter(Boolean));\n  }\n  // Inline tags #tag\n  const inlineTags = content.match(/#[\\w/]+/g) || [];\n  tags.push(...inlineTags.map(t => t.replace('#', '')));\n\n  // Markdown bereinigen\n  let clean = content\n    .replace(/```[\\s\\S]*?```/g, '') // Code-Blöcke\n    .replace(/!\\[.*?\\]\\(.*?\\)/g, '') // Bilder\n    .replace(/\\[\\[([^\\]]+)\\]\\]/g, '$1') // Wiki-Links\n    .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, '$1') // Markdown-Links\n    .replace(/^#{1,6}\\s/gm, '') // Überschriften\n    .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1') // Bold/Italic\n    .replace(/^>\\s/gm, '') // Blockquotes\n    .replace(/\\n{3,}/g, '\\n\\n') // Leerzeilen\n    .trim();\n\n  if (clean.length < 50) continue; // Zu kurz überspringen\n\n  // Vault aus Pfad ableiten\n  const vault = filePath.includes('KG/') ? 'kg' : 'personal';\n\n  results.push({\n    json: {\n      filePath,\n      content: clean,\n      tags: [...new Set(tags)],\n      title: frontmatter.title || filePath.split('/').pop().replace('.md', ''),\n      modified: frontmatter.modified || frontmatter.updated || null,\n      vault,\n      charCount: clean.length\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "id": "process-markdown",
+      "name": "Markdown verarbeiten & Frontmatter parsen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1580, 380]
+    },
+    {
+      "parameters": {
+        "chunkSize": 500,
+        "chunkOverlap": 50,
+        "options": {}
+      },
+      "id": "text-splitter",
+      "name": "Text in Chunks aufteilen",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [1800, 500]
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text",
+        "options": {}
+      },
+      "id": "ollama-embeddings",
+      "name": "Ollama: Embeddings generieren",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [1800, 640],
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollama-local",
+          "name": "Ollama Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "obsidian_vault",
+          "mode": "id"
+        },
+        "options": {
+          "clearCollection": false
+        }
+      },
+      "id": "qdrant-upsert",
+      "name": "Qdrant: In obsidian_vault speichern",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [1800, 380],
+      "credentials": {
+        "qdrantApi": {
+          "id": "qdrant-local",
+          "name": "Qdrant Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"message\": \"Vault-Sync abgeschlossen\" } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook: Antwort senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2020, 460]
+    }
+  ],
+  "connections": {
+    "Schedule: täglich": {
+      "main": [
+        [
+          { "node": "Obsidian: Dateiliste holen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Webhook: Manueller Sync": {
+      "main": [
+        [
+          { "node": "Obsidian: Dateiliste holen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Dateiliste holen": {
+      "main": [
+        [
+          { "node": "Dateien aufteilen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Dateien aufteilen": {
+      "main": [
+        [
+          { "node": "Filter: nur 20_Wissen/*.md", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Filter: nur 20_Wissen/*.md": {
+      "main": [
+        [
+          { "node": "In Batches aufteilen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "In Batches aufteilen": {
+      "main": [
+        [
+          { "node": "Obsidian: Dateiinhalt holen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Dateiinhalt holen": {
+      "main": [
+        [
+          { "node": "Markdown verarbeiten & Frontmatter parsen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Markdown verarbeiten & Frontmatter parsen": {
+      "main": [
+        [
+          { "node": "Qdrant: In obsidian_vault speichern", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Qdrant: In obsidian_vault speichern": {
+      "main": [
+        [
+          { "node": "In Batches aufteilen", "type": "main", "index": 0 },
+          { "node": "Webhook: Antwort senden", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Markdown verarbeiten & Frontmatter parsen": {
+      "ai_document": [
+        [
+          { "node": "Text in Chunks aufteilen", "type": "ai_document", "index": 0 }
+        ]
+      ]
+    },
+    "Text in Chunks aufteilen": {
+      "ai_textSplitter": [
+        [
+          { "node": "Qdrant: In obsidian_vault speichern", "type": "ai_textSplitter", "index": 0 }
+        ]
+      ]
+    },
+    "Ollama: Embeddings generieren": {
+      "ai_embedding": [
+        [
+          { "node": "Qdrant: In obsidian_vault speichern", "type": "ai_embedding", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": ["obsidian", "rag", "qdrant", "vault-sync"],
+  "pinData": {}
+}
