@@ -276,6 +276,44 @@ main {
     background-color: #234e7a;
 }
 
+/* Health status dot – untere rechte Ecke jeder Karte */
+.health-dot {
+    position: absolute;
+    bottom: 0.85rem;
+    right: 0.85rem;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.health-up {
+    background-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.health-down {
+    background-color: #ef5350;
+    box-shadow: 0 0 0 2px rgba(239, 83, 80, 0.2);
+}
+
+.health-unknown {
+    background-color: #555;
+}
+
+/* Pulsierender Ladekreis */
+@keyframes health-pulse {
+    0%   { opacity: 1; transform: scale(1); }
+    50%  { opacity: 0.4; transform: scale(0.85); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.health-loading {
+    background-color: #666;
+    animation: health-pulse 1.4s ease-in-out infinite;
+}
+
 /* Login button */
 .login-box button[type="submit"] {
     width: 100%;
@@ -292,4 +330,315 @@ main {
 
 .login-box button[type="submit"]:hover {
     background-color: #234e7a;
+}
+
+/* ═══════════════════════════════════════════
+   Tab Navigation
+   ═══════════════════════════════════════════ */
+.tab-nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid #272727;
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #666;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.tab-btn:hover { color: #bbb; }
+
+.tab-btn.active {
+    color: #fff;
+    border-bottom-color: #4f8ef7;
+}
+
+.tab-btn svg { flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════
+   Tab Panels
+   ═══════════════════════════════════════════ */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ═══════════════════════════════════════════
+   Admin Layout
+   ═══════════════════════════════════════════ */
+.admin-panel {
+    background: #1a1a1a;
+    border: 1px solid #252525;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    text-align: left;
+}
+
+.admin-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 760px) {
+    .admin-row { grid-template-columns: 1fr; }
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.panel-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0 0 1.25rem;
+}
+
+.panel-header .panel-title { margin: 0; }
+
+.panel-meta {
+    font-size: 0.78rem;
+    color: #555;
+    margin: 0;
+}
+
+/* ═══════════════════════════════════════════
+   Status Table
+   ═══════════════════════════════════════════ */
+.table-wrap { overflow-x: auto; }
+
+.status-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.status-table th {
+    text-align: left;
+    color: #444;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0 1rem 0.75rem;
+    border-bottom: 1px solid #222;
+    white-space: nowrap;
+}
+
+.status-table th:first-child { padding-left: 0; }
+
+.status-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #1f1f1f;
+    color: #bbb;
+    vertical-align: middle;
+}
+
+.status-table td:first-child { padding-left: 0; font-weight: 600; color: #ddd; }
+
+.status-table tr:last-child td { border-bottom: none; }
+.status-table tr:hover td { background: #1f1f1f; }
+
+/* Status Badge */
+.sbadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 99px;
+    white-space: nowrap;
+}
+
+.sdot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sbadge-up    { background: rgba(76,175,80,.12); color: #66bb6a; }
+.sbadge-up .sdot { background: #66bb6a; }
+
+.sbadge-down  { background: rgba(239,83,80,.12); color: #ef5350; }
+.sbadge-down .sdot { background: #ef5350; }
+
+.sbadge-unknown { background: rgba(128,128,128,.1); color: #666; }
+.sbadge-unknown .sdot { background: #555; }
+
+/* Uptime Bars */
+.ubar-wrap { display: flex; gap: 3px; align-items: center; }
+
+.ubar {
+    display: inline-block;
+    width: 7px;
+    height: 22px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.ubar-up      { background: #388e3c; }
+.ubar-down    { background: #c62828; }
+.ubar-unknown { background: #2a2a2a; }
+
+.uptime-pct {
+    font-size: 0.8rem;
+    color: #555;
+    white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   Event Log
+   ═══════════════════════════════════════════ */
+.event-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+.event-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid #1f1f1f;
+    font-size: 0.83rem;
+}
+
+.event-row:last-child { border-bottom: none; }
+
+.event-icon { font-size: 0.65rem; flex-shrink: 0; }
+.event-text { flex: 1; color: #bbb; }
+.event-time { color: #484848; font-size: 0.75rem; white-space: nowrap; }
+
+.no-data {
+    color: #444;
+    font-size: 0.85rem;
+    margin: 0;
+    padding: 0.5rem 0;
+    text-align: center;
+}
+
+/* ═══════════════════════════════════════════
+   Backup Panel
+   ═══════════════════════════════════════════ */
+.kv-list { margin-bottom: 1.5rem; }
+
+.kv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid #1f1f1f;
+    font-size: 0.85rem;
+}
+
+.kv-row:last-child { border-bottom: none; }
+.kv-label { color: #555; }
+.kv-value  { color: #bbb; font-weight: 600; }
+
+/* ═══════════════════════════════════════════
+   Buttons (admin)
+   ═══════════════════════════════════════════ */
+.btn-primary {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1a3a5c 100%);
+    border: 1px solid #2a5a8c;
+    border-radius: 8px;
+    color: #e0e0e0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    transition: background 0.2s, opacity 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #234e7a 0%, #1e4470 100%); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-full { width: 100%; }
+
+.btn-ghost {
+    background: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    color: #555;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-ghost:hover { color: #aaa; border-color: #444; }
+
+.btn-danger {
+    background: linear-gradient(135deg, #4a1515 0%, #3d1010 100%);
+    border-color: #7a2020;
+}
+.btn-danger:hover:not(:disabled) { background: linear-gradient(135deg, #6a1a1a 0%, #5a1515 100%); }
+
+/* ═══════════════════════════════════════════
+   Profile / Account Tab
+   ═══════════════════════════════════════════ */
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-size: 0.78rem;
+    color: #555;
+    font-weight: 600;
+    margin-bottom: 0.1rem;
+}
+
+.profile-form input,
+.admin-panel input[type="text"],
+.admin-panel input[type="password"] {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+    background-color: #111;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+    margin-bottom: 0.25rem;
+}
+
+.profile-form input:focus,
+.admin-panel input[type="text"]:focus,
+.admin-panel input[type="password"]:focus {
+    outline: none;
+    border-color: #4f8ef7;
 }
