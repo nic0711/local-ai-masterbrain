@@ -14,6 +14,7 @@ volumes:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
   langfuse_minio_data:
+  uptime_kuma_data:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
@@ -88,6 +89,11 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - open-webui:/app/backend/data
+    environment:
+      # Whisper STT – faster-whisper läuft direkt im Container
+      # Modelle: tiny | base | small | medium | large-v3
+      # Ändern: WHISPER_MODEL in .env anpassen → docker compose up -d open-webui
+      - WHISPER_MODEL=${WHISPER_MODEL:-medium}
     logging:
       driver: "json-file"
       options:
@@ -212,6 +218,8 @@ services:
       - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-qdrant.${DOMAIN}}
       - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
+      - NLP_HOSTNAME=${NLP_HOSTNAME:-nlp.${DOMAIN}}
+      - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -501,6 +509,35 @@ services:
       - QDRANT_HOSTNAME=${QDRANT_HOSTNAME:-qdrant.${DOMAIN}}
       - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
+      - NLP_HOSTNAME=${NLP_HOSTNAME:-}
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    expose:
+      - 3001/tcp
+    volumes:
+      - uptime_kuma_data:/app/data
+    profiles:
+      - monitoring
+
+  backup-cron:
+    image: docker:cli
+    container_name: backup-cron
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/app:ro
+      - ./backups:/opt/backups
+    environment:
+      - BACKUP_INTERVAL_H=${BACKUP_INTERVAL_H:-24}
+      - TRIGGER_FILE=/opt/backups/.trigger
+    entrypoint: /bin/sh
+    command:
+      - "/app/backup/backup-daemon.sh"
+    profiles:
+      - backup
 
   auth-gateway:
     container_name: auth-gateway
@@ -509,8 +546,12 @@ services:
     restart: unless-stopped
     expose:
       - 5001/tcp
+    volumes:
+      - ./backups:/opt/backups
     environment:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
+      - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
+      - BACKUP_STATUS_FILE=/opt/backups/.backup_status
     profiles:
       - auth

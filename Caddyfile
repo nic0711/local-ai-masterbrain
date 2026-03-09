@@ -39,6 +39,23 @@
 # Dashboard – KEIN forward_auth, sonst Redirect-Loop
 {$DASHBOARD_HOSTNAME} {
     import security_headers
+
+    # Health-Status Proxy → auth-gateway (kein auth nötig, nur up/down-Info)
+    handle /_status {
+        rewrite * /status
+        reverse_proxy auth-gateway:5001
+    }
+
+    # Backup-Control – JWT-Verifizierung erfolgt im auth-gateway selbst
+    handle /_control/backup/status {
+        rewrite * /control/backup/status
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/backup {
+        rewrite * /control/backup
+        reverse_proxy auth-gateway:5001
+    }
+
     reverse_proxy dashboard-ui:80
 }
 
@@ -61,62 +78,15 @@
     }
 }
 
-# Python NLP Service (optional - für direkten externen Zugriff)
-# nlp.{$DOMAIN_NAME} {
-#     reverse_proxy python-nlp-service:5000
-
-#     # API Rate Limiting
-#     rate_limit {
-#         zone nlp_api {
-#             key {remote_host}
-#             events 100
-#             window 1m
-#         }
-#     }
-
-#     # Nur für API-Endpunkte, keine statischen Dateien
-#     @api path /process /health /status
-#     handle @api {
-#         reverse_proxy python-nlp-service:5000 {
-#             # Timeout für längere NLP-Verarbeitung
-#             timeout 30s
-
-#             # Health Check
-#             health_uri /health
-#             health_interval 30s
-#         }
-#     }
-
-#     # Alle anderen Requests blockieren
-#     handle {
-#         respond "API endpoint only" 404
-#     }
-
-#     # Security Headers für API
-#     header {
-#         Access-Control-Allow-Origin "https://{$SUBDOMAIN}.{$DOMAIN_NAME}"
-#         Access-Control-Allow-Methods "POST, OPTIONS"
-#         Access-Control-Allow-Headers "Content-Type, Authorization"
-#         Content-Type "application/json"
-#         -Server
-#     }
-
-#     # CORS Preflight
-#     @cors_preflight method OPTIONS
-#     handle @cors_preflight {
-#         header Access-Control-Allow-Origin "https://{$SUBDOMAIN}.{$DOMAIN_NAME}"
-#         header Access-Control-Allow-Methods "POST, OPTIONS"
-#         header Access-Control-Allow-Headers "Content-Type, Authorization"
-#         respond "" 204
-#     }
-
-#     log {
-#         output file /data/logs/nlp_api_access.log {
-#             roll_size 5mb
-#             roll_keep 3
-#         }
-#     }
-# }
+# Python NLP Service
+{$NLP_HOSTNAME:nlp.invalid} {
+    import protected
+    reverse_proxy python-nlp-service:5000 {
+        transport http {
+            response_header_timeout 60s
+        }
+    }
+}
 
 # Open WebUI
 {$WEBUI_HOSTNAME} {
@@ -134,6 +104,12 @@
 {$LANGFUSE_HOSTNAME} {
     import protected
     reverse_proxy langfuse-web:3000
+}
+
+# Uptime Kuma – Service Monitoring (optional, Profil: monitoring)
+{$UPTIME_KUMA_HOSTNAME:uptime.invalid} {
+    import protected
+    reverse_proxy uptime-kuma:3001
 }
 
 # # Ollama API
