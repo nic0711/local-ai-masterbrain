@@ -9,6 +9,8 @@ import logging
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from types import SimpleNamespace
+import jwt as pyjwt
 from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -94,30 +96,30 @@ def service_status():
     return jsonify(result), 200
 
 
-# JWT-Ergebnis cachen: { token_hash → (user, expires_at) }
-# TTL: 60s – kurz genug für Logout-Erkennung, lang genug für Page-Load-Batches
+# Lokale JWT-Verifikation: kein HTTP-Call zu Supabase nötig
+_JWT_SECRET = os.environ.get("JWT_SECRET", "")
+
+# Cache für lokale Verifikationsergebnisse (Speicherschutz, max. 500 Einträge)
 _jwt_cache: dict = {}
-_JWT_CACHE_TTL = 60  # Sekunden
-_JWT_CACHE_MAX = 500  # Max. Einträge (Speicherschutz)
+_JWT_CACHE_TTL = 300  # 5 Minuten – großzügig, da lokal verifiziert
+_JWT_CACHE_MAX = 500
 
 
 def _get_verified_user():
-    """Validates JWT via Supabase – mit 60s In-Process-Cache pro Worker."""
-    if not supabase:
-        return None
-
+    """Validiert JWT lokal via PyJWT (kein Supabase-HTTP-Call).
+    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
-        jwt = auth_header.split(' ', 1)[1]
+        token = auth_header.split(' ', 1)[1]
     else:
-        jwt = request.cookies.get('sb-access-token')
-        if not jwt:
+        token = request.cookies.get('sb-access-token')
+        if not token:
             return None
 
     now = time.time()
+    cache_key = token[-32:]
 
-    # Cache-Lookup (erstes 16 Zeichen als Key reichen zur Identifikation)
-    cache_key = jwt[-32:]
+    # Cache-Lookup
     cached = _jwt_cache.get(cache_key)
     if cached:
         user, expires_at = cached
@@ -125,17 +127,34 @@ def _get_verified_user():
             return user
         del _jwt_cache[cache_key]
 
-    try:
-        user_response = supabase.auth.get_user(jwt)
-        user = user_response.user if user_response else None
-    except Exception as e:
-        logging.error(f"JWT validation error: {e}")
-        return None
+    user = None
+
+    if _JWT_SECRET:
+        # Schneller Pfad: lokale kryptografische Verifikation (<1ms)
+        try:
+            payload = pyjwt.decode(
+                token, _JWT_SECRET, algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            user = SimpleNamespace(
+                id=payload.get("sub", ""),
+                email=payload.get("email", ""),
+            )
+        except pyjwt.ExpiredSignatureError:
+            return None
+        except pyjwt.InvalidTokenError:
+            return None
+    elif supabase:
+        # Fallback: Supabase-API (wenn JWT_SECRET nicht gesetzt)
+        try:
+            resp = supabase.auth.get_user(token)
+            user = resp.user if resp else None
+        except Exception as e:
+            logging.error(f"JWT validation error: {e}")
+            return None
 
     if user:
-        # Cache begrenzen
         if len(_jwt_cache) >= _JWT_CACHE_MAX:
-            # Ältesten Eintrag entfernen
             oldest = min(_jwt_cache, key=lambda k: _jwt_cache[k][1])
             del _jwt_cache[oldest]
         _jwt_cache[cache_key] = (user, now + _JWT_CACHE_TTL)
