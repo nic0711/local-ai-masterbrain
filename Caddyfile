@@ -1,6 +1,12 @@
 {
     # Global options - works for both environments
     email {$LETSENCRYPT_EMAIL}
+    # HTTP/3 (QUIC) deaktivieren: UDP 443 ist nicht exposed im Docker-Setup.
+    # Browser würde Alt-Svc: h3 erhalten, QUIC versuchen, ~10s auf Timeout warten
+    # und erst dann auf HTTP/2 TCP zurückfallen → spürbare Verzögerung bei jedem Load.
+    servers {
+        protocols h1 h2
+    }
 }
 
 # Security Headers Snippet – in jedem vHost mit `import security_headers` einbinden
