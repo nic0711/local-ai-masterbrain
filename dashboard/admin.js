@@ -613,8 +613,12 @@
             })
                 .then(function (res) {
                     if (!res.ok) throw new Error('HTTP ' + res.status);
-                    btn.textContent = 'Backup gestartet ✓';
+                    return res.json();
+                })
+                .then(function () {
+                    btn.textContent = 'Backup erstellt ✓';
                     fetchBackupStatus();
+                    fetchBackupList();
                     setTimeout(function () {
                         btn.textContent = originalText;
                         btn.disabled = false;
