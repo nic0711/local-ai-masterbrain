@@ -8,6 +8,7 @@ import difflib
 import logging
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -80,10 +81,16 @@ def _ping(host: str, port: int, path: str) -> bool:
 
 @app.route('/status', methods=['GET'])
 def service_status():
-    """Aggregierter Health-Status aller Services – für das Dashboard."""
+    """Aggregierter Health-Status aller Services – parallel gepingt."""
+    def check(name, host, port, path):
+        return name, "up" if _ping(host, port, path) else "down"
+
     result = {}
-    for name, (host, port, path) in _SERVICES.items():
-        result[name] = "up" if _ping(host, port, path) else "down"
+    with ThreadPoolExecutor(max_workers=len(_SERVICES)) as ex:
+        futures = {ex.submit(check, n, h, p, path): n for n, (h, p, path) in _SERVICES.items()}
+        for future in as_completed(futures):
+            name, status = future.result()
+            result[name] = status
     return jsonify(result), 200
 
 
@@ -114,7 +121,7 @@ def _get_verified_user():
 
 
 @app.route('/verify', methods=['GET'])
-@limiter.limit("20 per minute")
+@limiter.limit("600 per minute")
 def verify_auth():
     if not supabase:
         return "Auth service not configured", 500
