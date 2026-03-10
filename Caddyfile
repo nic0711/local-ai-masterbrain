@@ -1,6 +1,12 @@
 {
     # Global options - works for both environments
     email {$LETSENCRYPT_EMAIL}
+    # HTTP/3 (QUIC) deaktivieren: UDP 443 ist nicht exposed im Docker-Setup.
+    # Browser würde Alt-Svc: h3 erhalten, QUIC versuchen, ~10s auf Timeout warten
+    # und erst dann auf HTTP/2 TCP zurückfallen → spürbare Verzögerung bei jedem Load.
+    servers {
+        protocols h1 h2
+    }
 }
 
 # Security Headers Snippet – in jedem vHost mit `import security_headers` einbinden
@@ -23,8 +29,11 @@
 
 # Protected Snippet – alle geschützten Services binden dies ein
 # Liest sb-access-token Cookie und prüft ihn via auth-gateway
+# Statische Assets (.js, .css, Fonts, Bilder) werden ohne forward_auth ausgeliefert –
+# HTML-Seiten und API-Calls erfordern weiterhin Auth. Reduziert Auth-Calls erheblich.
 (protected) {
-    forward_auth auth-gateway:5001 {
+    @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+    forward_auth @needs_auth auth-gateway:5001 {
         uri /verify
         header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
         copy_headers X-Forwarded-User
@@ -51,8 +60,24 @@
         rewrite * /control/backup/status
         reverse_proxy auth-gateway:5001
     }
+    handle /_control/backup/list {
+        rewrite * /control/backup/list
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/backup/files {
+        rewrite * /control/backup/files
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/backup/diff {
+        rewrite * /control/backup/diff
+        reverse_proxy auth-gateway:5001
+    }
     handle /_control/backup {
         rewrite * /control/backup
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/restore {
+        rewrite * /control/restore
         reverse_proxy auth-gateway:5001
     }
 
