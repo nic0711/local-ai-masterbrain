@@ -549,11 +549,12 @@ services:
       - 5001/tcp
     volumes:
       - ./backups:/opt/backups
-      - ./:/app:ro
+      - ./:/opt/project:ro
     environment:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
       - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
+      - APP_DIR=/opt/project
     profiles:
       - auth
