@@ -233,6 +233,322 @@
     }
 
     // ── Backup Panel ─────────────────────────────────────────────────────────
+
+    // Aktuell geöffnetes Backup für den Diff-Modal
+    var _diffBackupName = '';
+    // Aktuell für Restore vorgemerktes Backup
+    var _restoreBackupName = '';
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        var k = 1024;
+        var sizes = ['B', 'KB', 'MB', 'GB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+    }
+
+    function formatTs(ts) {
+        if (!ts || ts === 0) return '–';
+        return new Date(ts * 1000).toLocaleString('de-DE');
+    }
+
+    // ── Backup-Liste ─────────────────────────────────────────────────────────
+    function fetchBackupList() {
+        var tbody = document.getElementById('backup-list-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="4" class="no-data">Lade…</td></tr>';
+
+        fetch('/_control/backup/list', {
+            credentials: 'include',
+            signal: AbortSignal.timeout(8000),
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (backups) {
+                if (!backups || backups.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="no-data">Keine Backups vorhanden.</td></tr>';
+                    return;
+                }
+                var fragment = document.createDocumentFragment();
+                backups.forEach(function (b) {
+                    var tr = document.createElement('tr');
+
+                    var tdDate = document.createElement('td');
+                    tdDate.textContent = formatTs(b.timestamp);
+                    tr.appendChild(tdDate);
+
+                    var tdSize = document.createElement('td');
+                    tdSize.textContent = formatBytes(b.size);
+                    tr.appendChild(tdSize);
+
+                    var tdFiles = document.createElement('td');
+                    tdFiles.textContent = b.files || 0;
+                    tr.appendChild(tdFiles);
+
+                    var tdActions = document.createElement('td');
+                    tdActions.className = 'backup-actions';
+
+                    var diffBtn = document.createElement('button');
+                    diffBtn.className = 'btn-ghost';
+                    diffBtn.textContent = 'Diff';
+                    diffBtn.setAttribute('data-backup', b.name);
+                    diffBtn.addEventListener('click', function () {
+                        openDiffModal(b.name);
+                    });
+
+                    var restoreBtn = document.createElement('button');
+                    restoreBtn.className = 'btn-ghost btn-ghost--warn';
+                    restoreBtn.textContent = 'Wiederherstellen';
+                    restoreBtn.setAttribute('data-backup', b.name);
+                    restoreBtn.addEventListener('click', function () {
+                        confirmRestore(b.name);
+                    });
+
+                    tdActions.appendChild(diffBtn);
+                    tdActions.appendChild(restoreBtn);
+                    tr.appendChild(tdActions);
+
+                    fragment.appendChild(tr);
+                });
+                tbody.innerHTML = '';
+                tbody.appendChild(fragment);
+            })
+            .catch(function () {
+                tbody.innerHTML = '<tr><td colspan="4" class="no-data">Fehler beim Laden der Backup-Liste.</td></tr>';
+            });
+    }
+
+    // ── Diff-Modal ───────────────────────────────────────────────────────────
+    function openDiffModal(backupName) {
+        _diffBackupName = backupName;
+
+        var modal = document.getElementById('diff-modal');
+        var title = document.getElementById('diff-modal-title');
+        var fileList = document.getElementById('diff-file-list');
+        var viewer = document.getElementById('diff-viewer');
+        var placeholder = document.getElementById('diff-viewer-placeholder');
+
+        if (!modal) return;
+
+        title.textContent = 'Diff: ' + backupName;
+        fileList.innerHTML = '<p class="no-data">Lade Dateiliste…</p>';
+        if (viewer) { viewer.innerHTML = ''; viewer.classList.add('hidden'); }
+        if (placeholder) { placeholder.classList.remove('hidden'); }
+        modal.classList.remove('hidden');
+
+        fetch('/_control/backup/files?backup=' + encodeURIComponent(backupName), {
+            credentials: 'include',
+            signal: AbortSignal.timeout(8000),
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (files) {
+                if (!files || files.length === 0) {
+                    fileList.innerHTML = '<p class="no-data">Keine Dateien im Backup.</p>';
+                    return;
+                }
+                var ul = document.createElement('ul');
+                ul.className = 'diff-file-list-inner';
+                files.forEach(function (f) {
+                    var li = document.createElement('li');
+                    li.className = 'diff-file-item';
+                    li.setAttribute('data-path', f.path);
+                    li.textContent = f.path;
+                    li.addEventListener('click', function () {
+                        document.querySelectorAll('.diff-file-item').forEach(function (el) {
+                            el.classList.remove('active');
+                        });
+                        li.classList.add('active');
+                        li.classList.add('loading');
+                        showFileDiff(backupName, f.path, function () {
+                            li.classList.remove('loading');
+                        });
+                    });
+                    ul.appendChild(li);
+                });
+                fileList.innerHTML = '';
+                fileList.appendChild(ul);
+            })
+            .catch(function () {
+                fileList.innerHTML = '<p class="no-data">Fehler beim Laden der Dateiliste.</p>';
+            });
+    }
+
+    function showFileDiff(backupName, filePath, done) {
+        var viewer = document.getElementById('diff-viewer');
+        var placeholder = document.getElementById('diff-viewer-placeholder');
+        if (!viewer) return;
+
+        if (placeholder) placeholder.classList.add('hidden');
+        viewer.classList.remove('hidden');
+        viewer.innerHTML = '<span style="color:#666">Lade Diff…</span>';
+
+        var url = '/_control/backup/diff?backup=' + encodeURIComponent(backupName) +
+                  '&file=' + encodeURIComponent(filePath);
+
+        fetch(url, {
+            credentials: 'include',
+            signal: AbortSignal.timeout(10000),
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                if (done) done();
+                if (!data.changed) {
+                    viewer.innerHTML = '<span style="color:#66bb6a">Keine Unterschiede – Datei ist identisch.</span>';
+
+                    // Badge in der Dateiliste aktualisieren
+                    var activeItem = document.querySelector('.diff-file-item.active');
+                    if (activeItem && !activeItem.querySelector('.diff-badge')) {
+                        var badge = document.createElement('span');
+                        badge.className = 'diff-badge diff-badge--ok';
+                        badge.textContent = 'Unverändert';
+                        activeItem.appendChild(badge);
+                    }
+                    return;
+                }
+
+                // Badge setzen
+                var activeItem = document.querySelector('.diff-file-item.active');
+                if (activeItem && !activeItem.querySelector('.diff-badge')) {
+                    var badge = document.createElement('span');
+                    badge.className = 'diff-badge diff-badge--changed';
+                    badge.textContent = 'Geändert';
+                    activeItem.appendChild(badge);
+                }
+
+                viewer.innerHTML = renderDiff(data.diff || []);
+            })
+            .catch(function () {
+                if (done) done();
+                viewer.innerHTML = '<span style="color:#ef5350">Fehler beim Laden des Diffs.</span>';
+            });
+    }
+
+    function renderDiff(diffLines) {
+        if (!diffLines || diffLines.length === 0) {
+            return '<span style="color:#66bb6a">Keine Unterschiede.</span>';
+        }
+        var html = '';
+        diffLines.forEach(function (line) {
+            var escaped = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            var cls = 'diff-line';
+            if (line.startsWith('+') && !line.startsWith('+++')) {
+                cls += ' diff-line-add';
+            } else if (line.startsWith('-') && !line.startsWith('---')) {
+                cls += ' diff-line-del';
+            } else if (line.startsWith('@@')) {
+                cls += ' diff-line-meta';
+            } else if (line.startsWith('---') || line.startsWith('+++')) {
+                cls += ' diff-line-header';
+            }
+            html += '<span class="' + cls + '">' + escaped + '\n</span>';
+        });
+        return html;
+    }
+
+    function closeDiffModal() {
+        var modal = document.getElementById('diff-modal');
+        if (modal) modal.classList.add('hidden');
+        _diffBackupName = '';
+    }
+
+    // ── Restore-Dialog ───────────────────────────────────────────────────────
+    function confirmRestore(backupName) {
+        _restoreBackupName = backupName;
+
+        var modal = document.getElementById('restore-modal');
+        var nameEl = document.getElementById('restore-backup-name');
+        var msgEl = document.getElementById('restore-status-msg');
+
+        if (!modal) return;
+
+        if (nameEl) nameEl.textContent = backupName;
+        if (msgEl) msgEl.textContent = '';
+        modal.classList.remove('hidden');
+    }
+
+    function closeRestoreModal() {
+        var modal = document.getElementById('restore-modal');
+        if (modal) modal.classList.add('hidden');
+        _restoreBackupName = '';
+    }
+
+    function doRestore() {
+        if (!_restoreBackupName) return;
+
+        var confirmBtn = document.getElementById('restore-confirm-btn');
+        var msgEl = document.getElementById('restore-status-msg');
+
+        if (confirmBtn) confirmBtn.disabled = true;
+        if (msgEl) { msgEl.textContent = 'Restore wird gestartet…'; msgEl.style.color = '#a0a0a0'; }
+
+        fetch('/_control/restore', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backup: _restoreBackupName }),
+            signal: AbortSignal.timeout(10000),
+        })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function () {
+                if (msgEl) { msgEl.textContent = 'Restore gestartet – Workflows werden wiederhergestellt.'; msgEl.style.color = '#66bb6a'; }
+                setTimeout(function () {
+                    closeRestoreModal();
+                    if (confirmBtn) confirmBtn.disabled = false;
+                }, 3000);
+            })
+            .catch(function () {
+                if (msgEl) { msgEl.textContent = 'Fehler beim Starten des Restores.'; msgEl.style.color = '#ef5350'; }
+                if (confirmBtn) confirmBtn.disabled = false;
+            });
+    }
+
+    function initRestoreModal() {
+        var closeBtn = document.getElementById('restore-modal-close');
+        var cancelBtn = document.getElementById('restore-cancel-btn');
+        var confirmBtn = document.getElementById('restore-confirm-btn');
+        var overlay = document.getElementById('restore-modal');
+
+        if (closeBtn) closeBtn.addEventListener('click', closeRestoreModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeRestoreModal);
+        if (confirmBtn) confirmBtn.addEventListener('click', doRestore);
+        if (overlay) {
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) closeRestoreModal();
+            });
+        }
+    }
+
+    function initDiffModal() {
+        var closeBtn = document.getElementById('diff-modal-close');
+        var overlay = document.getElementById('diff-modal');
+
+        if (closeBtn) closeBtn.addEventListener('click', closeDiffModal);
+        if (overlay) {
+            overlay.addEventListener('click', function (e) {
+                if (e.target === overlay) closeDiffModal();
+            });
+        }
+    }
+
+    function initRefreshBackupList() {
+        var btn = document.getElementById('refresh-backup-list-btn');
+        if (btn) btn.addEventListener('click', fetchBackupList);
+    }
+
     function fetchBackupStatus() {
         var timeEl = document.getElementById('last-backup-time');
         var badgeEl = document.getElementById('backup-status-badge');
@@ -297,8 +613,12 @@
             })
                 .then(function (res) {
                     if (!res.ok) throw new Error('HTTP ' + res.status);
-                    btn.textContent = 'Backup gestartet ✓';
+                    return res.json();
+                })
+                .then(function () {
+                    btn.textContent = 'Backup erstellt ✓';
                     fetchBackupStatus();
+                    fetchBackupList();
                     setTimeout(function () {
                         btn.textContent = originalText;
                         btn.disabled = false;
@@ -326,7 +646,11 @@
         initTabs();
         initClearEvents();
         initBackupButton();
+        initDiffModal();
+        initRestoreModal();
+        initRefreshBackupList();
         fetchBackupStatus();
+        fetchBackupList();
         // Refresh backup status every 30s
         setInterval(fetchBackupStatus, 30000);
     });

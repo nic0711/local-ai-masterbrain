@@ -530,6 +530,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app:ro
       - ./backups:/opt/backups
+      - ./n8n/backup/workflows:/opt/workflows-restore:rw
     environment:
       - BACKUP_INTERVAL_H=${BACKUP_INTERVAL_H:-24}
       - TRIGGER_FILE=/opt/backups/.trigger
@@ -548,10 +549,13 @@ services:
       - 5001/tcp
     volumes:
       - ./backups:/opt/backups
+      - ./:/opt/project:ro
     environment:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
       - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
+      - APP_DIR=/opt/project
     profiles:
       - auth
