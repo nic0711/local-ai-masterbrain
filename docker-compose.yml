@@ -530,6 +530,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app:ro
       - ./backups:/opt/backups
+      - ./n8n/backup/workflows:/opt/workflows-restore:rw
     environment:
       - BACKUP_INTERVAL_H=${BACKUP_INTERVAL_H:-24}
       - TRIGGER_FILE=/opt/backups/.trigger
@@ -548,6 +549,7 @@ services:
       - 5001/tcp
     volumes:
       - ./backups:/opt/backups
+      - ./:/app:ro
     environment:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
