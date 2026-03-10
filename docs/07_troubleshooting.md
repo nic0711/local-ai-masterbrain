@@ -133,6 +133,58 @@ SpaCy-Modelle laden beim ersten Start 30–60s. Warten und `docker logs python-n
 
 ---
 
+## Performance & "Too many requests"
+
+**Problem: Services laden sehr langsam oder zeigen "429 Too many requests"**
+
+Ursache: Caddy's `forward_auth` ruft `/verify` für jeden Asset-Request auf. Bei großen Frontends (Langfuse, Supabase Studio) sind das 50–150 parallele Requests.
+
+Lösung (bereits implementiert ab diesem Release):
+- Lokale JWT-Verifikation via PyJWT (kein Supabase-HTTP-Call)
+- 1 Worker + 16 Threads (geteilter JWT-Cache)
+- Rate-Limit: 600/min statt 20/min
+
+Auth-Gateway neu bauen falls noch nicht geschehen:
+```bash
+docker compose -p localai up -d --build auth-gateway
+```
+
+**Problem: Health-Dots laden langsam oder `/_status` hängt**
+
+Früher: 13 Services sequenziell gepingt (bis 39s bei vielen Down-Services).
+Jetzt: parallel gepingt (~3s max).
+
+Prüfen ob aktueller Stand läuft:
+```bash
+docker logs auth-gateway | grep "Starting gunicorn"
+# Sollte "gthread" Worker zeigen
+```
+
+---
+
+## Backup
+
+**Problem: Backup-Button zeigt kurz Reaktion, dann passiert nichts**
+
+- auth-gateway wurde noch nicht neu gebaut (alte Version schrieb nur Trigger-Datei)
+- Neu bauen: `docker compose -p localai up -d --build auth-gateway`
+
+**Problem: Backup-Liste bleibt leer**
+
+```bash
+ls ./backups/          # Verzeichnis vorhanden?
+docker logs auth-gateway | grep -i backup
+```
+
+**Problem: `./backups/` Berechtigungsfehler**
+
+```bash
+mkdir -p ./backups && chmod 755 ./backups
+docker compose -p localai restart auth-gateway
+```
+
+---
+
 ## Migration / Upstream-Update
 
 **Problem: `LANGFUSE_ENCRYPTION_KEY` fehlt nach Update**
