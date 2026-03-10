@@ -94,30 +94,53 @@ def service_status():
     return jsonify(result), 200
 
 
+# JWT-Ergebnis cachen: { token_hash → (user, expires_at) }
+# TTL: 60s – kurz genug für Logout-Erkennung, lang genug für Page-Load-Batches
+_jwt_cache: dict = {}
+_JWT_CACHE_TTL = 60  # Sekunden
+_JWT_CACHE_MAX = 500  # Max. Einträge (Speicherschutz)
+
+
 def _get_verified_user():
-    """Extracts JWT from Authorization header or sb-access-token cookie and validates it.
-    Returns the user object on success, or None on failure."""
+    """Validates JWT via Supabase – mit 60s In-Process-Cache pro Worker."""
     if not supabase:
         return None
 
-    # Primär: Authorization-Header (gesetzt von Caddy via header_up)
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         jwt = auth_header.split(' ', 1)[1]
     else:
-        # Fallback: Token direkt aus Cookie lesen
         jwt = request.cookies.get('sb-access-token')
         if not jwt:
             return None
 
+    now = time.time()
+
+    # Cache-Lookup (erstes 16 Zeichen als Key reichen zur Identifikation)
+    cache_key = jwt[-32:]
+    cached = _jwt_cache.get(cache_key)
+    if cached:
+        user, expires_at = cached
+        if now < expires_at:
+            return user
+        del _jwt_cache[cache_key]
+
     try:
         user_response = supabase.auth.get_user(jwt)
-        if user_response.user:
-            return user_response.user
+        user = user_response.user if user_response else None
     except Exception as e:
         logging.error(f"JWT validation error: {e}")
+        return None
 
-    return None
+    if user:
+        # Cache begrenzen
+        if len(_jwt_cache) >= _JWT_CACHE_MAX:
+            # Ältesten Eintrag entfernen
+            oldest = min(_jwt_cache, key=lambda k: _jwt_cache[k][1])
+            del _jwt_cache[oldest]
+        _jwt_cache[cache_key] = (user, now + _JWT_CACHE_TTL)
+
+    return user
 
 
 @app.route('/verify', methods=['GET'])
