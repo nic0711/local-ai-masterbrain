@@ -199,6 +199,74 @@
                         <p class="panel-meta" style="margin-top:0.85rem;text-align:center">Geplant: alle 24 h · Ablage: /opt/backups</p>
                     </div>
                 </div>
+
+                <!-- Backup-Liste -->
+                <div class="admin-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Verfügbare Backups</h3>
+                        <button id="refresh-backup-list-btn" class="btn-ghost">Aktualisieren</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="backup-table">
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Größe</th>
+                                    <th>Dateien</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="backup-list-tbody">
+                                <tr><td colspan="4" class="no-data">Lade Backup-Liste…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diff-Modal -->
+            <div id="diff-modal" class="diff-modal-overlay hidden">
+                <div class="diff-modal-box">
+                    <div class="diff-modal-header">
+                        <h3 id="diff-modal-title">Backup-Vergleich</h3>
+                        <button id="diff-modal-close" class="modal-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div class="diff-modal-body">
+                        <div class="diff-file-list" id="diff-file-list">
+                            <p class="no-data">Lade Dateiliste…</p>
+                        </div>
+                        <div class="diff-viewer-wrap">
+                            <div id="diff-viewer-placeholder" class="diff-viewer-placeholder">
+                                Datei auswählen um Unterschiede anzuzeigen.
+                            </div>
+                            <pre id="diff-viewer" class="diff-viewer hidden"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Restore-Bestätigungsdialog -->
+            <div id="restore-modal" class="diff-modal-overlay hidden">
+                <div class="diff-modal-box diff-modal-box--narrow">
+                    <div class="diff-modal-header">
+                        <h3>Backup wiederherstellen</h3>
+                        <button id="restore-modal-close" class="modal-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div style="padding: 1rem 0;">
+                        <p style="color:#bbb;font-size:0.9rem;margin:0 0 0.75rem">
+                            Folgendes Backup wird in <code>n8n/backup/workflows/</code> wiederhergestellt:
+                        </p>
+                        <p id="restore-backup-name" style="color:#fff;font-weight:600;font-size:0.95rem;margin:0 0 1.25rem;word-break:break-all"></p>
+                        <p style="color:#ef5350;font-size:0.82rem;margin:0 0 1.25rem">
+                            Achtung: Bestehende Workflow-Dateien werden überschrieben.
+                        </p>
+                        <div style="display:flex;gap:0.75rem">
+                            <button id="restore-confirm-btn" class="btn-primary btn-danger" style="flex:1">Wiederherstellen</button>
+                            <button id="restore-cancel-btn" class="btn-ghost" style="flex:1">Abbrechen</button>
+                        </div>
+                        <p id="restore-status-msg" class="panel-meta" style="margin-top:0.75rem;text-align:center;min-height:1.2em"></p>
+                    </div>
+                </div>
             </div>
             <!-- Profile Tab -->
             <div id="tab-profile" class="tab-panel">
