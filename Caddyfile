@@ -51,8 +51,24 @@
         rewrite * /control/backup/status
         reverse_proxy auth-gateway:5001
     }
+    handle /_control/backup/list {
+        rewrite * /control/backup/list
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/backup/files {
+        rewrite * /control/backup/files
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/backup/diff {
+        rewrite * /control/backup/diff
+        reverse_proxy auth-gateway:5001
+    }
     handle /_control/backup {
         rewrite * /control/backup
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/restore {
+        rewrite * /control/restore
         reverse_proxy auth-gateway:5001
     }
 
