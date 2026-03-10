@@ -23,8 +23,11 @@
 
 # Protected Snippet – alle geschützten Services binden dies ein
 # Liest sb-access-token Cookie und prüft ihn via auth-gateway
+# Statische Assets (.js, .css, Fonts, Bilder) werden ohne forward_auth ausgeliefert –
+# HTML-Seiten und API-Calls erfordern weiterhin Auth. Reduziert Auth-Calls erheblich.
 (protected) {
-    forward_auth auth-gateway:5001 {
+    @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+    forward_auth @needs_auth auth-gateway:5001 {
         uri /verify
         header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
         copy_headers X-Forwarded-User
