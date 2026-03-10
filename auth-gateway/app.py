@@ -71,6 +71,9 @@ def _ping(host: str, port: int, path: str) -> bool:
         url = f"http://{host}:{port}{path}"
         req = urllib.request.urlopen(url, timeout=3)
         return req.status < 500
+    except urllib.error.HTTPError as e:
+        # 4xx = Service läuft, braucht nur Auth → "up"
+        return e.code < 500
     except Exception:
         return False
 
@@ -126,24 +129,84 @@ def verify_auth():
     return "Unauthorized", 401
 
 
+_BACKUP_SOURCES = [
+    'n8n/backup/workflows',
+    'docker-compose.yml',
+    'Caddyfile',
+    '.env.example',
+    'auth-gateway/app.py',
+    'auth-gateway/requirements.txt',
+    'dashboard/index.html',
+    'dashboard/style.css',
+    'dashboard/auth.js',
+    'dashboard/health.js',
+    'dashboard/admin.js',
+    'backup/backup-daemon.sh',
+    'backup/backup.sh',
+]
+
+
 @app.route('/control/backup', methods=['POST'])
 def trigger_backup():
-    """Schreibt eine Trigger-Datei, die vom backup-daemon aufgegriffen wird."""
+    """Erstellt ein Backup direkt in Python – kein externer Daemon nötig."""
     user = _get_verified_user()
     if not user:
         logging.warning("Unauthorized backup trigger attempt.")
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
-        trigger_dir = os.path.dirname(_BACKUP_TRIGGER)
-        os.makedirs(trigger_dir, exist_ok=True)
-        with open(_BACKUP_TRIGGER, 'w') as f:
-            f.write(str(int(time.time())))
-        logging.info(f"Backup triggered by user: {user.id}")
-        return jsonify({"status": "triggered"}), 200
+        os.makedirs(_BACKUP_DIR, exist_ok=True)
+
+        from datetime import datetime
+        ts = int(time.time())
+        name = f"backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        archive_path = os.path.join(_BACKUP_DIR, f"{name}.tar.gz")
+        meta_path = os.path.join(_BACKUP_DIR, f"{name}.meta.json")
+
+        file_count = 0
+        with tarfile.open(archive_path, 'w:gz') as tf:
+            for rel_path in _BACKUP_SOURCES:
+                full_path = os.path.join(_APP_DIR, rel_path)
+                if not os.path.exists(full_path):
+                    continue
+                tf.add(full_path, arcname=rel_path, recursive=True,
+                       filter=lambda m: None if any(
+                           x in m.name for x in ['.pyc', '__pycache__', '.git']
+                       ) else m)
+                if os.path.isfile(full_path):
+                    file_count += 1
+                else:
+                    file_count += sum(len(f) for _, _, f in os.walk(full_path))
+
+        size = os.path.getsize(archive_path)
+
+        with open(meta_path, 'w') as f:
+            json.dump({"name": name, "timestamp": ts, "size": size, "files": file_count}, f)
+
+        # Status-Datei aktualisieren
+        with open(_BACKUP_STATUS, 'w') as f:
+            f.write(f"success:{ts}")
+
+        # Alte Backups bereinigen (max. 10 behalten)
+        old_metas = sorted(glob.glob(os.path.join(_BACKUP_DIR, 'backup_*.meta.json')), reverse=True)
+        for old_meta in old_metas[10:]:
+            try:
+                os.remove(old_meta)
+                os.remove(old_meta.replace('.meta.json', '.tar.gz'))
+            except Exception:
+                pass
+
+        logging.info(f"Backup erstellt von {user.id}: {name} ({file_count} Dateien, {size} B)")
+        return jsonify({"status": "success", "backup": name, "files": file_count, "size": size}), 200
+
     except Exception as e:
-        logging.error(f"Failed to write backup trigger file: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        logging.error(f"Backup-Fehler: {e}")
+        try:
+            with open(_BACKUP_STATUS, 'w') as f:
+                f.write(f"failed:{int(time.time())}")
+        except Exception:
+            pass
+        return jsonify({"error": "Backup fehlgeschlagen"}), 500
 
 
 @app.route('/control/backup/status', methods=['GET'])
