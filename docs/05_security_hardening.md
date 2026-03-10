@@ -111,6 +111,48 @@ sudo apt install iptables-persistent
 
 ---
 
+## Auth-Gateway Performance
+
+### JWT-Verifikation
+
+Der auth-gateway verifiziert JWTs **lokal** via PyJWT – ohne HTTP-Call zu Supabase.
+
+```
+Browser → Caddy → forward_auth → auth-gateway /verify
+                                   → PyJWT.decode(token, JWT_SECRET)  # <1ms, kein Netzwerk
+                                   → Cache-Lookup (5min TTL)
+```
+
+**Warum lokal statt Supabase-API:**
+Caddy ruft `/verify` für **jeden** Asset-Request auf (HTML, JS, CSS, Fonts...). Ein großes Frontend (Langfuse, Supabase Studio) lädt 50–150 Assets – das wären 50–150 Supabase-HTTP-Calls (~30ms each = mehrere Sekunden Wartezeit).
+
+Mit lokaler Verifikation: <1ms pro Check, alle Assets laden parallel.
+
+**Tradeoff:** Manuell gesperrte Sessions werden erst beim Token-Ablauf (max. 1h) erkannt.
+Für den üblichen Anwendungsfall (Logout via Dashboard) kein Problem – der Cookie wird dabei gelöscht.
+
+### Konfiguration
+
+```yaml
+# docker-compose.yml – auth-gateway
+environment:
+  - JWT_SECRET=${JWT_SECRET}   # Supabase JWT Secret aus .env
+```
+
+### Brute-Force-Schutz
+
+`/verify` ist auf **600 Req/min** begrenzt (Flask-Limiter, pro IP).
+Das erlaubt normale Browser-Nutzung (parallel Asset-Loads), blockiert aber Scripting-Angriffe.
+
+### Concurrency
+
+```
+gunicorn: 1 Worker + 16 gThreads
+```
+Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen eigenen Cache → Cache-Misses bei selten genutzten Services.
+
+---
+
 ## Cookie-Sicherheit
 
 | Eigenschaft | Lokal (`.local`) | Produktion |
