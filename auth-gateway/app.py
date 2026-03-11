@@ -189,8 +189,10 @@ _BACKUP_SOURCES = [
     'dashboard/index.html',
     'dashboard/style.css',
     'dashboard/auth.js',
+    'dashboard/main.js',
     'dashboard/health.js',
     'dashboard/admin.js',
+    'dashboard/entrypoint.sh',
     'backup/backup-daemon.sh',
     'backup/backup.sh',
 ]
