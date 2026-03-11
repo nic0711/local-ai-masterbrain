@@ -517,17 +517,19 @@ services:
     restart: unless-stopped
     expose:
       - 3001/tcp
+    environment:
+      - UPTIME_KUMA_PORT=3001
+      - NODE_ENV=production
     volumes:
       - uptime_kuma_data:/app/data
     profiles:
       - monitoring
 
   backup-cron:
-    image: docker:cli
+    image: alpine:3
     container_name: backup-cron
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app:ro
       - ./backups:/opt/backups
       - ./n8n/backup/workflows:/opt/workflows-restore:rw

@@ -17,6 +17,7 @@
         'minio':              'MinIO',
         'clickhouse':         'Clickhouse',
         'obsidian':           'Obsidian',
+        'uptime-kuma':        'UptimeBot',
     };
 
     // ── Tab Switching ────────────────────────────────────────────────────────
@@ -634,6 +635,248 @@
         });
     }
 
+    // ── User Management ──────────────────────────────────────────────────────
+
+    function formatUserDate(iso) {
+        if (!iso || iso === 'None' || iso === 'null') return '–';
+        try {
+            return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return iso; }
+    }
+
+    function clearTbody(tbody) {
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+    }
+
+    function makeNoDataRow(cols, text) {
+        var tr = document.createElement('tr');
+        var td = document.createElement('td');
+        td.colSpan = cols;
+        td.className = 'no-data';
+        td.textContent = text;
+        tr.appendChild(td);
+        return tr;
+    }
+
+    function fetchUsers() {
+        var tbody = document.getElementById('users-tbody');
+        if (!tbody) return;
+        clearTbody(tbody);
+        tbody.appendChild(makeNoDataRow(4, 'Lade Benutzer…'));
+
+        fetch('/_control/users', { credentials: 'include', signal: AbortSignal.timeout(8000) })
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (users) {
+                clearTbody(tbody);
+                if (!users || users.length === 0) {
+                    tbody.appendChild(makeNoDataRow(4, 'Keine Benutzer gefunden.'));
+                    return;
+                }
+                var fragment = document.createDocumentFragment();
+                users.forEach(function (u) {
+                    var tr = document.createElement('tr');
+
+                    var tdEmail = document.createElement('td');
+                    tdEmail.textContent = u.email || '–';
+                    tr.appendChild(tdEmail);
+
+                    var tdCreated = document.createElement('td');
+                    tdCreated.textContent = formatUserDate(u.created_at);
+                    tr.appendChild(tdCreated);
+
+                    var tdLogin = document.createElement('td');
+                    tdLogin.textContent = formatUserDate(u.last_sign_in_at);
+                    tr.appendChild(tdLogin);
+
+                    var tdActions = document.createElement('td');
+                    tdActions.className = 'backup-actions';
+
+                    var pwBtn = document.createElement('button');
+                    pwBtn.className = 'btn-ghost';
+                    pwBtn.textContent = 'Passwort';
+                    pwBtn.addEventListener('click', function () { openUserPwModal(u.id, u.email); });
+
+                    var delBtn = document.createElement('button');
+                    delBtn.className = 'btn-ghost btn-ghost--warn';
+                    delBtn.textContent = 'Löschen';
+                    delBtn.addEventListener('click', function () { openUserDelModal(u.id, u.email); });
+
+                    tdActions.appendChild(pwBtn);
+                    tdActions.appendChild(delBtn);
+                    tr.appendChild(tdActions);
+                    fragment.appendChild(tr);
+                });
+                tbody.appendChild(fragment);
+            })
+            .catch(function () {
+                clearTbody(tbody);
+                tbody.appendChild(makeNoDataRow(4, 'Fehler beim Laden.'));
+            });
+    }
+
+    // ── User Password Modal ───────────────────────────────────────────────────
+    var _pwUserId = '';
+
+    function openUserPwModal(userId, email) {
+        _pwUserId = userId;
+        var modal = document.getElementById('user-pw-modal');
+        var emailEl = document.getElementById('user-pw-email');
+        var input = document.getElementById('user-pw-input');
+        var msg = document.getElementById('user-pw-msg');
+        if (!modal) return;
+        if (emailEl) emailEl.textContent = email;
+        if (input) input.value = '';
+        if (msg) msg.textContent = '';
+        modal.classList.remove('hidden');
+    }
+
+    function closeUserPwModal() {
+        var modal = document.getElementById('user-pw-modal');
+        if (modal) modal.classList.add('hidden');
+        _pwUserId = '';
+    }
+
+    function doUserPwReset() {
+        var input = document.getElementById('user-pw-input');
+        var msg = document.getElementById('user-pw-msg');
+        var btn = document.getElementById('user-pw-confirm-btn');
+        var pw = input ? input.value.trim() : '';
+        if (pw.length < 8) {
+            if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Mindestens 8 Zeichen erforderlich.'; }
+            return;
+        }
+        if (btn) btn.disabled = true;
+        fetch('/_control/users/password', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: _pwUserId, password: pw }),
+            signal: AbortSignal.timeout(8000),
+        })
+            .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+            .then(function (result) {
+                if (result.ok) {
+                    if (msg) { msg.style.color = '#66bb6a'; msg.textContent = 'Passwort geändert.'; }
+                    setTimeout(closeUserPwModal, 2000);
+                } else {
+                    if (msg) { msg.style.color = '#ef5350'; msg.textContent = result.d.error || 'Fehler.'; }
+                }
+                if (btn) btn.disabled = false;
+            })
+            .catch(function () {
+                if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Netzwerkfehler.'; }
+                if (btn) btn.disabled = false;
+            });
+    }
+
+    // ── User Delete Modal ─────────────────────────────────────────────────────
+    var _delUserId = '';
+
+    function openUserDelModal(userId, email) {
+        _delUserId = userId;
+        var modal = document.getElementById('user-del-modal');
+        var emailEl = document.getElementById('user-del-email');
+        var msg = document.getElementById('user-del-msg');
+        if (!modal) return;
+        if (emailEl) emailEl.textContent = email;
+        if (msg) msg.textContent = '';
+        modal.classList.remove('hidden');
+    }
+
+    function closeUserDelModal() {
+        var modal = document.getElementById('user-del-modal');
+        if (modal) modal.classList.add('hidden');
+        _delUserId = '';
+    }
+
+    function doUserDelete() {
+        var msg = document.getElementById('user-del-msg');
+        var btn = document.getElementById('user-del-confirm-btn');
+        if (btn) btn.disabled = true;
+        fetch('/_control/users/delete', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: _delUserId }),
+            signal: AbortSignal.timeout(8000),
+        })
+            .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+            .then(function (result) {
+                if (result.ok) {
+                    if (msg) { msg.style.color = '#66bb6a'; msg.textContent = 'Benutzer gelöscht.'; }
+                    setTimeout(function () { closeUserDelModal(); fetchUsers(); }, 1500);
+                } else {
+                    if (msg) { msg.style.color = '#ef5350'; msg.textContent = result.d.error || 'Fehler.'; }
+                    if (btn) btn.disabled = false;
+                }
+            })
+            .catch(function () {
+                if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Netzwerkfehler.'; }
+                if (btn) btn.disabled = false;
+            });
+    }
+
+    // ── Benutzer einladen ─────────────────────────────────────────────────────
+    function initInviteUser() {
+        var btn = document.getElementById('invite-user-btn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var emailInput = document.getElementById('invite-email');
+            var pwInput = document.getElementById('invite-password');
+            var msg = document.getElementById('invite-msg');
+            var email = emailInput ? emailInput.value.trim() : '';
+            var pw = pwInput ? pwInput.value : '';
+            if (!email || pw.length < 8) {
+                if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Gültige Email + Passwort (min. 8 Zeichen) erforderlich.'; }
+                return;
+            }
+            btn.disabled = true;
+            fetch('/_control/users', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: pw }),
+                signal: AbortSignal.timeout(8000),
+            })
+                .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+                .then(function (result) {
+                    if (result.ok) {
+                        if (msg) { msg.style.color = '#66bb6a'; msg.textContent = 'Benutzer angelegt: ' + result.d.email; }
+                        if (emailInput) emailInput.value = '';
+                        if (pwInput) pwInput.value = '';
+                        fetchUsers();
+                    } else {
+                        if (msg) { msg.style.color = '#ef5350'; msg.textContent = result.d.error || 'Fehler.'; }
+                    }
+                    btn.disabled = false;
+                })
+                .catch(function () {
+                    if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Netzwerkfehler.'; }
+                    btn.disabled = false;
+                });
+        });
+    }
+
+    function initUserModals() {
+        var pwClose = document.getElementById('user-pw-close');
+        var pwCancel = document.getElementById('user-pw-cancel-btn');
+        var pwConfirm = document.getElementById('user-pw-confirm-btn');
+        var pwOverlay = document.getElementById('user-pw-modal');
+        if (pwClose) pwClose.addEventListener('click', closeUserPwModal);
+        if (pwCancel) pwCancel.addEventListener('click', closeUserPwModal);
+        if (pwConfirm) pwConfirm.addEventListener('click', doUserPwReset);
+        if (pwOverlay) pwOverlay.addEventListener('click', function (e) { if (e.target === pwOverlay) closeUserPwModal(); });
+
+        var delClose = document.getElementById('user-del-close');
+        var delCancel = document.getElementById('user-del-cancel-btn');
+        var delConfirm = document.getElementById('user-del-confirm-btn');
+        var delOverlay = document.getElementById('user-del-modal');
+        if (delClose) delClose.addEventListener('click', closeUserDelModal);
+        if (delCancel) delCancel.addEventListener('click', closeUserDelModal);
+        if (delConfirm) delConfirm.addEventListener('click', doUserDelete);
+        if (delOverlay) delOverlay.addEventListener('click', function (e) { if (e.target === delOverlay) closeUserDelModal(); });
+    }
+
     // ── Public API – called by health.js ─────────────────────────────────────
     window.onHealthUpdate = function (statuses, history, events) {
         renderStatusTable(statuses, history);
@@ -651,7 +894,11 @@
         initRefreshBackupList();
         fetchBackupStatus();
         fetchBackupList();
-        // Refresh backup status every 30s
         setInterval(fetchBackupStatus, 30000);
+        initUserModals();
+        initInviteUser();
+        var refreshUsersBtn = document.getElementById('refresh-users-btn');
+        if (refreshUsersBtn) refreshUsersBtn.addEventListener('click', fetchUsers);
+        fetchUsers();
     });
 })();

@@ -67,6 +67,7 @@ _SERVICES = {
     "minio":              ("localai-minio-1", 9000, "/minio/health/live"),
     "clickhouse":         ("clickhouse", 8123, "/ping"),
     "obsidian":           ("host.docker.internal", 27123, "/"),
+    "uptime-kuma":        ("uptime-kuma", 3001, "/"),
 }
 
 def _ping(host: str, port: int, path: str) -> bool:
@@ -188,8 +189,10 @@ _BACKUP_SOURCES = [
     'dashboard/index.html',
     'dashboard/style.css',
     'dashboard/auth.js',
+    'dashboard/main.js',
     'dashboard/health.js',
     'dashboard/admin.js',
+    'dashboard/entrypoint.sh',
     'backup/backup-daemon.sh',
     'backup/backup.sh',
 ]
@@ -416,6 +419,107 @@ def backup_diff():
     except Exception as e:
         logging.error(f"backup_diff error: {e}")
         return jsonify({"error": "Diff konnte nicht erstellt werden"}), 500
+
+
+_USER_ID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
+
+@app.route('/control/users', methods=['GET'])
+def list_users():
+    """Listet alle Benutzer. Auth + Admin erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not supabase:
+        return jsonify({"error": "Auth service not configured"}), 500
+    try:
+        resp = supabase.auth.admin.list_users()
+        users = []
+        for u in resp:
+            users.append({
+                "id": u.id,
+                "email": u.email,
+                "created_at": u.created_at.isoformat() if hasattr(u.created_at, 'isoformat') else str(u.created_at or ''),
+                "last_sign_in_at": u.last_sign_in_at.isoformat() if hasattr(u.last_sign_in_at, 'isoformat') else str(u.last_sign_in_at or ''),
+            })
+        return jsonify(users), 200
+    except Exception as e:
+        logging.error(f"list_users error: {e}")
+        return jsonify({"error": "Fehler beim Laden der Benutzer"}), 500
+
+
+@app.route('/control/users', methods=['POST'])
+def create_user():
+    """Legt einen neuen Benutzer an. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not supabase:
+        return jsonify({"error": "Auth service not configured"}), 500
+    data = request.get_json(silent=True) or {}
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
+    if not email or not password:
+        return jsonify({"error": "Email und Passwort erforderlich"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Passwort muss mindestens 8 Zeichen haben"}), 400
+    try:
+        resp = supabase.auth.admin.create_user({
+            "email": email,
+            "password": password,
+            "email_confirm": True,
+        })
+        return jsonify({"id": resp.user.id, "email": resp.user.email}), 201
+    except Exception as e:
+        logging.error(f"create_user error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/control/users/password', methods=['POST'])
+def reset_user_password():
+    """Setzt das Passwort eines Benutzers zurück. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not supabase:
+        return jsonify({"error": "Auth service not configured"}), 500
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id', '')
+    password = data.get('password', '')
+    if not _USER_ID_RE.match(user_id):
+        return jsonify({"error": "Ungültige Benutzer-ID"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Passwort muss mindestens 8 Zeichen haben"}), 400
+    try:
+        supabase.auth.admin.update_user_by_id(user_id, {"password": password})
+        logging.info(f"Password reset by {user.id} for user {user_id}")
+        return jsonify({"status": "updated"}), 200
+    except Exception as e:
+        logging.error(f"reset_password error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/control/users/delete', methods=['POST'])
+def delete_user():
+    """Löscht einen Benutzer. Auth erforderlich. Eigenes Konto kann nicht gelöscht werden."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not supabase:
+        return jsonify({"error": "Auth service not configured"}), 500
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id', '')
+    if not _USER_ID_RE.match(user_id):
+        return jsonify({"error": "Ungültige Benutzer-ID"}), 400
+    if user.id == user_id:
+        return jsonify({"error": "Eigenes Konto kann nicht gelöscht werden"}), 400
+    try:
+        supabase.auth.admin.delete_user(user_id)
+        logging.info(f"User {user_id} deleted by {user.id}")
+        return jsonify({"status": "deleted"}), 200
+    except Exception as e:
+        logging.error(f"delete_user error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/control/restore', methods=['POST'])

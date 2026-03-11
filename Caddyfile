@@ -81,6 +81,19 @@
         reverse_proxy auth-gateway:5001
     }
 
+    handle /_control/users/password {
+        rewrite * /control/users/password
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/users/delete {
+        rewrite * /control/users/delete
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/users {
+        rewrite * /control/users
+        reverse_proxy auth-gateway:5001
+    }
+
     reverse_proxy dashboard-ui:80
 }
 
@@ -132,8 +145,9 @@
 }
 
 # Uptime Kuma – Service Monitoring (optional, Profil: monitoring)
+# Kein forward_auth: Uptime Kuma hat eigenen Login, Status-Pages sollen public sein
 {$UPTIME_KUMA_HOSTNAME:uptime.invalid} {
-    import protected
+    import security_headers
     reverse_proxy uptime-kuma:3001
 }
 

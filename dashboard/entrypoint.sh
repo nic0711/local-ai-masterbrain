@@ -38,6 +38,7 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     PYTHON_NLP_URL="${NLP_HOSTNAME:+${PROTOCOL}://${NLP_HOSTNAME}}"
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
     CLICKHOUSE_URL=""
+    UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
 else
     # Private environment: Use local URLs
     N8N_URL="$N8N_LOCAL_URL"
@@ -53,6 +54,7 @@ else
     PYTHON_NLP_URL="$PYTHON_NLP_LOCAL_URL/health"
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
+    UPTIME_KUMA_URL=""
 fi
 
 # Cookie-Domain für alle Subdomains setzen (mit führendem Punkt)
@@ -78,6 +80,7 @@ window.APP_CONFIG = {
     crawl4aiHostname: "${CRAWL4AI_URL}",
     pythonNlpHostname: "${PYTHON_NLP_URL}",
     clickhouseHostname: "${CLICKHOUSE_URL}",
+    uptimeKumaHostname: "${UPTIME_KUMA_URL}",
 
     // Supabase specific config
     supabaseUrl: "${SUPABASE_FINAL_URL}",
