@@ -517,6 +517,9 @@ services:
     restart: unless-stopped
     expose:
       - 3001/tcp
+    environment:
+      - UPTIME_KUMA_PORT=3001
+      - NODE_ENV=production
     volumes:
       - uptime_kuma_data:/app/data
     profiles:
