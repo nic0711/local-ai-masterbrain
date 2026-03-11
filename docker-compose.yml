@@ -526,11 +526,10 @@ services:
       - monitoring
 
   backup-cron:
-    image: docker:cli
+    image: alpine:3
     container_name: backup-cron
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app:ro
       - ./backups:/opt/backups
       - ./n8n/backup/workflows:/opt/workflows-restore:rw
