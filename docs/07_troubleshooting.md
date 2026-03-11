@@ -58,6 +58,31 @@ docker logs auth-gateway
 
 ---
 
+## Benutzerverwaltung
+
+**Problem: Benutzer-Tabelle bleibt leer / „Fehler beim Laden"**
+
+- auth-gateway muss neu gebaut sein (enthält User-Management-Endpoints):
+  ```bash
+  docker compose -p localai up -d --build auth-gateway
+  ```
+- Supabase läuft? `docker ps | grep supabase-auth`
+
+**Problem: „Unauthorized" beim Anlegen eines Benutzers**
+
+- Session abgelaufen → neu einloggen
+- Nur eingeloggte Benutzer können Benutzer verwalten
+
+**Problem: Benutzer anlegen schlägt fehl mit Supabase-Fehler**
+
+- `DISABLE_SIGNUP=true` in `.env` blockiert auch Admin-Creates → für User-Erstellung kurz deaktivieren:
+  ```bash
+  # In .env: DISABLE_SIGNUP=false
+  docker compose -p localai restart auth
+  ```
+
+---
+
 ## Netzwerk & Docker
 
 **Problem: Port bereits belegt**
