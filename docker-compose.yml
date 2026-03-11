@@ -119,6 +119,8 @@ services:
       - TIMEOUT=120
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - OCR_MODEL=${OCR_MODEL:-glm-ocr}
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/your_password}
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
