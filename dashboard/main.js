@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'crawl4ai': config.crawl4aiHostname,
         'pythonNlp': config.pythonNlpHostname,
         'clickhouse': config.clickhouseHostname,
+        'uptimeKuma': config.uptimeKumaHostname,
     };
 
     // Iteriere durch die Dienste und aktualisiere die Links.
