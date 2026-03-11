@@ -1102,6 +1102,47 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "obsidian_vault",
+        "toolDescription": "Persönliche Wissensdatenbank aus Obsidian-Notizen. Nutze diese Quelle für Fragen zu persönlichen Notizen, Projekten, gespeichertem Wissen und eigenen Erfahrungen.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "obsidian_vault",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [
+        380,
+        140
+      ],
+      "id": "c8e21d3f-9a47-4b52-8f16-2e3d4c5b6a7f",
+      "name": "Qdrant Obsidian Vault",
+      "credentials": {
+        "qdrantApi": {
+          "id": "",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        380,
+        300
+      ],
+      "id": "b7d93e5a-1c82-4f63-9e27-5a6b7c8d9e0f",
+      "name": "Embeddings Ollama Obsidian"
     }
   ],
   "pinData": {},
@@ -1473,6 +1514,28 @@
           {
             "node": "RAG AI Agent",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Obsidian Vault": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama Obsidian": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Obsidian Vault",
+            "type": "ai_embedding",
             "index": 0
           }
         ]

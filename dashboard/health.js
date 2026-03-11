@@ -18,7 +18,8 @@
         'supabase':  'supabase',
         'minio':     'minio',
         'clickhouse':'clickhouse',
-        'obsidian':  'obsidian',
+        'obsidian':   'obsidian',
+        'uptimeKuma': 'uptime-kuma',
     };
 
     var LS_HISTORY = 'ai_health_history';
