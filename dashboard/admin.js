@@ -17,7 +17,7 @@
         'minio':              'MinIO',
         'clickhouse':         'Clickhouse',
         'obsidian':           'Obsidian',
-        'uptime-kuma':        'Uptime Kuma',
+        'uptime-kuma':        'UptimeBot',
     };
 
     // ── Tab Switching ────────────────────────────────────────────────────────
