@@ -1,0 +1,148 @@
+/*
+ * Uptime Kuma – Custom Status Page CSS
+ * Masterbrain Theme – passt zum Dashboard-Design
+ *
+ * Einfügen unter: Status Page → Edit → Custom CSS
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+body, .status-page {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    background-color: #121212 !important;
+    color: #e0e0e0 !important;
+}
+
+/* ── Hero / Header ───────────────────────────────────────────────────────── */
+.hero-wrapper {
+    background: linear-gradient(180deg, #1a1a1a 0%, #121212 100%) !important;
+    border-bottom: 1px solid #252525 !important;
+    padding: 2.5rem 0 2rem !important;
+}
+
+.hero-wrapper h1,
+.hero-wrapper .title {
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    font-size: 2rem !important;
+}
+
+.hero-wrapper p,
+.hero-wrapper .description {
+    color: #a0a0a0 !important;
+}
+
+/* ── Overall-Status Badge ────────────────────────────────────────────────── */
+.overall-status.bg-primary,
+.overall-status.badge.bg-primary {
+    background: rgba(76, 175, 80, 0.12) !important;
+    color: #66bb6a !important;
+    border: 1px solid rgba(76, 175, 80, 0.25) !important;
+    border-radius: 6px !important;
+}
+
+/* ── Monitor Cards ───────────────────────────────────────────────────────── */
+.monitor-list .item,
+.monitor-list .monitor-item {
+    background-color: #1e1e1e !important;
+    border: 1px solid #2a2a2a !important;
+    border-radius: 8px !important;
+    margin-bottom: 0.75rem !important;
+    padding: 1rem 1.25rem !important;
+    transition: border-color 0.2s ease !important;
+}
+
+.monitor-list .item:hover,
+.monitor-list .monitor-item:hover {
+    border-color: #3a3a3a !important;
+}
+
+.monitor-list .item .name,
+.monitor-list .item-name {
+    color: #e0e0e0 !important;
+    font-weight: 500 !important;
+}
+
+/* ── Status Badges ───────────────────────────────────────────────────────── */
+.badge.bg-success,
+.bg-success {
+    background: rgba(76, 175, 80, 0.15) !important;
+    color: #66bb6a !important;
+    border: 1px solid rgba(76, 175, 80, 0.3) !important;
+}
+
+.badge.bg-danger,
+.bg-danger {
+    background: rgba(239, 83, 80, 0.15) !important;
+    color: #ef5350 !important;
+    border: 1px solid rgba(239, 83, 80, 0.3) !important;
+}
+
+.badge.bg-warning,
+.bg-warning {
+    background: rgba(255, 183, 77, 0.15) !important;
+    color: #ffb74d !important;
+    border: 1px solid rgba(255, 183, 77, 0.3) !important;
+}
+
+.badge.bg-maintenance,
+.bg-maintenance {
+    background: rgba(79, 142, 247, 0.15) !important;
+    color: #4f8ef7 !important;
+    border: 1px solid rgba(79, 142, 247, 0.3) !important;
+}
+
+/* ── Uptime Bars ─────────────────────────────────────────────────────────── */
+.beat-bar .beat,
+.beat {
+    border-radius: 3px !important;
+}
+
+.beat.up { background-color: #388e3c !important; }
+.beat.down { background-color: #c62828 !important; }
+.beat.maintenance { background-color: #1a3a5c !important; }
+.beat.empty { background-color: #2a2a2a !important; }
+
+/* ── Navbar ──────────────────────────────────────────────────────────────── */
+.navbar {
+    background-color: #1a1a1a !important;
+    border-bottom: 1px solid #252525 !important;
+}
+
+.navbar-brand,
+.navbar .nav-link {
+    color: #e0e0e0 !important;
+}
+
+/* ── Incident / Maintenance Boxes ────────────────────────────────────────── */
+.incident-box,
+.maintenance-box {
+    background-color: #1e1e1e !important;
+    border: 1px solid #2a2a2a !important;
+    border-radius: 8px !important;
+    color: #e0e0e0 !important;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+footer,
+.footer {
+    background-color: #121212 !important;
+    border-top: 1px solid #1f1f1f !important;
+    color: #484848 !important;
+    font-size: 0.8rem !important;
+}
+
+footer a, .footer a {
+    color: #4f8ef7 !important;
+}
+
+/* ── Links ───────────────────────────────────────────────────────────────── */
+a { color: #4f8ef7 !important; }
+a:hover { color: #7eb3ff !important; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1a1a1a; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }

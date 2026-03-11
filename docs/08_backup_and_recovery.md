@@ -55,7 +55,7 @@ Klick auf **„Diff"** öffnet ein Modal mit:
 
 ## Automatisches Backup (optional)
 
-Für geplante Backups den Container mit dem `backup`-Profil starten:
+Für geplante Backups den `backup-cron`-Container mit dem `backup`-Profil starten:
 
 ```bash
 docker compose -p localai --profile backup up -d
@@ -66,7 +66,25 @@ Intervall konfigurieren in `.env`:
 BACKUP_INTERVAL_H=24    # Standard: alle 24 Stunden
 ```
 
-Der `backup-cron`-Container überwacht ein Trigger-File und führt zusätzlich automatische Backups aus. Der manuelle Dashboard-Button funktioniert **unabhängig** davon – auch ohne `backup`-Profil.
+**Wie es funktioniert:**
+- `backup-cron` läuft als schlanker Alpine-Container (kein Docker-Socket nötig)
+- Prüft alle 30 Sekunden auf Trigger-Datei oder abgelaufenes Intervall
+- Schreibt Status in `/opt/backups/.backup_status` → Dashboard liest ihn
+- Restore-Trigger via `/opt/backups/.restore` (gesetzt durch Dashboard-Button)
+
+Der manuelle Dashboard-Button funktioniert **unabhängig** davon – auch ohne `backup`-Profil.
+
+### Gesicherte Dateien
+
+| Kategorie | Dateien |
+|---|---|
+| Workflows | `n8n/backup/workflows/*.json` |
+| Stack-Konfiguration | `docker-compose.yml`, `Caddyfile`, `.env.example` |
+| Auth-Gateway | `auth-gateway/app.py`, `auth-gateway/requirements.txt` |
+| Dashboard | `index.html`, `style.css`, `auth.js`, `main.js`, `health.js`, `admin.js`, `entrypoint.sh` |
+| Backup-Scripts | `backup/backup-daemon.sh`, `backup/backup.sh` |
+
+**Nicht gesichert:** Docker-Volumes (Datenbank, Modelle) → separates Volume-Backup erforderlich.
 
 ---
 

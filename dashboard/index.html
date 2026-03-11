@@ -143,6 +143,13 @@
                             </div>
                             <img src="assets/logos/obsidian.svg" alt="Obsidian Logo" class="card-logo">
                         </a>
+                        <a id="link-uptimeKuma" href="#" target="_blank" class="card">
+                            <div class="card-content">
+                                <h2>UptimeBot</h2>
+                                <p>Service Monitoring</p>
+                            </div>
+                            <img src="assets/logos/uptime-kuma.svg" alt="UptimeBot Logo" class="card-logo">
+                        </a>
                     </div>
                 </section>
             </div>
@@ -197,6 +204,38 @@
                         </div>
                         <button id="backup-btn" class="btn-primary btn-full">Backup jetzt starten</button>
                         <p class="panel-meta" style="margin-top:0.85rem;text-align:center">Geplant: alle 24 h · Ablage: /opt/backups</p>
+                    </div>
+                </div>
+
+                <!-- Benutzer-Verwaltung -->
+                <div class="admin-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Benutzer</h3>
+                        <button id="refresh-users-btn" class="btn-ghost">Aktualisieren</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="status-table">
+                            <thead>
+                                <tr>
+                                    <th>E-Mail</th>
+                                    <th>Erstellt</th>
+                                    <th>Letzter Login</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody">
+                                <tr><td colspan="4" class="no-data">Lade Benutzer…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #333">
+                        <p class="panel-meta" style="margin-bottom:0.75rem">Neuen Benutzer anlegen</p>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                            <input type="email" id="invite-email" placeholder="E-Mail" autocomplete="off" style="flex:2;min-width:180px">
+                            <input type="password" id="invite-password" placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" style="flex:2;min-width:180px">
+                            <button id="invite-user-btn" class="btn-primary" style="flex:0 0 auto">Anlegen</button>
+                        </div>
+                        <p id="invite-msg" class="panel-meta" style="margin-top:0.5rem;min-height:1.2em"></p>
                     </div>
                 </div>
 
@@ -268,6 +307,45 @@
                     </div>
                 </div>
             </div>
+            <!-- Passwort-Reset Modal -->
+            <div id="user-pw-modal" class="diff-modal-overlay hidden">
+                <div class="diff-modal-box diff-modal-box--narrow">
+                    <div class="diff-modal-header">
+                        <h3>Passwort zurücksetzen</h3>
+                        <button id="user-pw-close" class="modal-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div style="padding: 1rem 0;">
+                        <p style="color:#bbb;font-size:0.9rem;margin:0 0 0.75rem">Benutzer: <span id="user-pw-email" style="color:#fff;font-weight:600"></span></p>
+                        <input type="password" id="user-pw-input" placeholder="Neues Passwort (min. 8 Zeichen)" autocomplete="new-password" style="width:100%;box-sizing:border-box;margin-bottom:1rem">
+                        <div style="display:flex;gap:0.75rem">
+                            <button id="user-pw-confirm-btn" class="btn-primary" style="flex:1">Passwort setzen</button>
+                            <button id="user-pw-cancel-btn" class="btn-ghost" style="flex:1">Abbrechen</button>
+                        </div>
+                        <p id="user-pw-msg" class="panel-meta" style="margin-top:0.75rem;text-align:center;min-height:1.2em"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Benutzer löschen Modal -->
+            <div id="user-del-modal" class="diff-modal-overlay hidden">
+                <div class="diff-modal-box diff-modal-box--narrow">
+                    <div class="diff-modal-header">
+                        <h3>Benutzer löschen</h3>
+                        <button id="user-del-close" class="modal-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div style="padding: 1rem 0;">
+                        <p style="color:#bbb;font-size:0.9rem;margin:0 0 0.5rem">Folgender Benutzer wird unwiderruflich gelöscht:</p>
+                        <p id="user-del-email" style="color:#fff;font-weight:600;font-size:0.95rem;margin:0 0 1.25rem;word-break:break-all"></p>
+                        <p style="color:#ef5350;font-size:0.82rem;margin:0 0 1.25rem">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                        <div style="display:flex;gap:0.75rem">
+                            <button id="user-del-confirm-btn" class="btn-primary btn-danger" style="flex:1">Löschen</button>
+                            <button id="user-del-cancel-btn" class="btn-ghost" style="flex:1">Abbrechen</button>
+                        </div>
+                        <p id="user-del-msg" class="panel-meta" style="margin-top:0.75rem;text-align:center;min-height:1.2em"></p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Profile Tab -->
             <div id="tab-profile" class="tab-panel">
                 <div class="admin-row">
