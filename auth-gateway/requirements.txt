@@ -3,3 +3,4 @@ gunicorn==25.1.0
 supabase==2.28.0
 flask-limiter==3.9.0
 PyJWT==2.10.1
+docker>=7.0.0

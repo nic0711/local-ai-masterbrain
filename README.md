@@ -115,10 +115,30 @@ python3 start_services.py --profile none        # Mac (Ollama lokal)
 | FAQ & tips               | [09_faq.md](docs/09_faq.md) |
 | Python NLP/Document Service | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
 | Links & resources        | [tips_links.md](docs/tips_links.md) |
+| OCR Service              | [14_ocr_service.md](docs/14_ocr_service.md) |
+| API Reference            | [15_api_reference.md](docs/15_api_reference.md) |
+| Scraping Configurator    | [16_scraping_configurator.md](docs/16_scraping_configurator.md) |
+| Dashboard Architecture   | [17_dashboard_changes.md](docs/17_dashboard_changes.md) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-03 – OCR Service, Scraping Configurator & API Reference
+
+| Was | Details |
+|-----|---------|
+| `ocr-service/` | Neuer FastAPI-Container mit TrOCR + Tesseract, 15 Endpunkte, auto-Engine-Auswahl |
+| `caddy-addon/ocr.conf` | Caddy-Route für `ocr.{DOMAIN}` mit forward_auth |
+| `ocr_storage/` | Input/Output/Temp-Verzeichnisse für OCR-Verarbeitung |
+| `supabase/…/02-04_*.sql` | SQL-Schema für `scraped_content`-Tabelle |
+| `n8n-tool-workflows/scraping-configurator.json` | Konfigurierbarer Scraper: mode (css/llm/auto) × destination (supabase/neo4j/qdrant/sheets/webhook/all) |
+| `n8n-tool-workflows/api-health-reference.json` | Live-API-Referenz-Workflow mit Health-Checks + Endpunkt-Katalog |
+| `n8n-tool-workflows/ocr-processing-workflow.json` | N8N-Workflow für OCR-Batch-Verarbeitung |
+| `docs/14_ocr_service.md` | OCR-Service-Doku: Setup, alle 15 Endpunkte, Modelle, Storage |
+| `docs/15_api_reference.md` | Vollständige API-Referenz: 43 Endpunkte über 3 Services |
+| `docs/16_scraping_configurator.md` | Scraping-Configurator-Guide: Modes, Destinations, Beispiele |
+| `docs/17_dashboard_changes.md` | Dashboard-Architektur: Auth-Flow, Tabs, Cards, JS-Bridges, Whisper |
 
 ### 2026-03 – Auth-System: Caddy forward_auth + TOTP/2FA
 

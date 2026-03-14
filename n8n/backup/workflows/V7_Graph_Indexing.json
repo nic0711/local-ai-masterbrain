@@ -1,0 +1,300 @@
+{
+  "name": "V7 Graph Indexing (Obsidian → Neo4j)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule: täglich",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "graph-index",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Manueller Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 460],
+      "webhookId": "graph-index"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/graph/init",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "graph-init",
+      "name": "Graph: Init Constraints",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:27123/vault/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-file-list",
+      "name": "Obsidian: Dateiliste holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      },
+      "id": "split-files",
+      "name": "Dateien aufteilen",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [920, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "is-md",
+              "leftValue": "={{ $json }}",
+              "rightValue": ".md",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith"
+              }
+            },
+            {
+              "id": "not-excalidraw",
+              "leftValue": "={{ $json }}",
+              "rightValue": ".excalidraw.md",
+              "operator": {
+                "type": "string",
+                "operation": "endsWith",
+                "not": true
+              }
+            },
+            {
+              "id": "in-wissen",
+              "leftValue": "={{ $json }}",
+              "rightValue": "20_Wissen/",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-files",
+      "name": "Filter: nur 20_Wissen/*.md",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [1140, 380]
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "In Batches aufteilen",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1360, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:27123/vault/{{ encodeURIComponent($json) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "get-file-content",
+      "name": "Obsidian: Dateiinhalt holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "obsidian-api-key",
+          "name": "Obsidian REST API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json.data || item.json.body || String(item.json) || '';\n  const filePath = item.json.filePath || '';\n\n  // Frontmatter parsen\n  let frontmatter = {};\n  let content = raw;\n  const fmMatch = raw.match(/^---\\n([\\s\\S]*?)\\n---\\n?/);\n  if (fmMatch) {\n    const fmLines = fmMatch[1].split('\\n');\n    for (const line of fmLines) {\n      const sep = line.indexOf(':');\n      if (sep > -1) {\n        const key = line.slice(0, sep).trim();\n        const val = line.slice(sep + 1).trim();\n        frontmatter[key] = val;\n      }\n    }\n    content = raw.slice(fmMatch[0].length);\n  }\n\n  // Tags extrahieren\n  const tags = [];\n  if (frontmatter.tags) {\n    const tagStr = frontmatter.tags.replace(/[\\[\\]]/g, '');\n    tags.push(...tagStr.split(',').map(t => t.trim()).filter(Boolean));\n  }\n  const inlineTags = content.match(/#[\\w/]+/g) || [];\n  tags.push(...inlineTags.map(t => t.replace('#', '')));\n\n  // Sprache aus Frontmatter oder Default\n  const lang = frontmatter.lang || frontmatter.language || 'de';\n\n  // Vault ableiten\n  const vault = filePath.includes('KG/') ? 'kg' : 'personal';\n\n  // Markdown bereinigen\n  let clean = content\n    .replace(/```[\\s\\S]*?```/g, '')\n    .replace(/!\\[.*?\\]\\(.*?\\)/g, '')\n    .replace(/\\[\\[([^\\]]+)\\]\\]/g, '$1')\n    .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, '$1')\n    .replace(/^#{1,6}\\s/gm, '')\n    .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')\n    .replace(/^>\\s/gm, '')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  if (clean.length < 30) continue;\n\n  const title = frontmatter.title || filePath.split('/').pop().replace('.md', '');\n\n  results.push({\n    json: {\n      path: filePath,\n      title,\n      text: clean,\n      tags: [...new Set(tags)],\n      vault,\n      lang,\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "id": "parse-markdown",
+      "name": "Markdown & Frontmatter parsen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/graph/index",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "path", "value": "={{ $json.path }}" },
+            { "name": "title", "value": "={{ $json.title }}" },
+            { "name": "text", "value": "={{ $json.text }}" },
+            { "name": "tags", "value": "={{ $json.tags }}" },
+            { "name": "vault", "value": "={{ $json.vault }}" },
+            { "name": "lang", "value": "={{ $json.lang }}" }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "graph-index-note",
+      "name": "Graph: Notiz indexieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2020, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"ok\", \"message\": \"Graph-Indexierung abgeschlossen\" } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook: Antwort senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2240, 460]
+    }
+  ],
+  "connections": {
+    "Schedule: täglich": {
+      "main": [
+        [
+          { "node": "Graph: Init Constraints", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Webhook: Manueller Start": {
+      "main": [
+        [
+          { "node": "Graph: Init Constraints", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Graph: Init Constraints": {
+      "main": [
+        [
+          { "node": "Obsidian: Dateiliste holen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Dateiliste holen": {
+      "main": [
+        [
+          { "node": "Dateien aufteilen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Dateien aufteilen": {
+      "main": [
+        [
+          { "node": "Filter: nur 20_Wissen/*.md", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Filter: nur 20_Wissen/*.md": {
+      "main": [
+        [
+          { "node": "In Batches aufteilen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "In Batches aufteilen": {
+      "main": [
+        [
+          { "node": "Obsidian: Dateiinhalt holen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Obsidian: Dateiinhalt holen": {
+      "main": [
+        [
+          { "node": "Markdown & Frontmatter parsen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Markdown & Frontmatter parsen": {
+      "main": [
+        [
+          { "node": "Graph: Notiz indexieren", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Graph: Notiz indexieren": {
+      "main": [
+        [
+          { "node": "In Batches aufteilen", "type": "main", "index": 0 },
+          { "node": "Webhook: Antwort senden", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": ["obsidian", "graphrag", "neo4j", "graph-indexing"],
+  "pinData": {}
+}
