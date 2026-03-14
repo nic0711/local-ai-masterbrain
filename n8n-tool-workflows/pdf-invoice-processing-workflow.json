@@ -1,0 +1,328 @@
+{
+  "meta": {
+    "instanceId": "local"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-invoices",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Manual Invoice Processing Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 400],
+      "webhookId": "invoice-processing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PDF Folder Scanner\nconst fs = require('fs');\nconst path = require('path');\n\n// Get folder path from input or use default\nconst folderPath = $json.body.folder_path || '/app/ocr_storage/input';\n\ntry {\n  // Read all files from folder\n  const files = fs.readdirSync(folderPath);\n  \n  // Filter for PDF files\n  const pdfFiles = files.filter(file => \n    file.toLowerCase().endsWith('.pdf')\n  );\n  \n  // Create array of file objects\n  const fileList = pdfFiles.map(filename => ({\n    filename: filename,\n    filepath: path.join(folderPath, filename),\n    processing_status: 'pending'\n  }));\n  \n  return fileList.map(file => ({ json: file }));\n  \n} catch (error) {\n  throw new Error(`Failed to read folder ${folderPath}: ${error.message}`);\n}"
+      },
+      "id": "scan-pdf-folder",
+      "name": "Scan PDF Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// PDF Type Detection (Text vs Image PDF)\nconst fs = require('fs');\nconst { execSync } = require('child_process');\n\nconst filepath = $json.filepath;\nconst filename = $json.filename;\n\ntry {\n  // Use pdftotext to extract text and check if meaningful text exists\n  const command = `pdftotext \"${filepath}\" - | wc -c`;\n  const textLength = parseInt(execSync(command, { encoding: 'utf8' }).trim());\n  \n  // If more than 100 characters of extractable text, consider it a text PDF\n  const isTextPdf = textLength > 100;\n  \n  return {\n    json: {\n      filename: filename,\n      filepath: filepath,\n      pdf_type: isTextPdf ? 'text' : 'image',\n      extractable_text_length: textLength,\n      needs_ocr: !isTextPdf\n    }\n  };\n  \n} catch (error) {\n  // If pdftotext fails, assume it's an image PDF\n  return {\n    json: {\n      filename: filename,\n      filepath: filepath,\n      pdf_type: 'image',\n      extractable_text_length: 0,\n      needs_ocr: true,\n      detection_error: error.message\n    }\n  };\n}"
+      },
+      "id": "detect-pdf-type",
+      "name": "Detect PDF Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "pdf-type-check",
+              "leftValue": "={{ $json.pdf_type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "pdf-type-switch",
+      "name": "PDF Type Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract text directly from text PDF\nconst { execSync } = require('child_process');\nconst filepath = $json.filepath;\nconst filename = $json.filename;\n\ntry {\n  // Extract text using pdftotext\n  const command = `pdftotext \"${filepath}\" -`;\n  const extractedText = execSync(command, { encoding: 'utf8' });\n  \n  return {\n    json: {\n      filename: filename,\n      filepath: filepath,\n      source: 'direct_text_extraction',\n      extracted_text: extractedText,\n      processing_time: 0.1,\n      confidence_score: 1.0\n    }\n  };\n  \n} catch (error) {\n  throw new Error(`Failed to extract text from ${filename}: ${error.message}`);\n}"
+      },
+      "id": "extract-text-pdf",
+      "name": "Extract Text from PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare file for OCR processing\nconst fs = require('fs');\nconst filepath = $json.filepath;\nconst filename = $json.filename;\n\n// Read file as binary data\nconst fileBuffer = fs.readFileSync(filepath);\n\nreturn {\n  json: {\n    filename: filename,\n    filepath: filepath,\n    source: 'ocr_processing'\n  },\n  binary: {\n    data: fileBuffer\n  }\n};"
+      },
+      "id": "prepare-for-ocr",
+      "name": "Prepare File for OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/ocr/process",
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "engine",
+              "value": "auto"
+            },
+            {
+              "name": "language",
+              "value": "de"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "0.7"
+            },
+            {
+              "name": "output_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2
+          }
+        }
+      },
+      "id": "ocr-processing",
+      "name": "OCR Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize OCR result for Ollama processing\nconst ocrResult = $json;\nconst filename = $('prepare-for-ocr').first().json.filename;\n\nreturn {\n  json: {\n    filename: filename,\n    source: 'ocr_processing',\n    extracted_text: ocrResult.text || ocrResult.extracted_text || '',\n    processing_time: ocrResult.processing_time || 0,\n    confidence_score: ocrResult.confidence_score || 0,\n    engine_used: ocrResult.engine_used || 'unknown'\n  }\n};"
+      },
+      "id": "normalize-ocr-result",
+      "name": "Normalize OCR Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 500]
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "prompt": "=Du bist ein Experte für die Extraktion von Rechnungsinformationen. Analysiere den folgenden Text und extrahiere alle relevanten Rechnungsdaten.\n\nText der Rechnung:\n{{ $json.extracted_text }}\n\nExtrahiere folgende Informationen und gib sie als JSON zurück:\n\n{\n  \"invoice_number\": \"Rechnungsnummer\",\n  \"invoice_date\": \"Rechnungsdatum (YYYY-MM-DD)\",\n  \"due_date\": \"Fälligkeitsdatum (YYYY-MM-DD)\",\n  \"vendor\": {\n    \"name\": \"Firmenname des Lieferanten\",\n    \"address\": \"Vollständige Adresse\",\n    \"tax_id\": \"Steuernummer/USt-ID\",\n    \"contact\": \"Kontaktinformationen\"\n  },\n  \"customer\": {\n    \"name\": \"Kundenname\",\n    \"address\": \"Kundenadresse\",\n    \"customer_number\": \"Kundennummer\"\n  },\n  \"line_items\": [\n    {\n      \"description\": \"Artikelbeschreibung\",\n      \"quantity\": \"Menge\",\n      \"unit_price\": \"Einzelpreis\",\n      \"total_price\": \"Gesamtpreis\",\n      \"tax_rate\": \"Steuersatz\"\n    }\n  ],\n  \"totals\": {\n    \"subtotal\": \"Nettobetrag\",\n    \"tax_amount\": \"Steuerbetrag\",\n    \"total_amount\": \"Bruttobetrag\",\n    \"currency\": \"Währung\"\n  },\n  \"payment_info\": {\n    \"payment_method\": \"Zahlungsart\",\n    \"bank_details\": \"Bankverbindung\",\n    \"reference\": \"Verwendungszweck\"\n  },\n  \"additional_info\": {\n    \"delivery_date\": \"Lieferdatum\",\n    \"order_number\": \"Bestellnummer\",\n    \"project_reference\": \"Projektreferenz\",\n    \"notes\": \"Besondere Hinweise\"\n  }\n}\n\nWichtig:\n- Gib nur valides JSON zurück\n- Wenn Informationen nicht verfügbar sind, verwende null\n- Behalte Zahlenformate bei (z.B. 1234.56)\n- Erkenne deutsche Datumsformate und konvertiere zu YYYY-MM-DD\n- Extrahiere alle Positionen vollständig",
+        "options": {
+          "temperature": 0.1,
+          "topP": 0.9
+        }
+      },
+      "id": "ollama-extraction",
+      "name": "Ollama Invoice Extraction",
+      "type": "n8n-nodes-base.ollama",
+      "typeVersion": 1,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process and validate Ollama response\nconst ollamaResponse = $json.response || $json.text || '';\nconst sourceData = $input.first().json;\n\ntry {\n  // Try to parse JSON from Ollama response\n  let extractedData;\n  \n  // Clean response - remove markdown code blocks if present\n  const cleanResponse = ollamaResponse\n    .replace(/```json\\s*/g, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n  \n  try {\n    extractedData = JSON.parse(cleanResponse);\n  } catch (parseError) {\n    // If JSON parsing fails, try to extract JSON from text\n    const jsonMatch = cleanResponse.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      extractedData = JSON.parse(jsonMatch[0]);\n    } else {\n      throw new Error('No valid JSON found in response');\n    }\n  }\n  \n  // Build final result\n  const result = {\n    success: true,\n    timestamp: new Date().toISOString(),\n    source_file: sourceData.filename,\n    processing_method: sourceData.source,\n    confidence_score: sourceData.confidence_score,\n    processing_time_seconds: sourceData.processing_time,\n    extracted_invoice_data: extractedData,\n    metadata: {\n      engine_used: sourceData.engine_used || 'direct_extraction',\n      text_length: (sourceData.extracted_text || '').length,\n      extraction_model: 'llama3.2:latest'\n    }\n  };\n  \n  return { json: result };\n  \n} catch (error) {\n  // Return error response\n  return {\n    json: {\n      success: false,\n      timestamp: new Date().toISOString(),\n      source_file: sourceData.filename,\n      error: error.message,\n      raw_response: ollamaResponse,\n      metadata: {\n        processing_method: sourceData.source,\n        confidence_score: sourceData.confidence_score\n      }\n    }\n  };\n}"
+      },
+      "id": "process-extraction-result",
+      "name": "Process Extraction Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all processing results\nconst allResults = $input.all();\n\nconst summary = {\n  success: true,\n  timestamp: new Date().toISOString(),\n  total_files_processed: allResults.length,\n  successful_extractions: allResults.filter(item => item.json.success).length,\n  failed_extractions: allResults.filter(item => !item.json.success).length,\n  processing_summary: {\n    text_pdfs: allResults.filter(item => \n      item.json.metadata?.processing_method === 'direct_text_extraction'\n    ).length,\n    image_pdfs_ocr: allResults.filter(item => \n      item.json.metadata?.processing_method === 'ocr_processing'\n    ).length\n  },\n  results: allResults.map(item => item.json)\n};\n\nreturn { json: summary };"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "JSON Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 400]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "scan-pdf-folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "scan-pdf-folder": {
+      "main": [
+        [
+          {
+            "node": "detect-pdf-type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "detect-pdf-type": {
+      "main": [
+        [
+          {
+            "node": "pdf-type-switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pdf-type-switch": {
+      "main": [
+        [
+          {
+            "node": "extract-text-pdf",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "prepare-for-ocr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract-text-pdf": {
+      "main": [
+        [
+          {
+            "node": "ollama-extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare-for-ocr": {
+      "main": [
+        [
+          {
+            "node": "ocr-processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ocr-processing": {
+      "main": [
+        [
+          {
+            "node": "normalize-ocr-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize-ocr-result": {
+      "main": [
+        [
+          {
+            "node": "ollama-extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ollama-extraction": {
+      "main": [
+        [
+          {
+            "node": "process-extraction-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-extraction-result": {
+      "main": [
+        [
+          {
+            "node": "aggregate-results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate-results": {
+      "main": [
+        [
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["pdf", "invoice", "ocr", "ollama", "extraction"],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-04T18:00:00.000Z",
+  "versionId": "1.0"
+} 

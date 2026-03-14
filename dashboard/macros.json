@@ -1,0 +1,62 @@
+{
+  "macros": [
+    {
+      "id": "light-mode",
+      "label": "Leicht-Modus",
+      "description": "Nur Open WebUI + n8n – spart Ressourcen",
+      "actions": [
+        {"action": "start",  "service": "open-webui"},
+        {"action": "start",  "service": "n8n"},
+        {"action": "stop",   "service": "neo4j"},
+        {"action": "stop",   "service": "flowise"},
+        {"action": "stop",   "service": "langfuse-web"},
+        {"action": "stop",   "service": "langfuse-worker"}
+      ]
+    },
+    {
+      "id": "research",
+      "label": "Research-Modus",
+      "description": "Web-Research: SearXNG + Crawl4AI + Open WebUI",
+      "actions": [
+        {"action": "start",  "service": "searxng"},
+        {"action": "start",  "service": "crawl4ai"},
+        {"action": "start",  "service": "open-webui"},
+        {"action": "start",  "service": "n8n"}
+      ]
+    },
+    {
+      "id": "rag-mode",
+      "label": "RAG-Modus",
+      "description": "Wissensarbeit: Qdrant + Neo4j + NLP + Open WebUI",
+      "actions": [
+        {"action": "start",  "service": "qdrant"},
+        {"action": "start",  "service": "neo4j"},
+        {"action": "start",  "service": "python-nlp-service"},
+        {"action": "start",  "service": "open-webui"},
+        {"action": "start",  "service": "n8n"}
+      ]
+    },
+    {
+      "id": "save-resources",
+      "label": "Ressourcen sparen",
+      "description": "Schwere Dienste stoppen",
+      "actions": [
+        {"action": "stop",   "service": "neo4j"},
+        {"action": "stop",   "service": "flowise"},
+        {"action": "stop",   "service": "crawl4ai"},
+        {"action": "stop",   "service": "langfuse-web"},
+        {"action": "stop",   "service": "langfuse-worker"}
+      ]
+    },
+    {
+      "id": "restart-core",
+      "label": "Core neustarten",
+      "description": "n8n + Open WebUI + Flowise neustarten",
+      "actions": [
+        {"action": "restart", "service": "n8n"},
+        {"action": "restart", "service": "open-webui"},
+        {"action": "restart", "service": "flowise"}
+      ]
+    }
+  ]
+}

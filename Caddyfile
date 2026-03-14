@@ -94,6 +94,19 @@
         reverse_proxy auth-gateway:5001
     }
 
+    handle /_control/services* {
+        uri replace /_control /control
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/macro* {
+        uri replace /_control /control
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/macros {
+        rewrite * /control/macros
+        reverse_proxy auth-gateway:5001
+    }
+
     reverse_proxy dashboard-ui:80
 }
 

@@ -122,20 +122,6 @@
                             </div>
                             <img src="assets/logos/crawl4ai.png" alt="Crawl4AI Logo" class="card-logo invert">
                         </a>
-                        <a id="link-clickhouse" href="#" target="_blank" class="card">
-                            <div class="card-content">
-                                <h2>Clickhouse</h2>
-                                <p>Custom Endpoints</p>
-                            </div>
-                            <img src="assets/logos/clickhouse.svg" alt="Python Logo" class="card-logo">
-                        </a>
-                        <a id="link-pythonNlp" href="#" target="_blank" class="card">
-                            <div class="card-content">
-                                <h2>Python NLP</h2>
-                                <p>Custom Endpoints</p>
-                            </div>
-                            <img src="assets/logos/python.svg" alt="Python Logo" class="card-logo">
-                        </a>
                         <a id="link-obsidian" href="obsidian://open" class="card">
                             <div class="card-content">
                                 <h2>Obsidian</h2>
@@ -152,6 +138,31 @@
                         </a>
                     </div>
                 </section>
+
+                <section class="grid-section">
+                    <h2>API Services</h2>
+                    <p class="section-desc">Nur per API erreichbar – keine Browser-Oberfläche</p>
+                    <div class="api-grid">
+                        <div id="link-pythonNlp" class="api-card">
+                            <img src="assets/logos/python.svg" alt="Python" class="api-card-icon">
+                            <div class="api-card-info">
+                                <span class="api-card-name">Python NLP</span>
+                                <span class="api-card-desc">SpaCy · NER · GraphRAG</span>
+                                <code class="api-card-endpoint">:5000/document/analyze</code>
+                            </div>
+                            <span class="api-badge">API</span>
+                        </div>
+                        <div id="link-ocr" class="api-card">
+                            <img src="assets/logos/python.svg" alt="OCR" class="api-card-icon">
+                            <div class="api-card-info">
+                                <span class="api-card-name">OCR Service</span>
+                                <span class="api-card-desc">TrOCR · Tesseract · PDF</span>
+                                <code class="api-card-endpoint">ocr.brain.local/ocr/process</code>
+                            </div>
+                            <span class="api-badge">API</span>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <div id="tab-admin" class="tab-panel">
@@ -159,7 +170,10 @@
                 <div class="admin-panel">
                     <div class="panel-header">
                         <h3 class="panel-title">Systemstatus</h3>
-                        <span id="last-check-label" class="panel-meta">–</span>
+                        <div style="display:flex;align-items:center;gap:1rem">
+                            <span id="last-check-label" class="panel-meta">–</span>
+                            <button id="control-refresh-btn" class="btn-ghost">Aktualisieren</button>
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table class="status-table">
@@ -169,10 +183,11 @@
                                     <th>Status</th>
                                     <th>Verfügbarkeit</th>
                                     <th>Verlauf (letzte 12 Checks)</th>
+                                    <th>Aktionen</th>
                                 </tr>
                             </thead>
                             <tbody id="status-tbody">
-                                <tr><td colspan="4" class="no-data">Lade Statusdaten…</td></tr>
+                                <tr><td colspan="5" class="no-data">Lade Statusdaten…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -259,6 +274,40 @@
                                 <tr><td colspan="4" class="no-data">Lade Backup-Liste…</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+                <!-- Macros -->
+                <div class="admin-panel">
+                    <h3 class="panel-title">Macros</h3>
+                    <div id="macro-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem">
+                        <span class="no-data">Lade Macros…</span>
+                    </div>
+                </div>
+
+                <!-- Log-Viewer -->
+                <div class="admin-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Log-Viewer</h3>
+                        <button id="control-clear-log-btn" class="btn-ghost">Leeren</button>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap">
+                        <select id="log-service-select" style="flex:2;min-width:160px">
+                            <option value="">Dienst wählen…</option>
+                        </select>
+                        <input type="number" id="log-lines-input" value="50" min="1" max="500" style="width:72px;text-align:center" title="Anzahl Zeilen (1–500)">
+                        <button id="log-fetch-btn" class="btn-primary">Logs laden</button>
+                    </div>
+                    <pre id="log-output" style="background:#111;border:1px solid #333;border-radius:6px;padding:0.75rem;font-size:0.78rem;line-height:1.5;max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#ccc;margin:0">Dienst wählen und „Logs laden" klicken.</pre>
+                </div>
+
+                <!-- Aktions-Log -->
+                <div class="admin-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Aktions-Log</h3>
+                        <button id="control-clear-events-btn" class="btn-ghost">Leeren</button>
+                    </div>
+                    <div id="control-event-log" class="event-log">
+                        <p class="no-data">Noch keine Aktionen ausgeführt.</p>
                     </div>
                 </div>
             </div>
@@ -406,6 +455,7 @@
     <script src="main.js"></script>
     <script src="health.js"></script>
     <script src="admin.js"></script>
+    <script src="control.js"></script>
 </body>
 
 </html>

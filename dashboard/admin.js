@@ -13,6 +13,7 @@
         'crawl4ai':           'Crawl4AI',
         'searxng':            'SearXNG',
         'python-nlp-service': 'Python NLP',
+        'ocr-service':        'OCR Service',
         'supabase':           'Supabase',
         'minio':              'MinIO',
         'clickhouse':         'Clickhouse',
@@ -112,6 +113,15 @@
     }
 
     // ── Status Table ─────────────────────────────────────────────────────────
+    function makeCtrlBtn(label, onClick, isGhost) {
+        var btn = document.createElement('button');
+        btn.textContent = label;
+        btn.className = isGhost ? 'btn-ghost' : 'btn-primary';
+        btn.style.cssText = 'margin-right:0.35rem;padding:0.2rem 0.55rem;font-size:0.78rem';
+        btn.addEventListener('click', onClick);
+        return btn;
+    }
+
     function renderStatusTable(statuses, history) {
         var tbody = document.getElementById('status-tbody');
         if (!tbody) return;
@@ -154,10 +164,28 @@
             tdHist.appendChild(makeUptimeBars(histEntries));
             tr.appendChild(tdHist);
 
+            // Aktionen (nur für steuerbare Dienste)
+            var tdAct = document.createElement('td');
+            tdAct.style.cssText = 'white-space:nowrap';
+            var ctrl = window._ctrl;
+            if (ctrl && ctrl.CONTROLLABLE && ctrl.CONTROLLABLE[key]) {
+                var btnRestart = makeCtrlBtn('Restart', function (k) { return function () { ctrl.doAction(k, 'restart'); }; }(key));
+                var btnStop    = makeCtrlBtn('Stop',    function (k) { return function () { ctrl.doAction(k, 'stop');    }; }(key));
+                var btnStart   = makeCtrlBtn('Start',   function (k) { return function () { ctrl.doAction(k, 'start');   }; }(key));
+                var btnLogs    = makeCtrlBtn('Logs',    function (k) { return function () { ctrl.selectAndFetchLogs(k); }; }(key), true);
+                btnStop.style.display  = (status === 'up')  ? '' : 'none';
+                btnStart.style.display = (status !== 'up')  ? '' : 'none';
+                tdAct.appendChild(btnRestart);
+                tdAct.appendChild(btnStop);
+                tdAct.appendChild(btnStart);
+                tdAct.appendChild(btnLogs);
+            }
+            tr.appendChild(tdAct);
+
             fragment.appendChild(tr);
         });
 
-        tbody.innerHTML = '';
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
         tbody.appendChild(fragment);
     }
 

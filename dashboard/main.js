@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'qdrant': config.qdrantHostname,
         'minio': config.minioHostname,
         'crawl4ai': config.crawl4aiHostname,
-        'pythonNlp': config.pythonNlpHostname,
-        'clickhouse': config.clickhouseHostname,
+        'pythonNlp': null,  // API-only – kein direkter Browser-Link
+        'ocr': null,        // API-only – Zugriff via ocr.brain.local/docs
         'uptimeKuma': config.uptimeKumaHostname,
     };
 
