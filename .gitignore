@@ -54,3 +54,12 @@ start_service Kopie.py
 start_service_old.py
 efactoring-attempt-7a435a6.patch
 /backups/
+
+# OCR storage runtime data (models, temp files, logs)
+ocr_storage/temp/huggingface_cache/
+ocr_storage/temp/*.log
+ocr_storage/input/*
+ocr_storage/output/*
+!ocr_storage/input/.gitkeep
+!ocr_storage/output/.gitkeep
+!ocr_storage/temp/.gitkeep

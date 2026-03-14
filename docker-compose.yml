@@ -26,6 +26,7 @@ x-n8n: &service-n8n
     - DB_POSTGRESDB_DATABASE=postgres
     - N8N_DIAGNOSTICS_ENABLED=false
     - N8N_PERSONALIZATION_ENABLED=false
+    - N8N_RUNNERS_ENABLED=false
     - N8N_ENCRYPTION_KEY
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - WEBHOOK_URL=${N8N_HOSTNAME:+https://}${N8N_HOSTNAME:-http://localhost:5678}
@@ -139,6 +140,39 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ocr-service:
+    container_name: ocr-service
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 8002/tcp
+    volumes:
+      - ./ocr_storage/input:/data/input
+      - ./ocr_storage/output:/data/output
+      - ./ocr_storage/temp:/data/temp
+    environment:
+      - TRANSFORMERS_CACHE=/data/temp/transformers_cache
+      - HF_HOME=/data/temp/huggingface_cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   n8n:
     <<: *service-n8n
     container_name: n8n
@@ -221,6 +255,7 @@ services:
       - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
       - NLP_HOSTNAME=${NLP_HOSTNAME:-nlp.${DOMAIN}}
+      - OCR_HOSTNAME=${OCR_HOSTNAME:-ocr.${DOMAIN}}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
@@ -512,6 +547,8 @@ services:
       - MINIO_HOSTNAME=${MINIO_HOSTNAME:-minio.${DOMAIN}}
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
       - NLP_HOSTNAME=${NLP_HOSTNAME:-}
+      - OCR_HOSTNAME=${OCR_HOSTNAME:-}
+      - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -519,13 +556,13 @@ services:
     restart: unless-stopped
     expose:
       - 3001/tcp
+    ports:
+      - "3002:3001"
     environment:
       - UPTIME_KUMA_PORT=3001
       - NODE_ENV=production
     volumes:
       - uptime_kuma_data:/app/data
-    profiles:
-      - monitoring
 
   backup-cron:
     image: alpine:3
@@ -551,9 +588,12 @@ services:
     restart: unless-stopped
     expose:
       - 5001/tcp
+    group_add:
+      - "0"
     volumes:
       - ./backups:/opt/backups
       - ./:/opt/project:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
