@@ -15,9 +15,9 @@
         'crawl4ai':  'crawl4ai',
         'searxng':   'searxng',
         'pythonNlp': 'python-nlp-service',
+        'ocr':       'ocr-service',
         'supabase':  'supabase',
         'minio':     'minio',
-        'clickhouse':'clickhouse',
         'obsidian':   'obsidian',
         'uptimeKuma': 'uptime-kuma',
     };
@@ -197,6 +197,9 @@
             }
         }
     }
+
+    // Globales Handle damit andere Module (control.js) einen Refresh auslösen können
+    window._health = { refresh: fetchStatus };
 
     document.addEventListener('DOMContentLoaded', function () {
         initDots();          // Sofort Dots anzeigen (Lade-Animation)

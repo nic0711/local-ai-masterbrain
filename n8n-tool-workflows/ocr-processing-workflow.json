@@ -1,0 +1,428 @@
+{
+  "name": "OCR Processing Pipeline - Enhanced",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ocr-process",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "OCR Processing Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ocr-processing"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "processing-type",
+              "leftValue": "={{ $json.body.processing_type || 'single' }}",
+              "rightValue": "single",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "processing-type-switch",
+      "name": "Processing Type Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/ocr/process",
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "engine",
+              "value": "={{ $json.body.engine || 'auto' }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.body.language || 'de' }}"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "={{ $json.body.confidence_threshold || 0.8 }}"
+            },
+            {
+              "name": "output_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2
+          }
+        }
+      },
+      "id": "single-file-ocr",
+      "name": "Single File OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/ocr/process-folder",
+        "sendBody": true,
+        "bodyContentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "folder_path",
+              "value": "={{ $json.body.folder_path || 'input' }}"
+            },
+            {
+              "name": "engine",
+              "value": "={{ $json.body.engine || 'auto' }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.body.language || 'de' }}"
+            },
+            {
+              "name": "save_results",
+              "value": "={{ $json.body.save_results || true }}"
+            },
+            {
+              "name": "archive_files",
+              "value": "={{ $json.body.archive_files || false }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "folder-ocr",
+      "name": "Folder OCR Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "confidence-check",
+              "leftValue": "={{ $json.confidence_score || 0 }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "quality-check",
+      "name": "Quality Check",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "ocr_results",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request_id": "={{ $json.request_id }}",
+            "filename": "={{ $json.filename }}",
+            "engine_used": "={{ $json.engine_used }}",
+            "processing_time_ms": "={{ $json.processing_time * 1000 }}",
+            "confidence_score": "={{ $json.confidence_score }}",
+            "extracted_text": "={{ $json.text }}",
+            "metadata": "={{ JSON.stringify($json.metadata || {}) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-to-supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "files",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "filename": "={{ $json.filename }}",
+            "file_path": "={{ $json.file_path || '/temp/' + $json.filename }}",
+            "file_type": "={{ $json.metadata?.file_type || 'unknown' }}",
+            "file_size": "={{ $json.metadata?.file_size || 0 }}",
+            "mime_type": "={{ $json.metadata?.mime_type || 'application/octet-stream' }}",
+            "uploaded_by": "n8n-workflow",
+            "metadata": "={{ JSON.stringify({ocr_processed: true, engine: $json.engine_used, confidence: $json.confidence_score}) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "register-file",
+      "name": "Register File",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/ocr/process",
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "engine",
+              "value": "tesseract"
+            },
+            {
+              "name": "language",
+              "value": "={{ $json.body.language || 'de' }}"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "0.5"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "fallback-ocr",
+      "name": "Fallback OCR (Tesseract)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced OCR Result Processing\nconst result = $input.first().json;\nconst processingType = $('webhook-trigger').first().json.body.processing_type || 'single';\n\nlet response = {\n  success: true,\n  timestamp: new Date().toISOString(),\n  processing_type: processingType\n};\n\nif (processingType === 'folder') {\n  // Folder processing result\n  response = {\n    ...response,\n    batch_id: result.batch_id,\n    total_files: result.total_files,\n    processed_successfully: result.processed_successfully,\n    failed: result.failed,\n    results_saved: result.results_saved,\n    files_archived: result.files_archived,\n    summary: `Processed ${result.processed_successfully}/${result.total_files} files successfully`\n  };\n} else {\n  // Single file processing result\n  response = {\n    ...response,\n    request_id: result.request_id,\n    filename: result.filename,\n    engine_used: result.engine_used,\n    processing_time_ms: Math.round((result.processing_time || 0) * 1000),\n    confidence_score: result.confidence_score,\n    text_length: (result.text || '').length,\n    saved_to_database: true\n  };\n}\n\nreturn { json: response };"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback Response Processing\nconst fallbackResult = $input.first().json;\nconst originalInput = $('webhook-trigger').first().json;\n\nconst response = {\n  success: false,\n  timestamp: new Date().toISOString(),\n  message: 'Primary OCR failed, fallback attempted',\n  original_confidence: originalInput.confidence_score || 0,\n  fallback_result: {\n    engine_used: fallbackResult.engine_used,\n    confidence_score: fallbackResult.confidence_score,\n    text_length: (fallbackResult.text || '').length,\n    processing_time_ms: Math.round((fallbackResult.processing_time || 0) * 1000)\n  },\n  recommendation: fallbackResult.confidence_score > 0.5 ? \n    'Fallback result may be usable' : \n    'Consider manual review or different processing approach'\n};\n\nreturn { json: response };"
+      },
+      "id": "build-fallback-response",
+      "name": "Build Fallback Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 200]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "processing-type-switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "processing-type-switch": {
+      "main": [
+        [
+          {
+            "node": "single-file-ocr",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "folder-ocr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "single-file-ocr": {
+      "main": [
+        [
+          {
+            "node": "quality-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "folder-ocr": {
+      "main": [
+        [
+          {
+            "node": "build-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "quality-check": {
+      "main": [
+        [
+          {
+            "node": "save-to-supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "register-file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "fallback-ocr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save-to-supabase": {
+      "main": [
+        [
+          {
+            "node": "build-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "register-file": {
+      "main": [
+        [
+          {
+            "node": "build-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fallback-ocr": {
+      "main": [
+        [
+          {
+            "node": "build-fallback-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build-response": {
+      "main": [
+        [
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build-fallback-response": {
+      "main": [
+        [
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["ocr", "processing", "automation"],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-04T16:00:00.000Z",
+  "versionId": "2.0"
+} 

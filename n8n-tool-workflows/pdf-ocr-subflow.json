@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "instanceId": "local"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "text-empty-check",
+              "leftValue": "={{ $json.text || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "check-text-empty",
+      "name": "Check if Text Empty",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [240, 400],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/ocr/process",
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $binary.data }}"
+            },
+            {
+              "name": "engine",
+              "value": "auto"
+            },
+            {
+              "name": "language",
+              "value": "de"
+            },
+            {
+              "name": "confidence_threshold",
+              "value": "0.7"
+            },
+            {
+              "name": "output_format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2
+          }
+        }
+      },
+      "id": "ocr-processing",
+      "name": "OCR Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "prompt": "=Du bist ein Experte für die Extraktion von Rechnungsinformationen. Analysiere den folgenden Text und extrahiere alle relevanten Rechnungsdaten.\n\nText der Rechnung:\n{{ $json.text || $json.extracted_text }}\n\nExtrahiere folgende Informationen und gib sie als JSON zurück:\n\n{\n  \"invoice_number\": \"Rechnungsnummer\",\n  \"invoice_date\": \"Rechnungsdatum (YYYY-MM-DD)\",\n  \"due_date\": \"Fälligkeitsdatum (YYYY-MM-DD)\",\n  \"vendor\": {\n    \"name\": \"Firmenname des Lieferanten\",\n    \"address\": \"Vollständige Adresse\",\n    \"tax_id\": \"Steuernummer/USt-ID\",\n    \"contact\": \"Kontaktinformationen\"\n  },\n  \"customer\": {\n    \"name\": \"Kundenname\",\n    \"address\": \"Kundenadresse\",\n    \"customer_number\": \"Kundennummer\"\n  },\n  \"line_items\": [\n    {\n      \"description\": \"Artikelbeschreibung\",\n      \"quantity\": \"Menge\",\n      \"unit_price\": \"Einzelpreis\",\n      \"total_price\": \"Gesamtpreis\",\n      \"tax_rate\": \"Steuersatz\"\n    }\n  ],\n  \"totals\": {\n    \"subtotal\": \"Nettobetrag\",\n    \"tax_amount\": \"Steuerbetrag\",\n    \"total_amount\": \"Bruttobetrag\",\n    \"currency\": \"Währung\"\n  },\n  \"payment_info\": {\n    \"payment_method\": \"Zahlungsart\",\n    \"bank_details\": \"Bankverbindung\",\n    \"reference\": \"Verwendungszweck\"\n  },\n  \"additional_info\": {\n    \"delivery_date\": \"Lieferdatum\",\n    \"order_number\": \"Bestellnummer\",\n    \"project_reference\": \"Projektreferenz\",\n    \"notes\": \"Besondere Hinweise\"\n  }\n}\n\nWichtig:\n- Gib nur valides JSON zurück\n- Wenn Informationen nicht verfügbar sind, verwende null\n- Behalte Zahlenformate bei (z.B. 1234.56)\n- Erkenne deutsche Datumsformate und konvertiere zu YYYY-MM-DD\n- Extrahiere alle Positionen vollständig",
+        "options": {
+          "temperature": 0.1,
+          "topP": 0.9
+        }
+      },
+      "id": "ollama-extraction-ocr",
+      "name": "Ollama Extraction (OCR)",
+      "type": "n8n-nodes-base.ollama",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "prompt": "=Du bist ein Experte für die Extraktion von Rechnungsinformationen. Analysiere den folgenden Text und extrahiere alle relevanten Rechnungsdaten.\n\nText der Rechnung:\n{{ $json.text }}\n\nExtrahiere folgende Informationen und gib sie als JSON zurück:\n\n{\n  \"invoice_number\": \"Rechnungsnummer\",\n  \"invoice_date\": \"Rechnungsdatum (YYYY-MM-DD)\",\n  \"due_date\": \"Fälligkeitsdatum (YYYY-MM-DD)\",\n  \"vendor\": {\n    \"name\": \"Firmenname des Lieferanten\",\n    \"address\": \"Vollständige Adresse\",\n    \"tax_id\": \"Steuernummer/USt-ID\",\n    \"contact\": \"Kontaktinformationen\"\n  },\n  \"customer\": {\n    \"name\": \"Kundenname\",\n    \"address\": \"Kundenadresse\",\n    \"customer_number\": \"Kundennummer\"\n  },\n  \"line_items\": [\n    {\n      \"description\": \"Artikelbeschreibung\",\n      \"quantity\": \"Menge\",\n      \"unit_price\": \"Einzelpreis\",\n      \"total_price\": \"Gesamtpreis\",\n      \"tax_rate\": \"Steuersatz\"\n    }\n  ],\n  \"totals\": {\n    \"subtotal\": \"Nettobetrag\",\n    \"tax_amount\": \"Steuerbetrag\",\n    \"total_amount\": \"Bruttobetrag\",\n    \"currency\": \"Währung\"\n  },\n  \"payment_info\": {\n    \"payment_method\": \"Zahlungsart\",\n    \"bank_details\": \"Bankverbindung\",\n    \"reference\": \"Verwendungszweck\"\n  },\n  \"additional_info\": {\n    \"delivery_date\": \"Lieferdatum\",\n    \"order_number\": \"Bestellnummer\",\n    \"project_reference\": \"Projektreferenz\",\n    \"notes\": \"Besondere Hinweise\"\n  }\n}\n\nWichtig:\n- Gib nur valides JSON zurück\n- Wenn Informationen nicht verfügbar sind, verwende null\n- Behalte Zahlenformate bei (z.B. 1234.56)\n- Erkenne deutsche Datumsformate und konvertiere zu YYYY-MM-DD\n- Extrahiere alle Positionen vollständig",
+        "options": {
+          "temperature": 0.1,
+          "topP": 0.9
+        }
+      },
+      "id": "ollama-extraction-direct",
+      "name": "Ollama Extraction (Direct)",
+      "type": "n8n-nodes-base.ollama",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process and normalize extraction results\nconst input = $input.first().json;\n\n// Determine source of data\nlet extractedText = '';\nlet processingMethod = '';\nlet confidence = 1.0;\nlet processingTime = 0;\nlet engineUsed = 'direct';\n\n// Check if this came from OCR or direct extraction\nif (input.text && input.confidence_score !== undefined) {\n  // OCR result\n  extractedText = input.text || input.extracted_text || '';\n  processingMethod = 'ocr_processing';\n  confidence = input.confidence_score || 0;\n  processingTime = input.processing_time || 0;\n  engineUsed = input.engine_used || 'unknown';\n} else {\n  // Direct text extraction result\n  extractedText = input.text || '';\n  processingMethod = 'direct_text_extraction';\n  confidence = 1.0;\n  processingTime = 0.1;\n  engineUsed = 'direct';\n}\n\n// Get Ollama response\nconst ollamaResponse = input.response || input.text || '';\n\ntry {\n  // Try to parse JSON from Ollama response\n  let extractedData;\n  \n  // Clean response - remove markdown code blocks if present\n  const cleanResponse = ollamaResponse\n    .replace(/```json\\s*/g, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n  \n  try {\n    extractedData = JSON.parse(cleanResponse);\n  } catch (parseError) {\n    // If JSON parsing fails, try to extract JSON from text\n    const jsonMatch = cleanResponse.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      extractedData = JSON.parse(jsonMatch[0]);\n    } else {\n      throw new Error('No valid JSON found in response');\n    }\n  }\n  \n  // Build final result - preserve original data structure and add extraction\n  const result = {\n    ...($('check-text-empty').first().json || {}), // Original data\n    text: extractedText, // Update text field with OCR result if applicable\n    extracted_invoice_data: extractedData,\n    processing_metadata: {\n      method: processingMethod,\n      confidence_score: confidence,\n      processing_time_seconds: processingTime,\n      engine_used: engineUsed,\n      extraction_model: 'llama3.2:latest',\n      timestamp: new Date().toISOString()\n    }\n  };\n  \n  return { json: result };\n  \n} catch (error) {\n  // Return error response but preserve original data\n  return {\n    json: {\n      ...($('check-text-empty').first().json || {}),\n      text: extractedText,\n      extracted_invoice_data: null,\n      processing_metadata: {\n        method: processingMethod,\n        confidence_score: confidence,\n        error: error.message,\n        raw_response: ollamaResponse,\n        timestamp: new Date().toISOString()\n      }\n    }\n  };\n}"
+      },
+      "id": "normalize-result",
+      "name": "Normalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "check-text-empty": {
+      "main": [
+        [
+          {
+            "node": "ocr-processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ollama-extraction-direct",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ocr-processing": {
+      "main": [
+        [
+          {
+            "node": "ollama-extraction-ocr",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ollama-extraction-ocr": {
+      "main": [
+        [
+          {
+            "node": "normalize-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ollama-extraction-direct": {
+      "main": [
+        [
+          {
+            "node": "normalize-result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["pdf", "ocr", "subflow", "extraction"],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-04T19:00:00.000Z",
+  "versionId": "1.0"
+} 

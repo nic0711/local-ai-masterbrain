@@ -1,0 +1,571 @@
+{
+  "meta": {
+    "instanceId": "local"
+  },
+  "name": "Scraping Configurator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scraping-config",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "scraping-config"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and normalise input\nconst body = $input.first().json.body || $input.first().json;\n\nconst url = body.url;\nconst mode = body.mode || 'auto';\nconst destination = body.destination || 'supabase';\nconst cssSelector = body.css_selector || '';\nconst llmInstruction = body.llm_instruction || 'Extract the main content, headings, and key information from this webpage.';\nconst collection = body.collection || 'default';\nconst webhookUrl = body.webhook_url || '';\nconst metadata = body.metadata || {};\n\n// Validation\nif (!url) throw new Error('Missing required field: url');\nif (!['css', 'llm', 'auto'].includes(mode)) throw new Error('Invalid mode. Must be: css | llm | auto');\nconst validDest = ['supabase', 'neo4j', 'qdrant', 'sheets', 'webhook', 'all'];\nif (!validDest.includes(destination)) throw new Error('Invalid destination. Must be: ' + validDest.join(' | '));\nif (destination === 'webhook' && !webhookUrl) throw new Error('webhook_url is required when destination=webhook');\n\nreturn {\n  json: {\n    url, mode, destination,\n    css_selector: cssSelector,\n    llm_instruction: llmInstruction,\n    collection, webhook_url: webhookUrl,\n    metadata,\n    request_id: 'sc_' + Date.now()\n  }\n};"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "css",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "css"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "llm",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "llm"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "auto",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "auto"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mode-switch",
+      "name": "Switch: mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"urls\": [\"{{ $json.url }}\"],\n  \"extraction_strategy\": \"CSSExtractionStrategy\",\n  \"extraction_config\": {\n    \"type\": \"schema\",\n    \"params\": {\n      \"schema\": {\n        \"name\": \"content\",\n        \"baseSelector\": \"{{ $json.css_selector || 'body' }}\",\n        \"fields\": [\n          { \"name\": \"text\", \"selector\": \"\", \"type\": \"text\" },\n          { \"name\": \"links\", \"selector\": \"a\", \"type\": \"list\", \"fields\": [{ \"name\": \"href\", \"selector\": \"\", \"type\": \"attribute\", \"attribute\": \"href\" }] }\n        ]\n      }\n    }\n  },\n  \"chunking_strategy\": \"RegexChunking\",\n  \"chunk_size\": 1000,\n  \"chunk_overlap\": 200\n}",
+        "options": {
+          "timeout": 60000,
+          "retry": { "enabled": true, "maxRetries": 2 }
+        }
+      },
+      "id": "crawl-css",
+      "name": "Crawl4AI CSS Selector",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"urls\": [\"{{ $json.url }}\"],\n  \"extraction_strategy\": \"LLMExtractionStrategy\",\n  \"extraction_config\": {\n    \"provider\": \"ollama\",\n    \"api_token\": \"\",\n    \"instruction\": \"{{ $json.llm_instruction }}\"\n  },\n  \"chunking_strategy\": \"RegexChunking\",\n  \"chunk_size\": 1000,\n  \"chunk_overlap\": 200\n}",
+        "options": {
+          "timeout": 90000,
+          "retry": { "enabled": true, "maxRetries": 2 }
+        }
+      },
+      "id": "crawl-llm",
+      "name": "Crawl4AI LLM Extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"urls\": [\"{{ $json.url }}\"],\n  \"extraction_strategy\": \"CSSExtractionStrategy\",\n  \"extraction_config\": {\n    \"type\": \"schema\",\n    \"params\": {\n      \"schema\": {\n        \"name\": \"content\",\n        \"baseSelector\": \"{{ $json.css_selector || 'body' }}\",\n        \"fields\": [\n          { \"name\": \"text\", \"selector\": \"\", \"type\": \"text\" }\n        ]\n      }\n    }\n  },\n  \"chunking_strategy\": \"RegexChunking\",\n  \"chunk_size\": 1000,\n  \"chunk_overlap\": 200\n}",
+        "options": {
+          "timeout": 60000,
+          "retry": { "enabled": false }
+        }
+      },
+      "id": "auto-try-css",
+      "name": "Auto: Try CSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 580],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.results && $json.results[0] && ($json.results[0].extracted_content || $json.results[0].markdown) }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "isNotEmpty" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "auto-css-ok",
+      "name": "CSS Result OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 580]
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"urls\": [\"{{ $('validate-input').first().json.url }}\"],\n  \"extraction_strategy\": \"LLMExtractionStrategy\",\n  \"extraction_config\": {\n    \"provider\": \"ollama\",\n    \"api_token\": \"\",\n    \"instruction\": \"{{ $('validate-input').first().json.llm_instruction }}\"\n  },\n  \"chunking_strategy\": \"RegexChunking\",\n  \"chunk_size\": 1000,\n  \"chunk_overlap\": 200\n}",
+        "options": {
+          "timeout": 90000,
+          "retry": { "enabled": true, "maxRetries": 2 }
+        }
+      },
+      "id": "auto-fallback-llm",
+      "name": "Auto: Fallback LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 660],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "passThrough",
+        "output": "single"
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise crawl4ai response into a flat content object\nconst input = $input.first().json;\nconst params = $('validate-input').first().json;\n\nlet content = '';\nlet title = '';\n\nif (input.results && input.results.length > 0) {\n  const r = input.results[0];\n  content = r.extracted_content || r.markdown || r.cleaned_html || '';\n  title = r.metadata?.title || r.title || new URL(params.url).hostname;\n} else if (input.result) {\n  content = input.result.extracted_content || input.result.markdown || '';\n  title = input.result.title || new URL(params.url).hostname;\n}\n\nif (!content) throw new Error('No content extracted from ' + params.url);\n\nreturn {\n  json: {\n    url: params.url,\n    title,\n    content,\n    content_length: content.length,\n    destination: params.destination,\n    collection: params.collection,\n    webhook_url: params.webhook_url,\n    metadata: params.metadata,\n    request_id: params.request_id,\n    scraped_at: new Date().toISOString(),\n    mode_used: params.mode\n  }\n};"
+      },
+      "id": "normalise-content",
+      "name": "Normalise Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "supabase",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "supabase"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "neo4j",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "neo4j"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "qdrant",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "qdrant"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "sheets",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "sheets"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "webhook",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "webhook"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.destination }}",
+                    "rightValue": "all",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "all"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dest-switch",
+      "name": "Switch: destination",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1960, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://supabase-kong:8000/rest/v1/scraped_content",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.url }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"content\": {{ JSON.stringify($json.content) }},\n  \"content_length\": {{ $json.content_length }},\n  \"mode_used\": \"{{ $json.mode_used }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }},\n  \"scraped_at\": \"{{ $json.scraped_at }}\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dest-supabase",
+      "name": "→ Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 180],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://neo4j:7474/db/neo4j/tx/commit",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"statements\": [{\n    \"statement\": \"MERGE (d:Document {url: $url}) SET d.title = $title, d.content = $content, d.content_length = $content_length, d.scraped_at = $scraped_at, d.metadata = $metadata RETURN d.url\",\n    \"parameters\": {\n      \"url\": \"{{ $json.url }}\",\n      \"title\": \"{{ $json.title }}\",\n      \"content\": {{ JSON.stringify($json.content) }},\n      \"content_length\": {{ $json.content_length }},\n      \"scraped_at\": \"{{ $json.scraped_at }}\",\n      \"metadata\": {{ JSON.stringify($json.metadata) }}\n    }\n  }]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Basic {{ $env.NEO4J_BASIC_AUTH }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dest-neo4j",
+      "name": "→ Neo4j",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 340],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=http://qdrant:6333/collections/{{ $json.collection }}/points",
+        "method": "PUT",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"points\": [{\n    \"id\": {{ Math.abs($json.url.split('').reduce((h,c) => ((h<<5)-h+c.charCodeAt(0))|0, 0)) }},\n    \"payload\": {\n      \"url\": \"{{ $json.url }}\",\n      \"title\": \"{{ $json.title }}\",\n      \"content\": {{ JSON.stringify($json.content.slice(0, 2000)) }},\n      \"scraped_at\": \"{{ $json.scraped_at }}\",\n      \"metadata\": {{ JSON.stringify($json.metadata) }}\n    },\n    \"vector\": []\n  }]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dest-qdrant",
+      "name": "→ Qdrant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "sheet",
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "mode": "id", "value": "={{ $env.GOOGLE_SHEETS_ID }}" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Scraped Content" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.url }}",
+            "title": "={{ $json.title }}",
+            "content": "={{ $json.content.slice(0, 5000) }}",
+            "scraped_at": "={{ $json.scraped_at }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "dest-sheets",
+      "name": "→ Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [2200, 660],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-creds",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.webhook_url }}",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.url }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"content\": {{ JSON.stringify($json.content) }},\n  \"scraped_at\": \"{{ $json.scraped_at }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }}\n}",
+        "options": {}
+      },
+      "id": "dest-webhook",
+      "name": "→ Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 820],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan-out: send to all destinations\nconst d = $input.first().json;\n\n// This node passes through; the actual writes happen via\n// the Supabase, Neo4j, Qdrant, and Webhook nodes wired in parallel below.\n// We just tag the item so downstream nodes know the request_id.\nreturn { json: { ...d, fan_out: true } };"
+      },
+      "id": "dest-all",
+      "name": "→ All (fan-out)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 980]
+    },
+    {
+      "parameters": {
+        "url": "http://supabase-kong:8000/rest/v1/scraped_content",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.url }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"content\": {{ JSON.stringify($json.content) }},\n  \"content_length\": {{ $json.content_length }},\n  \"mode_used\": \"{{ $json.mode_used }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }},\n  \"scraped_at\": \"{{ $json.scraped_at }}\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_ANON_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "all-supabase",
+      "name": "All → Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 900],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://neo4j:7474/db/neo4j/tx/commit",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"statements\": [{\n    \"statement\": \"MERGE (d:Document {url: $url}) SET d.title = $title, d.content = $content, d.scraped_at = $scraped_at RETURN d.url\",\n    \"parameters\": {\n      \"url\": \"{{ $('dest-all').first().json.url }}\",\n      \"title\": \"{{ $('dest-all').first().json.title }}\",\n      \"content\": {{ JSON.stringify($('dest-all').first().json.content) }},\n      \"scraped_at\": \"{{ $('dest-all').first().json.scraped_at }}\"\n    }\n  }]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Basic {{ $env.NEO4J_BASIC_AUTH }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "all-neo4j",
+      "name": "All → Neo4j",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 1060],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "passThrough",
+        "output": "single"
+      },
+      "id": "merge-dest",
+      "name": "Merge Destinations",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build summary response\nconst input = $input.first().json;\nconst params = $('validate-input').first().json;\n\nreturn {\n  json: {\n    success: true,\n    request_id: params.request_id,\n    url: params.url,\n    mode: params.mode,\n    destination: params.destination,\n    content_length: input.content_length || 0,\n    title: input.title || '',\n    scraped_at: input.scraped_at || new Date().toISOString()\n  }\n};"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2900, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "webhook-response",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3100, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Validate Input", "type": "main", "index": 0 }]]
+    },
+    "Validate Input": {
+      "main": [[{ "node": "Switch: mode", "type": "main", "index": 0 }]]
+    },
+    "Switch: mode": {
+      "css":  [[{ "node": "Crawl4AI CSS Selector", "type": "main", "index": 0 }]],
+      "llm":  [[{ "node": "Crawl4AI LLM Extract",  "type": "main", "index": 0 }]],
+      "auto": [[{ "node": "Auto: Try CSS",          "type": "main", "index": 0 }]]
+    },
+    "Crawl4AI CSS Selector": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Crawl4AI LLM Extract": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Auto: Try CSS": {
+      "main": [[{ "node": "CSS Result OK?", "type": "main", "index": 0 }]]
+    },
+    "CSS Result OK?": {
+      "main": [
+        [{ "node": "Merge Results",     "type": "main", "index": 2 }],
+        [{ "node": "Auto: Fallback LLM","type": "main", "index": 0 }]
+      ]
+    },
+    "Auto: Fallback LLM": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Normalise Content", "type": "main", "index": 0 }]]
+    },
+    "Normalise Content": {
+      "main": [[{ "node": "Switch: destination", "type": "main", "index": 0 }]]
+    },
+    "Switch: destination": {
+      "supabase": [[{ "node": "→ Supabase",     "type": "main", "index": 0 }]],
+      "neo4j":    [[{ "node": "→ Neo4j",        "type": "main", "index": 0 }]],
+      "qdrant":   [[{ "node": "→ Qdrant",       "type": "main", "index": 0 }]],
+      "sheets":   [[{ "node": "→ Google Sheets","type": "main", "index": 0 }]],
+      "webhook":  [[{ "node": "→ Webhook",      "type": "main", "index": 0 }]],
+      "all":      [[{ "node": "→ All (fan-out)","type": "main", "index": 0 }]]
+    },
+    "→ Supabase":      { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 0 }]] },
+    "→ Neo4j":         { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 1 }]] },
+    "→ Qdrant":        { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 2 }]] },
+    "→ Google Sheets": { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 3 }]] },
+    "→ Webhook":       { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 4 }]] },
+    "→ All (fan-out)": {
+      "main": [
+        [
+          { "node": "All → Supabase", "type": "main", "index": 0 },
+          { "node": "All → Neo4j",   "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "All → Supabase": { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 5 }]] },
+    "All → Neo4j":    { "main": [[{ "node": "Merge Destinations", "type": "main", "index": 5 }]] },
+    "Merge Destinations": {
+      "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]]
+    },
+    "Build Response": {
+      "main": [[{ "node": "Respond 200", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["scraping", "crawl4ai", "configurator", "multi-destination"],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-15T00:00:00.000Z",
+  "versionId": "1.0"
+}

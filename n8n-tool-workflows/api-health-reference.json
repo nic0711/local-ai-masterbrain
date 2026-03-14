@@ -1,0 +1,288 @@
+{
+  "meta": {
+    "instanceId": "local"
+  },
+  "name": "API Health Reference",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "api-reference",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "api-reference"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resolve service filter from query param ?service=\nconst query = $input.first().json.query || {};\nconst service = (query.service || 'all').toLowerCase();\nconst valid = ['all', 'auth', 'nlp', 'ocr', 'crawl4ai', 'n8n', 'supabase'];\nif (!valid.includes(service)) throw new Error('Invalid service. Must be: ' + valid.join(' | '));\nreturn { json: { service } };"
+      },
+      "id": "resolve-service",
+      "name": "Resolve Service",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": {
+                "conditions": [{ "leftValue": "={{ $json.service }}", "rightValue": "auth", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true, "outputKey": "auth"
+            },
+            {
+              "conditions": {
+                "conditions": [{ "leftValue": "={{ $json.service }}", "rightValue": "nlp", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true, "outputKey": "nlp"
+            },
+            {
+              "conditions": {
+                "conditions": [{ "leftValue": "={{ $json.service }}", "rightValue": "ocr", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true, "outputKey": "ocr"
+            },
+            {
+              "conditions": {
+                "conditions": [{ "leftValue": "={{ $json.service }}", "rightValue": "crawl4ai", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true, "outputKey": "crawl4ai"
+            },
+            {
+              "conditions": {
+                "conditions": [{ "leftValue": "={{ $json.service }}", "rightValue": "all", "operator": { "type": "string", "operation": "equals" } }]
+              },
+              "renameOutput": true, "outputKey": "all"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "service-switch",
+      "name": "Switch: service",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://auth-gateway:5001/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "health-auth",
+      "name": "Health: auth-gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 180],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://python-nlp-service:8001/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "health-nlp",
+      "name": "Health: python-nlp-service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 340],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://ocr-service:8002/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "health-ocr",
+      "name": "Health: ocr-service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "health-crawl4ai",
+      "name": "Health: crawl4ai",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 660],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const health = $input.first().json;\nconst status = health.status === 'healthy' || health.status === 'ok' ? 'healthy' : 'degraded';\n\nconst catalogue = [\n  { method: 'GET',  path: '/health',                    description: 'Detailed health check with DB and Supabase status' },\n  { method: 'GET',  path: '/status',                    description: 'Version and uptime info' },\n  { method: 'GET',  path: '/verify',                    description: 'Verify JWT token (used by Caddy forward_auth)' },\n  { method: 'POST', path: '/control/backup',            description: 'Trigger database backup' },\n  { method: 'GET',  path: '/control/backup/status',     description: 'Get last backup status' },\n  { method: 'GET',  path: '/control/backup/list',       description: 'List available backup archives' },\n  { method: 'GET',  path: '/control/backup/files',      description: 'List files in backup' },\n  { method: 'GET',  path: '/control/backup/diff',       description: 'Diff between two backups' },\n  { method: 'GET',  path: '/control/users',             description: 'List Supabase users' },\n  { method: 'POST', path: '/control/users',             description: 'Create a new user' },\n  { method: 'POST', path: '/control/users/password',    description: 'Change user password' },\n  { method: 'POST', path: '/control/users/delete',      description: 'Delete user' },\n  { method: 'GET',  path: '/control/services/status',   description: 'List all Docker service statuses' },\n  { method: 'POST', path: '/control/services/{svc}/{action}', description: 'Start/stop/restart a service' },\n  { method: 'GET',  path: '/control/services/{svc}/logs', description: 'Tail service logs' },\n  { method: 'GET',  path: '/control/macros',            description: 'List available control macros' },\n  { method: 'POST', path: '/control/macro/{id}',        description: 'Execute a control macro' },\n  { method: 'POST', path: '/control/restore',           description: 'Restore database from backup' }\n];\n\nreturn {\n  json: {\n    service: 'auth-gateway',\n    base_url: 'http://auth-gateway:5001',\n    status,\n    health_raw: health,\n    endpoints: catalogue\n  }\n};"
+      },
+      "id": "catalogue-auth",
+      "name": "Catalogue: auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const health = $input.first().json;\nconst status = health.status === 'healthy' || health.status === 'ok' ? 'healthy' : 'degraded';\n\nconst catalogue = [\n  { method: 'GET',  path: '/health',              description: 'Health check' },\n  { method: 'GET',  path: '/status',              description: 'Service status and version' },\n  { method: 'POST', path: '/process',             description: 'Analyse document (PDF or text), extract metadata + NLP' },\n  { method: 'POST', path: '/pdf/analyze-type',    description: 'Detect PDF type (digital / scanned / mixed)' },\n  { method: 'POST', path: '/pdf/to-png-smart',    description: 'Convert PDF pages to PNG (smart quality selection)' },\n  { method: 'POST', path: '/pdf/extract',         description: 'Extract text from PDF (native or OCR fallback)' },\n  { method: 'POST', path: '/document/analyze',    description: 'Full document analysis pipeline (NLP + layout)' },\n  { method: 'POST', path: '/graph/init',           description: 'Initialize Neo4j graph schema and indexes' },\n  { method: 'POST', path: '/graph/index',          description: 'Index Obsidian note into Neo4j knowledge graph' },\n  { method: 'POST', path: '/graph/query',          description: 'Query knowledge graph by entities or title similarity' }\n];\n\nreturn {\n  json: {\n    service: 'python-nlp-service',\n    base_url: 'http://python-nlp-service:8001',\n    status,\n    health_raw: health,\n    endpoints: catalogue\n  }\n};"
+      },
+      "id": "catalogue-nlp",
+      "name": "Catalogue: nlp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "const health = $input.first().json;\nconst status = health.status === 'healthy' ? 'healthy' : 'degraded';\n\nconst catalogue = [\n  { method: 'GET',  path: '/',                    description: 'Root health check' },\n  { method: 'GET',  path: '/health',              description: 'Detailed health: engines, dirs, model status' },\n  { method: 'GET',  path: '/engines',             description: 'List available OCR engines and their status' },\n  { method: 'GET',  path: '/stats',               description: 'Processing statistics and counters' },\n  { method: 'POST', path: '/ocr/process',         description: 'Process single image/file with OCR (TrOCR / Tesseract / auto)' },\n  { method: 'POST', path: '/ocr/batch',           description: 'Batch-process multiple files' },\n  { method: 'POST', path: '/ocr/process-folder',  description: 'Process all files in an /data/input sub-folder' },\n  { method: 'POST', path: '/pdf/analyze',         description: 'Analyse PDF: extract text and/or run OCR per page' },\n  { method: 'POST', path: '/pdf/analyze-type',    description: 'Classify PDF as digital / scanned / mixed' },\n  { method: 'POST', path: '/pdf/to-png',          description: 'Convert specific PDF pages to PNG' },\n  { method: 'POST', path: '/pdf/to-png-all',      description: 'Convert all PDF pages to PNG' },\n  { method: 'GET',  path: '/pdf/page-count',      description: 'Get page count for a PDF file' },\n  { method: 'POST', path: '/pdf/to-png-combined', description: 'Convert PDF and combine pages into one image' },\n  { method: 'POST', path: '/pdf/to-png-smart',    description: 'Smart PDF-to-PNG: auto quality, size constraints' },\n  { method: 'POST', path: '/debug/file-info',     description: 'Debug: show file metadata and format details' }\n];\n\nreturn {\n  json: {\n    service: 'ocr-service',\n    base_url: 'http://ocr-service:8002',\n    status,\n    health_raw: health,\n    available_engines: health.available_engines || [],\n    endpoints: catalogue\n  }\n};"
+      },
+      "id": "catalogue-ocr",
+      "name": "Catalogue: ocr",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const health = $input.first().json;\nconst status = health.status === 'ok' || health.status === 'healthy' ? 'healthy' : 'degraded';\n\nconst catalogue = [\n  { method: 'GET',  path: '/health',   description: 'Health check and version info' },\n  { method: 'POST', path: '/crawl',    description: 'Start crawl job (CSS or LLM extraction strategy)' },\n  { method: 'GET',  path: '/task/{id}',description: 'Get status/result of an async crawl task' },\n  { method: 'GET',  path: '/tasks',    description: 'List all active crawl tasks' },\n  { method: 'DELETE',path: '/task/{id}',description: 'Cancel a crawl task' }\n];\n\nreturn {\n  json: {\n    service: 'crawl4ai',\n    base_url: 'http://crawl4ai:11235',\n    status,\n    health_raw: health,\n    endpoints: catalogue\n  }\n};"
+      },
+      "id": "catalogue-crawl4ai",
+      "name": "Catalogue: crawl4ai",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 660]
+    },
+    {
+      "parameters": {
+        "url": "http://auth-gateway:5001/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "all-health-auth",
+      "name": "All: Health auth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 880],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://python-nlp-service:8001/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "all-health-nlp",
+      "name": "All: Health nlp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 1020],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://ocr-service:8002/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "all-health-ocr",
+      "name": "All: Health ocr",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 1160],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/health",
+        "options": { "timeout": 5000 }
+      },
+      "id": "all-health-crawl4ai",
+      "name": "All: Health crawl4ai",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 1300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "passThrough",
+        "output": "single"
+      },
+      "id": "merge-all",
+      "name": "Merge All",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build structured response\nconst items = $input.all();\n\n// Single-service branches produce one item; all-branch produces 4 items\nconst services = items.map(item => item.json).filter(s => s.service);\n\nconst response = {\n  generated_at: new Date().toISOString(),\n  total_services: services.length,\n  services\n};\n\nreturn { json: response };"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "webhook-response",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1760, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Resolve Service", "type": "main", "index": 0 }]]
+    },
+    "Resolve Service": {
+      "main": [[{ "node": "Switch: service", "type": "main", "index": 0 }]]
+    },
+    "Switch: service": {
+      "auth":    [[{ "node": "Health: auth-gateway",       "type": "main", "index": 0 }]],
+      "nlp":     [[{ "node": "Health: python-nlp-service", "type": "main", "index": 0 }]],
+      "ocr":     [[{ "node": "Health: ocr-service",        "type": "main", "index": 0 }]],
+      "crawl4ai":[[{ "node": "Health: crawl4ai",           "type": "main", "index": 0 }]],
+      "all":     [[
+        { "node": "All: Health auth",    "type": "main", "index": 0 },
+        { "node": "All: Health nlp",     "type": "main", "index": 0 },
+        { "node": "All: Health ocr",     "type": "main", "index": 0 },
+        { "node": "All: Health crawl4ai","type": "main", "index": 0 }
+      ]]
+    },
+    "Health: auth-gateway":       { "main": [[{ "node": "Catalogue: auth",    "type": "main", "index": 0 }]] },
+    "Health: python-nlp-service": { "main": [[{ "node": "Catalogue: nlp",     "type": "main", "index": 0 }]] },
+    "Health: ocr-service":        { "main": [[{ "node": "Catalogue: ocr",     "type": "main", "index": 0 }]] },
+    "Health: crawl4ai":           { "main": [[{ "node": "Catalogue: crawl4ai","type": "main", "index": 0 }]] },
+    "All: Health auth":           { "main": [[{ "node": "Merge All", "type": "main", "index": 0 }]] },
+    "All: Health nlp":            { "main": [[{ "node": "Merge All", "type": "main", "index": 1 }]] },
+    "All: Health ocr":            { "main": [[{ "node": "Merge All", "type": "main", "index": 2 }]] },
+    "All: Health crawl4ai":       { "main": [[{ "node": "Merge All", "type": "main", "index": 3 }]] },
+    "Catalogue: auth":    { "main": [[{ "node": "Merge All", "type": "main", "index": 0 }]] },
+    "Catalogue: nlp":     { "main": [[{ "node": "Merge All", "type": "main", "index": 1 }]] },
+    "Catalogue: ocr":     { "main": [[{ "node": "Merge All", "type": "main", "index": 2 }]] },
+    "Catalogue: crawl4ai":{ "main": [[{ "node": "Merge All", "type": "main", "index": 3 }]] },
+    "Merge All":     { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response":{ "main": [[{ "node": "Respond 200",   "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["api", "health", "reference", "monitoring"],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-15T00:00:00.000Z",
+  "versionId": "1.0"
+}

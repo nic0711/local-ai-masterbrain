@@ -8,6 +8,7 @@ import fitz  # PyMuPDF
 import requests
 import spacy
 from flask import Flask, jsonify, request
+from neo4j import GraphDatabase
 
 app = Flask(__name__)
 
@@ -18,6 +19,13 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 # Konfiguration aus Umgebungsvariablen
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://host.docker.internal:11434")
 OCR_MODEL = os.environ.get("OCR_MODEL", "glm-ocr")
+
+# Neo4j Konfiguration
+_neo4j_raw = os.environ.get("NEO4J_AUTH", "neo4j/your_password")
+_neo4j_uri = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
+_neo4j_parts = _neo4j_raw.split("/", 1)
+NEO4J_USER = _neo4j_parts[0] if len(_neo4j_parts) == 2 else "neo4j"
+NEO4J_PASS = _neo4j_parts[1] if len(_neo4j_parts) == 2 else _neo4j_parts[0]
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -30,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Globale Variablen
 service_ready = False
 nlp_models = {}  # {"de": model, "en": model}
+_neo4j_driver = None
 
 SUPPORTED_LANGUAGES = ("de", "en")
 SPACY_MODELS = {
@@ -152,6 +161,7 @@ def status():
             "/process",
             "/pdf/analyze-type", "/pdf/to-png-smart", "/pdf/extract",
             "/document/analyze",
+            "/graph/init", "/graph/index", "/graph/query",
         ],
     })
 
@@ -346,6 +356,240 @@ def document_analyze():
     except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"error": "Analyse fehlgeschlagen"}), 500
+
+
+# ---------------------------------------------------------------------------
+# GraphRAG: Neo4j
+# ---------------------------------------------------------------------------
+
+def _get_neo4j():
+    global _neo4j_driver
+    if _neo4j_driver is None:
+        _neo4j_driver = GraphDatabase.driver(_neo4j_uri, auth=(NEO4J_USER, NEO4J_PASS))
+    return _neo4j_driver
+
+
+@app.route('/graph/init', methods=['POST'])
+def graph_init():
+    """Erstellt Neo4j Constraints und Indexes (einmalig aufrufen)."""
+    try:
+        driver = _get_neo4j()
+        with driver.session() as session:
+            session.run("CREATE CONSTRAINT note_path IF NOT EXISTS FOR (n:Note) REQUIRE n.path IS UNIQUE")
+            session.run("CREATE CONSTRAINT entity_key IF NOT EXISTS FOR (e:Entity) REQUIRE (e.name, e.label) IS UNIQUE")
+            session.run("CREATE CONSTRAINT tag_name IF NOT EXISTS FOR (t:Tag) REQUIRE t.name IS UNIQUE")
+            session.run("CREATE INDEX note_title IF NOT EXISTS FOR (n:Note) ON (n.title)")
+            session.run("CREATE INDEX entity_name IF NOT EXISTS FOR (e:Entity) ON (e.name)")
+        return jsonify({"status": "ok", "message": "Constraints und Indexes erstellt"})
+    except Exception:
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Neo4j Init fehlgeschlagen"}), 500
+
+
+@app.route('/graph/index', methods=['POST'])
+def graph_index():
+    """
+    Notiz in Neo4j indexieren.
+    Body: {path, title, text, tags?, vault?, lang?}
+    Erstellt/aktualisiert: Note-Node, Entity-Nodes, Tag-Nodes, Beziehungen.
+    """
+    if not service_ready:
+        return jsonify({"error": "Service not ready"}), 503
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "JSON body erwartet"}), 400
+
+    path = data.get("path", "")
+    title = data.get("title", path.split("/")[-1].replace(".md", ""))
+    text = data.get("text", "")
+    tags = data.get("tags", [])
+    vault = data.get("vault", "personal")
+    lang = data.get("lang", "de")
+    if lang not in SUPPORTED_LANGUAGES:
+        lang = "de"
+
+    if not path:
+        return jsonify({"error": "'path' fehlt"}), 400
+    if len(text) > MAX_TEXT_LENGTH:
+        return jsonify({"error": f"Text zu lang. Maximum: {MAX_TEXT_LENGTH} Zeichen"}), 413
+
+    try:
+        entities = _extract_entities(text[:10_000], lang) if text else []
+
+        # Wikilinks aus Text extrahieren [[Notiz-Titel]]
+        import re
+        wikilinks = re.findall(r'\[\[([^\]|]+)(?:\|[^\]]*)?\]\]', text)
+
+        driver = _get_neo4j()
+        with driver.session() as session:
+            # Note-Node upsert
+            session.run(
+                """
+                MERGE (n:Note {path: $path})
+                SET n.title = $title, n.vault = $vault, n.updated = timestamp()
+                """,
+                path=path, title=title, vault=vault,
+            )
+
+            # Alte Entity/Tag-Beziehungen löschen (bei Re-Index)
+            session.run(
+                "MATCH (n:Note {path: $path})-[r:MENTIONS|HAS_TAG|LINKS_TO]->() DELETE r",
+                path=path,
+            )
+
+            # Entity-Nodes + MENTIONS Beziehungen
+            seen = set()
+            for ent in entities:
+                key = (ent["text"].lower(), ent["label"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                session.run(
+                    """
+                    MERGE (e:Entity {name: $name, label: $label})
+                    WITH e
+                    MATCH (n:Note {path: $path})
+                    MERGE (n)-[:MENTIONS]->(e)
+                    """,
+                    name=ent["text"], label=ent["label"], path=path,
+                )
+
+            # Tag-Nodes + HAS_TAG Beziehungen
+            for tag in tags:
+                if tag:
+                    session.run(
+                        """
+                        MERGE (t:Tag {name: $tag})
+                        WITH t
+                        MATCH (n:Note {path: $path})
+                        MERGE (n)-[:HAS_TAG]->(t)
+                        """,
+                        tag=tag, path=path,
+                    )
+
+            # Wikilink-Beziehungen (LINKS_TO — Ziel-Note muss nicht existieren)
+            for link in set(wikilinks):
+                if link:
+                    session.run(
+                        """
+                        MERGE (target:Note {title: $link})
+                        ON CREATE SET target.path = $link, target.vault = $vault
+                        WITH target
+                        MATCH (n:Note {path: $path})
+                        MERGE (n)-[:LINKS_TO]->(target)
+                        """,
+                        link=link, path=path, vault=vault,
+                    )
+
+        return jsonify({
+            "status": "ok",
+            "path": path,
+            "entities_indexed": len(seen),
+            "tags_indexed": len(tags),
+            "links_indexed": len(set(wikilinks)),
+        })
+    except Exception:
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Graph-Indexierung fehlgeschlagen"}), 500
+
+
+@app.route('/graph/query', methods=['POST'])
+def graph_query():
+    """
+    Graph-basierte Suche: Findet Notizen via Entity- oder Titel-Match.
+    Body: {query, limit?}
+    Returns: [{path, title, vault, score, matched_entities, tags}]
+    """
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "JSON body erwartet"}), 400
+
+    query = data.get("query", "").strip()
+    limit = min(int(data.get("limit", 10)), 50)
+
+    if not query:
+        return jsonify({"error": "'query' fehlt"}), 400
+
+    try:
+        driver = _get_neo4j()
+        results = {}
+
+        with driver.session() as session:
+            # 1. Suche via Entity-Name (enthält Query-Token)
+            tokens = [t for t in query.split() if len(t) > 2]
+            for token in tokens[:5]:
+                rows = session.run(
+                    """
+                    MATCH (n:Note)-[:MENTIONS]->(e:Entity)
+                    WHERE toLower(e.name) CONTAINS toLower($token)
+                    WITH n, collect(e.name)[..5] AS matched
+                    RETURN n.path AS path, n.title AS title, n.vault AS vault,
+                           matched, size(matched) AS score
+                    ORDER BY score DESC LIMIT $limit
+                    """,
+                    token=token, limit=limit,
+                )
+                for row in rows:
+                    p = row["path"]
+                    if p not in results:
+                        results[p] = {
+                            "path": p,
+                            "title": row["title"],
+                            "vault": row["vault"],
+                            "score": 0,
+                            "matched_entities": [],
+                            "tags": [],
+                        }
+                    results[p]["score"] += row["score"]
+                    results[p]["matched_entities"] = list(
+                        set(results[p]["matched_entities"] + list(row["matched"]))
+                    )[:10]
+
+            # 2. Suche via Titel (enthält Query)
+            rows = session.run(
+                """
+                MATCH (n:Note)
+                WHERE toLower(n.title) CONTAINS toLower($query)
+                RETURN n.path AS path, n.title AS title, n.vault AS vault
+                LIMIT $limit
+                """,
+                query=query, limit=limit,
+            )
+            for row in rows:
+                p = row["path"]
+                if p not in results:
+                    results[p] = {
+                        "path": p,
+                        "title": row["title"],
+                        "vault": row["vault"],
+                        "score": 5,
+                        "matched_entities": [],
+                        "tags": [],
+                    }
+                else:
+                    results[p]["score"] += 5
+
+            # 3. Tags für alle Treffer laden
+            if results:
+                tag_rows = session.run(
+                    """
+                    MATCH (n:Note)-[:HAS_TAG]->(t:Tag)
+                    WHERE n.path IN $paths
+                    RETURN n.path AS path, collect(t.name) AS tags
+                    """,
+                    paths=list(results.keys()),
+                )
+                for row in tag_rows:
+                    if row["path"] in results:
+                        results[row["path"]]["tags"] = list(row["tags"])
+
+        sorted_results = sorted(results.values(), key=lambda x: x["score"], reverse=True)
+        return jsonify({"results": sorted_results[:limit], "total": len(sorted_results)})
+
+    except Exception:
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Graph-Abfrage fehlgeschlagen"}), 500
 
 
 # ---------------------------------------------------------------------------

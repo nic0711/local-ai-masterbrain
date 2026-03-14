@@ -63,6 +63,7 @@ _SERVICES = {
     "crawl4ai":           ("crawl4ai", 11235, "/health"),
     "searxng":            ("searxng", 8080, "/healthz"),
     "python-nlp-service": ("python-nlp-service", 5000, "/health"),
+    "ocr-service":        ("ocr-service", 8002, "/health"),
     "supabase":           ("supabase-auth", 9999, "/health"),
     "minio":              ("localai-minio-1", 9000, "/minio/health/live"),
     "clickhouse":         ("clickhouse", 8123, "/ping"),
@@ -520,6 +521,207 @@ def delete_user():
     except Exception as e:
         logging.error(f"delete_user error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# ── Service Control ──────────────────────────────────────────────────────────
+
+# Allowlist: API-Key → Docker-Container-Name (nur steuerbare App-Dienste)
+_CONTROLLABLE = {
+    'n8n':                'n8n',
+    'open-webui':         'open-webui',
+    'flowise':            'flowise',
+    'neo4j':              'neo4j',
+    'qdrant':             'qdrant',
+    'crawl4ai':           'crawl4ai',
+    'searxng':            'searxng',
+    'python-nlp-service': 'python-nlp-service',
+    'langfuse-web':       'localai-langfuse-web-1',
+    'langfuse-worker':    'localai-langfuse-worker-1',
+    'minio':              'localai-minio-1',
+    'clickhouse':         'localai-clickhouse-1',
+    'redis':              'redis',
+    'uptime-kuma':        'uptime-kuma',
+}
+
+_MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
+
+
+def _get_docker_container(service_key):
+    """Gibt den Docker-Container für einen erlaubten Service zurück oder None."""
+    import docker as docker_sdk
+    container_name = _CONTROLLABLE.get(service_key)
+    if not container_name:
+        return None, None
+    client = docker_sdk.from_env()
+    try:
+        container = client.containers.get(container_name)
+        return client, container
+    except docker_sdk.errors.NotFound:
+        return client, None
+
+
+@app.route('/control/services/status', methods=['GET'])
+@limiter.limit("30 per minute")
+def docker_service_status():
+    """Docker-basierter Container-Status für alle steuerbaren Dienste. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    import docker as docker_sdk
+    try:
+        client = docker_sdk.from_env()
+        result = {}
+        for key, container_name in _CONTROLLABLE.items():
+            try:
+                container = client.containers.get(container_name)
+                result[key] = 'up' if container.status == 'running' else 'down'
+            except docker_sdk.errors.NotFound:
+                result[key] = 'down'
+        return jsonify(result), 200
+    except Exception as e:
+        logging.error(f"docker_service_status error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/control/services/<service>/<action>', methods=['POST'])
+@limiter.limit("10 per minute")
+def service_control(service, action):
+    """Startet, stoppt oder startet einen Container neu. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if service not in _CONTROLLABLE:
+        return jsonify({"error": f"Dienst '{service}' nicht erlaubt"}), 400
+
+    if action not in ('start', 'stop', 'restart'):
+        return jsonify({"error": f"Aktion '{action}' nicht erlaubt"}), 400
+
+    try:
+        import docker as docker_sdk
+        client, container = _get_docker_container(service)
+        if container is None:
+            return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
+
+        if action == 'start':
+            container.start()
+        elif action == 'stop':
+            container.stop(timeout=10)
+        elif action == 'restart':
+            container.restart(timeout=10)
+
+        logging.info(f"[CONTROL] {user.id} → {action} {service}")
+        return jsonify({"status": "ok", "message": f"{service} {action} ausgeführt"}), 200
+    except Exception as e:
+        logging.error(f"service_control error ({service}/{action}): {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/control/services/<service>/logs', methods=['GET'])
+@limiter.limit("30 per minute")
+def service_logs(service):
+    """Gibt die letzten N Log-Zeilen eines Containers zurück. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if service not in _CONTROLLABLE:
+        return jsonify({"error": f"Dienst '{service}' nicht erlaubt"}), 400
+
+    lines = request.args.get('lines', 50)
+    try:
+        lines = max(1, min(int(lines), 500))
+    except (ValueError, TypeError):
+        lines = 50
+
+    try:
+        _, container = _get_docker_container(service)
+        if container is None:
+            return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
+
+        raw = container.logs(tail=lines, timestamps=True)
+        log_text = raw.decode('utf-8', errors='replace')
+        logging.info(f"[CONTROL] {user.id} → logs {service} (tail={lines})")
+        return jsonify({"service": service, "lines": lines, "logs": log_text}), 200
+    except Exception as e:
+        logging.error(f"service_logs error ({service}): {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/control/macros', methods=['GET'])
+@limiter.limit("30 per minute")
+def list_macros():
+    """Gibt die Macro-Definitionen zurück. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        with open(_MACROS_FILE, 'r') as f:
+            data = json.load(f)
+        return jsonify(data), 200
+    except FileNotFoundError:
+        return jsonify({"macros": []}), 200
+    except Exception as e:
+        logging.error(f"list_macros error: {e}")
+        return jsonify({"error": "Macros konnten nicht geladen werden"}), 500
+
+
+@app.route('/control/macro/<macro_id>', methods=['POST'])
+@limiter.limit("5 per minute")
+def run_macro(macro_id):
+    """Führt ein vordefiniertes Macro aus. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        with open(_MACROS_FILE, 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return jsonify({"error": "Macros-Datei nicht gefunden"}), 404
+    except Exception as e:
+        return jsonify({"error": "Macros konnten nicht geladen werden"}), 500
+
+    macro = next((m for m in data.get('macros', []) if m.get('id') == macro_id), None)
+    if not macro:
+        return jsonify({"error": f"Macro '{macro_id}' nicht gefunden"}), 404
+
+    results = []
+    errors = []
+    for step in macro.get('actions', []):
+        svc = step.get('service', '')
+        act = step.get('action', '')
+
+        if svc not in _CONTROLLABLE or act not in ('start', 'stop', 'restart'):
+            errors.append(f"Übersprungen: {act} {svc} (nicht erlaubt)")
+            continue
+
+        try:
+            import docker as docker_sdk
+            _, container = _get_docker_container(svc)
+            if container is None:
+                errors.append(f"{svc}: Container nicht gefunden")
+                continue
+            if act == 'start':
+                container.start()
+            elif act == 'stop':
+                container.stop(timeout=10)
+            elif act == 'restart':
+                container.restart(timeout=10)
+            results.append(f"{act} {svc}: ok")
+            logging.info(f"[CONTROL] macro={macro_id} {user.id} → {act} {svc}")
+        except Exception as e:
+            errors.append(f"{act} {svc}: {e}")
+            logging.error(f"run_macro error ({macro_id} {act} {svc}): {e}")
+
+    return jsonify({
+        "status": "ok" if not errors else "partial",
+        "macro": macro_id,
+        "results": results,
+        "errors": errors,
+    }), 200
 
 
 @app.route('/control/restore', methods=['POST'])
