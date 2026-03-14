@@ -1,0 +1,853 @@
+{
+  "name": "LocalSupabase System Overview & Management",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "system-overview",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "System Overview Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "system-overview"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-switch",
+              "leftValue": "={{ $json.query.action || 'overview' }}",
+              "rightValue": "overview",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "action-switch",
+      "name": "Action Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "user_profiles",
+        "output": "table"
+      },
+      "id": "get-user-stats",
+      "name": "Get User Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        180
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "files",
+        "output": "table"
+      },
+      "id": "get-file-stats",
+      "name": "Get File Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        280
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "workflows",
+        "output": "table"
+      },
+      "id": "get-workflow-stats",
+      "name": "Get Workflow Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        380
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "ocr_results",
+        "output": "table"
+      },
+      "id": "get-ocr-stats",
+      "name": "Get OCR Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        480
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "ai_conversations",
+        "output": "table"
+      },
+      "id": "get-ai-stats",
+      "name": "Get AI Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        580
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "select": "table",
+        "table": "neo4j_queries",
+        "output": "table"
+      },
+      "id": "get-neo4j-stats",
+      "name": "Get Neo4j Stats",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        680
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// System Overview Dashboard\nconst userStats = $input.first().json;\nconst fileStats = $input.all()[1].json;\nconst workflowStats = $input.all()[2].json;\nconst ocrStats = $input.all()[3].json;\nconst aiStats = $input.all()[4].json;\nconst neo4jStats = $input.all()[5].json;\n\n// Calculate metrics\nconst dashboard = {\n  timestamp: new Date().toISOString(),\n  system_status: 'healthy',\n  \n  // User Management\n  users: {\n    total: userStats.length,\n    active_today: userStats.filter(u => \n      new Date(u.last_login_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    new_this_week: userStats.filter(u => \n      new Date(u.created_at) > new Date(Date.now() - 7*24*60*60*1000)\n    ).length\n  },\n  \n  // File Management\n  files: {\n    total: fileStats.length,\n    total_size_mb: Math.round(fileStats.reduce((sum, f) => sum + (f.file_size || 0), 0) / 1024 / 1024),\n    uploaded_today: fileStats.filter(f => \n      new Date(f.created_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    by_type: fileStats.reduce((acc, f) => {\n      const type = f.file_type || 'unknown';\n      acc[type] = (acc[type] || 0) + 1;\n      return acc;\n    }, {})\n  },\n  \n  // Workflow Management\n  workflows: {\n    total: workflowStats.length,\n    active: workflowStats.filter(w => w.status === 'active').length,\n    executions_today: workflowStats.filter(w => \n      new Date(w.last_execution_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    success_rate: workflowStats.length > 0 ? \n      Math.round((workflowStats.filter(w => w.status === 'completed').length / workflowStats.length) * 100) : 0\n  },\n  \n  // OCR Performance\n  ocr: {\n    total_processed: ocrStats.length,\n    processed_today: ocrStats.filter(o => \n      new Date(o.created_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    avg_confidence: ocrStats.length > 0 ? \n      Math.round(ocrStats.reduce((sum, o) => sum + (o.confidence_score || 0), 0) / ocrStats.length * 100) / 100 : 0,\n    avg_processing_time_ms: ocrStats.length > 0 ? \n      Math.round(ocrStats.reduce((sum, o) => sum + (o.processing_time_ms || 0), 0) / ocrStats.length) : 0,\n    engines_used: ocrStats.reduce((acc, o) => {\n      const engine = o.engine_used || 'unknown';\n      acc[engine] = (acc[engine] || 0) + 1;\n      return acc;\n    }, {})\n  },\n  \n  // AI Integration\n  ai: {\n    total_conversations: aiStats.length,\n    conversations_today: aiStats.filter(a => \n      new Date(a.created_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    models_used: aiStats.reduce((acc, a) => {\n      const model = a.model_used || 'unknown';\n      acc[model] = (acc[model] || 0) + 1;\n      return acc;\n    }, {}),\n    avg_tokens_per_conversation: aiStats.length > 0 ? \n      Math.round(aiStats.reduce((sum, a) => sum + (a.total_tokens || 0), 0) / aiStats.length) : 0\n  },\n  \n  // Neo4j Integration\n  neo4j: {\n    total_queries: neo4jStats.length,\n    queries_today: neo4jStats.filter(n => \n      new Date(n.executed_at) > new Date(Date.now() - 24*60*60*1000)\n    ).length,\n    avg_execution_time_ms: neo4jStats.length > 0 ? \n      Math.round(neo4jStats.reduce((sum, n) => sum + (n.execution_time_ms || 0), 0) / neo4jStats.length) : 0,\n    successful_queries: neo4jStats.filter(n => n.status === 'success').length\n  },\n  \n  // System Health\n  health: {\n    database: 'connected',\n    ocr_service: 'running',\n    neo4j: 'connected',\n    n8n: 'running'\n  }\n};\n\nreturn { json: dashboard };"
+      },
+      "id": "build-dashboard",
+      "name": "Build Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "health-check",
+              "leftValue": "={{ $json.query.action }}",
+              "rightValue": "health-check",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "health-check-switch",
+      "name": "Health Check Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8002/health",
+        "options": {}
+      },
+      "id": "check-ocr-service",
+      "name": "Check OCR Service",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:7474/db/data/",
+        "options": {}
+      },
+      "id": "check-neo4j",
+      "name": "Check Neo4j",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:54321/health",
+        "options": {}
+      },
+      "id": "check-supabase",
+      "name": "Check Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Health Check Results\nconst ocrHealth = $input.first().json;\nconst neo4jHealth = $input.all()[1].json;\nconst supabaseHealth = $input.all()[2].json;\n\nconst healthReport = {\n  timestamp: new Date().toISOString(),\n  overall_status: 'healthy',\n  services: {\n    ocr_service: {\n      status: ocrHealth.status === 'healthy' ? 'healthy' : 'unhealthy',\n      url: 'http://localhost:8002',\n      engines: ocrHealth.engines || {},\n      available_engines: ocrHealth.available_engines || []\n    },\n    neo4j: {\n      status: neo4jHealth ? 'healthy' : 'unhealthy',\n      url: 'http://localhost:7474',\n      version: neo4jHealth?.neo4j_version || 'unknown'\n    },\n    supabase: {\n      status: supabaseHealth ? 'healthy' : 'unhealthy',\n      url: 'http://localhost:54321',\n      description: supabaseHealth?.description || 'Supabase API'\n    },\n    n8n: {\n      status: 'healthy',\n      url: 'http://localhost:5678',\n      description: 'n8n Workflow Automation'\n    }\n  },\n  response_times: {\n    ocr_service_ms: 0, // Would need timing logic\n    neo4j_ms: 0,\n    supabase_ms: 0\n  }\n};\n\n// Determine overall status\nconst services = Object.values(healthReport.services);\nif (services.some(s => s.status === 'unhealthy')) {\n  healthReport.overall_status = 'degraded';\n}\nif (services.filter(s => s.status === 'unhealthy').length > 1) {\n  healthReport.overall_status = 'unhealthy';\n}\n\nreturn { json: healthReport };"
+      },
+      "id": "build-health-report",
+      "name": "Build Health Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "service_health",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "service_name": "system_overview",
+            "status": "={{ $json.overall_status }}",
+            "response_time_ms": 100,
+            "details": "={{ JSON.stringify($json) }}",
+            "checked_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-health-check",
+      "name": "Save Health Check",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        880
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "demo-data",
+              "leftValue": "={{ $json.query.action }}",
+              "rightValue": "demo",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "demo-data-switch",
+      "name": "Demo Data Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        460,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "user_profiles",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "demo-user-001",
+            "email": "demo@local-ai.local",
+            "full_name": "Demo User",
+            "avatar_url": "https://via.placeholder.com/150",
+            "preferences": "{\"theme\": \"dark\", \"language\": \"de\"}",
+            "last_login_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-demo-user",
+      "name": "Create Demo User",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1080
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "files",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "filename": "demo_document.pdf",
+            "file_path": "/data/input/demo_document.pdf",
+            "file_type": "application/pdf",
+            "file_size": 1024000,
+            "mime_type": "application/pdf",
+            "uploaded_by": "demo-user-001",
+            "metadata": "{\"pages\": 5, \"ocr_ready\": true}"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-demo-file",
+      "name": "Create Demo File",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1180
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "workflows",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_name": "OCR Processing Pipeline",
+            "workflow_type": "ocr_automation",
+            "status": "active",
+            "configuration": "{\"engine\": \"trocr\", \"auto_archive\": true}",
+            "created_by": "demo-user-001",
+            "last_execution_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-demo-workflow",
+      "name": "Create Demo Workflow",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1280
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "ai_conversations",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "demo-user-001",
+            "conversation_type": "ocr_analysis",
+            "model_used": "gpt-4",
+            "prompt": "Analyze the extracted text from this document",
+            "response": "The document appears to be an invoice with the following key information...",
+            "total_tokens": 150,
+            "metadata": "{\"confidence\": 0.95, \"processing_time\": 2.3}"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-demo-ai-conversation",
+      "name": "Create Demo AI Conversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1380
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "table": "neo4j_queries",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "MATCH (n:Document) RETURN count(n)",
+            "query_type": "read",
+            "status": "success",
+            "execution_time_ms": 45,
+            "results_count": 1,
+            "executed_by": "demo-user-001"
+          }
+        },
+        "options": {}
+      },
+      "id": "create-demo-neo4j-query",
+      "name": "Create Demo Neo4j Query",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        680,
+        1480
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "LocalSupabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Demo Data Creation Summary\nconst results = $input.all();\n\nconst summary = {\n  timestamp: new Date().toISOString(),\n  action: 'demo_data_created',\n  created_records: {\n    users: 1,\n    files: 1,\n    workflows: 1,\n    ai_conversations: 1,\n    neo4j_queries: 1\n  },\n  total_records: results.length,\n  status: 'success',\n  message: 'Demo data successfully created in all tables',\n  next_steps: [\n    'Visit http://localhost:5678/webhook/system-overview for dashboard',\n    'Check http://localhost:5678/webhook/system-overview?action=health-check for health status',\n    'Use OCR endpoints at http://localhost:8002/docs for processing'\n  ]\n};\n\nreturn { json: summary };"
+      },
+      "id": "demo-summary",
+      "name": "Demo Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "action-switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "health-check-switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "demo-data-switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "action-switch": {
+      "main": [
+        [
+          {
+            "node": "get-user-stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-file-stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-workflow-stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-ocr-stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-ai-stats",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-neo4j-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-user-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-file-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-workflow-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-ocr-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-ai-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-neo4j-stats": {
+      "main": [
+        [
+          {
+            "node": "build-dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build-dashboard": {
+      "main": [
+        [
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "health-check-switch": {
+      "main": [
+        [
+          {
+            "node": "check-ocr-service",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "check-neo4j",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "check-supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-ocr-service": {
+      "main": [
+        [
+          {
+            "node": "build-health-report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-neo4j": {
+      "main": [
+        [
+          {
+            "node": "build-health-report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-supabase": {
+      "main": [
+        [
+          {
+            "node": "build-health-report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build-health-report": {
+      "main": [
+        [
+          {
+            "node": "save-health-check",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "demo-data-switch": {
+      "main": [
+        [
+          {
+            "node": "create-demo-user",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-demo-file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-demo-workflow",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-demo-ai-conversation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-demo-neo4j-query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-demo-user": {
+      "main": [
+        [
+          {
+            "node": "demo-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-demo-file": {
+      "main": [
+        [
+          {
+            "node": "demo-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-demo-workflow": {
+      "main": [
+        [
+          {
+            "node": "demo-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-demo-ai-conversation": {
+      "main": [
+        [
+          {
+            "node": "demo-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-demo-neo4j-query": {
+      "main": [
+        [
+          {
+            "node": "demo-summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "demo-summary": {
+      "main": [
+        [
+          {
+            "node": "response-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-04T15:00:00.000Z",
+  "versionId": "1"
+} 

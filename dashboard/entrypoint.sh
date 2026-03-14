@@ -15,6 +15,7 @@ QDRANT_LOCAL_URL="http://localhost:6333"
 MINIO_LOCAL_URL="http://localhost:9011" # Console port
 CRAWL4AI_LOCAL_URL="http://localhost:8082"
 PYTHON_NLP_LOCAL_URL="http://localhost:5050"
+OCR_LOCAL_URL="http://localhost:8002"
 CLICKHOUSE_URL="http://localhost:8123"
 
 # Environment variables
@@ -36,6 +37,7 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     MINIO_URL="${PROTOCOL}://${MINIO_HOSTNAME}"
     CRAWL4AI_URL="${PROTOCOL}://${CRAWL4AI_HOSTNAME}"
     PYTHON_NLP_URL="${NLP_HOSTNAME:+${PROTOCOL}://${NLP_HOSTNAME}}"
+    OCR_URL="${OCR_HOSTNAME:+${PROTOCOL}://${OCR_HOSTNAME}}"
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
     CLICKHOUSE_URL=""
     UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
@@ -52,9 +54,10 @@ else
     MINIO_URL="$MINIO_LOCAL_URL"
     CRAWL4AI_URL="$CRAWL4AI_LOCAL_URL"
     PYTHON_NLP_URL="$PYTHON_NLP_LOCAL_URL/health"
+    OCR_URL="${OCR_HOSTNAME:+https://${OCR_HOSTNAME}}"
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
-    UPTIME_KUMA_URL=""
+    UPTIME_KUMA_URL="http://localhost:3002"
 fi
 
 # Cookie-Domain für alle Subdomains setzen (mit führendem Punkt)
@@ -79,6 +82,7 @@ window.APP_CONFIG = {
     minioHostname: "${MINIO_URL}",
     crawl4aiHostname: "${CRAWL4AI_URL}",
     pythonNlpHostname: "${PYTHON_NLP_URL}",
+    ocrHostname: "${OCR_URL}",
     clickhouseHostname: "${CLICKHOUSE_URL}",
     uptimeKumaHostname: "${UPTIME_KUMA_URL}",
 
