@@ -134,6 +134,11 @@ def _get_verified_user():
     if _JWT_SECRET:
         # Schneller Pfad: lokale kryptografische Verifikation (<1ms)
         try:
+            # RFC 7515 §4.1.11: reject tokens with unrecognised critical extensions.
+            # PyJWT does not enforce this, so we check manually.
+            unverified_header = pyjwt.get_unverified_header(token)
+            if unverified_header.get("crit"):
+                return None
             payload = pyjwt.decode(
                 token, _JWT_SECRET, algorithms=["HS256"],
                 options={"verify_aud": False},
