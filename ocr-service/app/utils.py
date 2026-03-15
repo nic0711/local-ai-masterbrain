@@ -6,7 +6,6 @@ import os
 import asyncio
 import logging
 from typing import List, Optional
-import magic
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -39,23 +38,6 @@ def validate_file_type(filename: str) -> bool:
     file_ext = Path(filename).suffix.lower()
     return file_ext in SUPPORTED_EXTENSIONS
 
-
-def validate_file_content(file_path: str) -> bool:
-    """
-    Validiere Dateiinhalt basierend auf MIME-Type
-    
-    Args:
-        file_path: Pfad zur Datei
-        
-    Returns:
-        bool: True wenn unterstützt, False sonst
-    """
-    try:
-        mime_type = magic.from_file(file_path, mime=True)
-        return mime_type in SUPPORTED_MIME_TYPES
-    except Exception as e:
-        logger.warning(f"Could not determine MIME type for {file_path}: {e}")
-        return False
 
 
 async def cleanup_temp_files(file_paths: List[str], delay: int = 0) -> None:

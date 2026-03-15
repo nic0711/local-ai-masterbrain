@@ -63,3 +63,12 @@ ocr_storage/output/*
 !ocr_storage/input/.gitkeep
 !ocr_storage/output/.gitkeep
 !ocr_storage/temp/.gitkeep
+
+# Credentials & certs
+*.pem
+*.key
+*.crt
+
+# Local env overrides
+.env.local
+.env.*.local

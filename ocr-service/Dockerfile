@@ -16,8 +16,6 @@ RUN apt-get update && \
         tesseract-ocr-deu \
         tesseract-ocr-eng \
         poppler-utils \
-        imagemagick \
-        libmagickwand-dev \
         libgl1-mesa-glx \
         libglib2.0-0 \
         libsm6 \
