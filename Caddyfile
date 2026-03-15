@@ -203,7 +203,7 @@
 # Minio Console
 {$MINIO_HOSTNAME} {
     import protected
-    reverse_proxy localai-minio-1:9001
+    reverse_proxy minio:9001
 }
 
 import /etc/caddy/addons/*.conf
