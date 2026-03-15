@@ -344,7 +344,7 @@ async def process_folder_ocr(
 
 
 @app.post("/pdf/analyze")
-async def analyze_pdf_type(
+async def analyze_pdf(
     file: UploadFile = File(...)
 ):
     """
