@@ -6,6 +6,9 @@
     # und erst dann auf HTTP/2 TCP zurückfallen → spürbare Verzögerung bei jedem Load.
     servers {
         protocols h1 h2
+        timeouts {
+            idle 1h
+        }
     }
 }
 
@@ -112,16 +115,48 @@
 
 # N8N
 {$N8N_HOSTNAME} {
-    import protected
-    reverse_proxy n8n:5678
+    import security_headers
+
+    # WebSocket (/rest/push): kein forward_auth – forward_auth ist mit
+    # WebSocket-Upgrade inkompatibel und liefert HTTP 400.
+    # n8n authentifiziert diesen Endpoint eigenständig.
+    handle /rest/push* {
+        reverse_proxy n8n:5678 {
+            flush_interval -1
+            transport http {
+                response_header_timeout 0
+                dial_timeout             30s
+                keepalive                1h
+                keepalive_idle_conns     10
+            }
+        }
+    }
+
+    # Alle anderen Requests: Supabase-Auth prüfen, dann weiterleiten
+    handle {
+        @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+        forward_auth @needs_auth auth-gateway:5001 {
+            uri /verify
+            header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
+            copy_headers X-Forwarded-User
+            @unauth status 401
+            handle_response @unauth {
+                # Redirect immer zur N8N-Root (nicht zum API-Pfad), da API-Pfade nach Re-Login 404 ergeben
+                redir https://{$DASHBOARD_HOSTNAME}/login.html?redirect=https://{$N8N_HOSTNAME}/ 302
+            }
+        }
+
+        reverse_proxy n8n:5678 {
+            flush_interval -1
+            transport http {
+                response_header_timeout 0
+                dial_timeout             30s
+            }
+        }
+    }
 
     # Logging
     log {
-        output file /data/logs/n8n_access.log {
-            roll_size 10mb
-            roll_keep 5
-        }
-
         output file /data/logs/n8n_error.log {
             roll_size 10mb
             roll_keep 5
