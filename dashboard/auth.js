@@ -24,7 +24,7 @@ function setCookie(token) {
     const isLocal = window.location.hostname.endsWith('.local') || window.location.hostname === 'localhost';
     const secure = (window.location.protocol === 'https:' && !isLocal) ? '; Secure' : '';
     const domain = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
-    document.cookie = `sb-access-token=${token}; path=/; max-age=3600; SameSite=Lax${secure}${domain}`;
+    document.cookie = `sb-access-token=${token}; path=/; max-age=2592000; SameSite=Lax${secure}${domain}`;
 }
 
 function clearCookie() {
