@@ -13,7 +13,7 @@ spacy==3.8.11
 spacy-lookups-data==1.0.5
 
 # HTTP Client (für Ollama-Calls und Health Checks)
-requests==2.32.5
+requests==2.33.0
 
 # Logging und Monitoring
 python-json-logger==4.0.0
