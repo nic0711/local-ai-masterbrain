@@ -32,13 +32,38 @@ function clearCookie() {
     document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${domain}`;
 }
 
+// --- Proaktiver Token-Refresh ---
+// Liest die JWT-Ablaufzeit aus dem Cookie und plant einen Refresh
+// 5 Minuten vor Ablauf. Rekursiv – solange die Seite offen ist.
+let _refreshTimer = null;
+function _scheduleTokenRefresh() {
+    if (!_supabase) return;
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+
+    const jwt = _readJWTPayload();
+    if (!jwt?.exp) return;
+
+    const msUntilExpiry = jwt.exp * 1000 - Date.now();
+    const msUntilRefresh = Math.max(0, msUntilExpiry - 5 * 60 * 1000); // 5 min vor Ablauf
+
+    _refreshTimer = setTimeout(async () => {
+        const { data } = await _supabase.auth.refreshSession();
+        if (data?.session?.access_token) {
+            setCookie(data.session.access_token);
+            _scheduleTokenRefresh(); // nächsten Refresh einplanen
+        }
+    }, msUntilRefresh);
+}
+
 // --- Auth State Synchronisation ---
 if (_supabase) {
     _supabase.auth.onAuthStateChange((event, session) => {
         if (session?.access_token) {
             setCookie(session.access_token);
+            _scheduleTokenRefresh();
         } else if (event === 'SIGNED_OUT') {
             clearCookie();
+            if (_refreshTimer) clearTimeout(_refreshTimer);
         }
     });
 }
@@ -62,6 +87,7 @@ async function protectPage() {
             window.location.href = 'login.html';
         } else {
             setCookie(session.access_token);
+            _scheduleTokenRefresh();
             document.body.style.visibility = 'visible';
         }
     } catch (e) {
