@@ -3,6 +3,7 @@ import re
 import time
 import glob
 import json
+import hashlib
 import tarfile
 import difflib
 import logging
@@ -44,6 +45,12 @@ except Exception as e:
 _BACKUP_TRIGGER = os.environ.get("BACKUP_TRIGGER_FILE", "/opt/backups/.trigger")
 _BACKUP_STATUS  = os.environ.get("BACKUP_STATUS_FILE",  "/opt/backups/.backup_status")
 
+# Sicherheits-Hilfsfunktionen für Backup-Endpoints
+_BACKUP_NAME_RE = re.compile(r'^backup_\d{8}_\d{6}$')
+_BACKUP_DIR = os.path.dirname(_BACKUP_TRIGGER)
+# auth-gateway bekommt ./:/app:ro – damit kann diff aktuelle Dateien lesen
+_APP_DIR = os.environ.get("APP_DIR", "/app")
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -84,8 +91,13 @@ def _ping(host: str, port: int, path: str) -> bool:
 
 
 @app.route('/status', methods=['GET'])
+@limiter.limit("60 per minute")
 def service_status():
-    """Aggregierter Health-Status aller Services – parallel gepingt."""
+    """Aggregierter Health-Status aller Services – parallel gepingt. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     def check(name, host, port, path):
         return name, "up" if _ping(host, port, path) else "down"
 
@@ -119,7 +131,8 @@ def _get_verified_user():
             return None
 
     now = time.time()
-    cache_key = token[-32:]
+    # Use SHA-256 of full token as cache key to avoid suffix-collision attacks
+    cache_key = hashlib.sha256(token.encode()).hexdigest()
 
     # Cache-Lookup
     cached = _jwt_cache.get(cache_key)
@@ -172,7 +185,9 @@ def _get_verified_user():
 @app.route('/verify', methods=['GET'])
 @limiter.limit("600 per minute")
 def verify_auth():
-    if not supabase:
+    # When JWT_SECRET is set, local verification is used and Supabase is not required.
+    # When neither is configured, we cannot verify any token.
+    if not _JWT_SECRET and not supabase:
         return "Auth service not configured", 500
 
     user = _get_verified_user()
@@ -269,7 +284,11 @@ def trigger_backup():
 
 @app.route('/control/backup/status', methods=['GET'])
 def backup_status():
-    """Liest den Backup-Status aus der Status-Datei. Keine Auth erforderlich."""
+    """Liest den Backup-Status aus der Status-Datei. Auth erforderlich."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
     try:
         with open(_BACKUP_STATUS, 'r') as f:
             content = f.read().strip()
@@ -281,26 +300,21 @@ def backup_status():
         return jsonify({"status": "unknown", "timestamp": None}), 200
 
 
-# Sicherheits-Hilfsfunktionen für Backup-Endpoints
-_BACKUP_NAME_RE = re.compile(r'^backup_\d{8}_\d{6}$')
-_BACKUP_DIR = os.path.dirname(_BACKUP_TRIGGER)
-# auth-gateway bekommt ./:/app:ro – damit kann diff aktuelle Dateien lesen
-_APP_DIR = os.environ.get("APP_DIR", "/app")
-
-
 def _validate_backup_name(name):
     """Gibt True zurück wenn der Backup-Name dem erwarteten Format entspricht."""
     return bool(name and _BACKUP_NAME_RE.match(name))
 
 
 def _validate_filepath(filepath):
-    """Gibt True zurück wenn der Dateipfad sicher ist (kein Path Traversal)."""
+    """Gibt True zurück wenn der Dateipfad sicher ist (kein Path Traversal).
+    Validates that the path does not contain traversal sequences and is relative."""
     if not filepath:
         return False
-    if '..' in filepath:
+    norm = os.path.normpath(filepath)
+    if norm.startswith('/') or norm.startswith('..'):
         return False
-    # Nur relative Pfade erlaubt, keine absoluten
-    if filepath.startswith('/'):
+    parts = norm.split(os.sep)
+    if any(p == '..' for p in parts):
         return False
     return True
 
@@ -354,6 +368,10 @@ def backup_files():
         with tarfile.open(archive_path, 'r:gz') as tf:
             for member in tf.getmembers():
                 if member.isfile():
+                    # Validate member path to prevent path traversal via crafted archives
+                    if not _validate_filepath(member.name):
+                        logging.warning(f"Skipping suspicious tar member: {member.name}")
+                        continue
                     files.append({
                         "path": member.name,
                         "size": member.size,
@@ -478,7 +496,7 @@ def create_user():
         return jsonify({"id": resp.user.id, "email": resp.user.email}), 201
     except Exception as e:
         logging.error(f"create_user error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Erstellen des Benutzers"}), 500
 
 
 @app.route('/control/users/password', methods=['POST'])
@@ -502,7 +520,7 @@ def reset_user_password():
         return jsonify({"status": "updated"}), 200
     except Exception as e:
         logging.error(f"reset_password error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Zurücksetzen des Passworts"}), 500
 
 
 @app.route('/control/users/delete', methods=['POST'])
@@ -525,7 +543,7 @@ def delete_user():
         return jsonify({"status": "deleted"}), 200
     except Exception as e:
         logging.error(f"delete_user error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Löschen des Benutzers"}), 500
 
 
 # ── Service Control ──────────────────────────────────────────────────────────
@@ -586,7 +604,7 @@ def docker_service_status():
         return jsonify(result), 200
     except Exception as e:
         logging.error(f"docker_service_status error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Abrufen des Container-Status"}), 500
 
 
 @app.route('/control/services/<service>/<action>', methods=['POST'])
@@ -598,10 +616,10 @@ def service_control(service, action):
         return jsonify({"error": "Unauthorized"}), 401
 
     if service not in _CONTROLLABLE:
-        return jsonify({"error": f"Dienst '{service}' nicht erlaubt"}), 400
+        return jsonify({"error": "Dienst nicht erlaubt"}), 400
 
     if action not in ('start', 'stop', 'restart'):
-        return jsonify({"error": f"Aktion '{action}' nicht erlaubt"}), 400
+        return jsonify({"error": "Aktion nicht erlaubt"}), 400
 
     try:
         import docker as docker_sdk
@@ -620,7 +638,7 @@ def service_control(service, action):
         return jsonify({"status": "ok", "message": f"{service} {action} ausgeführt"}), 200
     except Exception as e:
         logging.error(f"service_control error ({service}/{action}): {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Steuern des Dienstes"}), 500
 
 
 @app.route('/control/services/<service>/logs', methods=['GET'])
@@ -632,7 +650,7 @@ def service_logs(service):
         return jsonify({"error": "Unauthorized"}), 401
 
     if service not in _CONTROLLABLE:
-        return jsonify({"error": f"Dienst '{service}' nicht erlaubt"}), 400
+        return jsonify({"error": "Dienst nicht erlaubt"}), 400
 
     lines = request.args.get('lines', 50)
     try:
@@ -651,7 +669,7 @@ def service_logs(service):
         return jsonify({"service": service, "lines": lines, "logs": log_text}), 200
     except Exception as e:
         logging.error(f"service_logs error ({service}): {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Fehler beim Abrufen der Logs"}), 500
 
 
 @app.route('/control/macros', methods=['GET'])
@@ -687,11 +705,12 @@ def run_macro(macro_id):
     except FileNotFoundError:
         return jsonify({"error": "Macros-Datei nicht gefunden"}), 404
     except Exception as e:
+        logging.error(f"run_macro load error: {e}")
         return jsonify({"error": "Macros konnten nicht geladen werden"}), 500
 
     macro = next((m for m in data.get('macros', []) if m.get('id') == macro_id), None)
     if not macro:
-        return jsonify({"error": f"Macro '{macro_id}' nicht gefunden"}), 404
+        return jsonify({"error": "Macro nicht gefunden"}), 404
 
     results = []
     errors = []
@@ -718,7 +737,7 @@ def run_macro(macro_id):
             results.append(f"{act} {svc}: ok")
             logging.info(f"[CONTROL] macro={macro_id} {user.id} → {act} {svc}")
         except Exception as e:
-            errors.append(f"{act} {svc}: {e}")
+            errors.append(f"{svc}: Fehler beim Ausführen der Aktion")
             logging.error(f"run_macro error ({macro_id} {act} {svc}): {e}")
 
     return jsonify({

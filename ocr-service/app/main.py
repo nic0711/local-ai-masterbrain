@@ -19,7 +19,7 @@ from PIL import Image
 
 from ocr_engines import OCREngineManager
 from models import OCRRequest, OCRResponse, OCRResult
-from utils import cleanup_temp_files, validate_file_type
+from utils import cleanup_temp_files, validate_file_type, sanitize_filename, validate_file_size, MAX_UPLOAD_SIZE_BYTES
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +35,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -94,29 +94,34 @@ async def process_ocr(
     
     if not file.filename:
         raise HTTPException(status_code=400, detail="Keine Datei hochgeladen")
-    
+
     # Datei-Validierung
     if not validate_file_type(file.filename):
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Unsupported file type. Supported: PDF, PNG, JPG, JPEG, TIFF, BMP"
         )
-    
+
     # Unique ID für diesen Request
     request_id = str(uuid.uuid4())
-    temp_file_path = os.path.join(TEMP_DIR, f"{request_id}_{file.filename}")
-    
+    safe_filename = sanitize_filename(file.filename)
+    temp_file_path = os.path.join(TEMP_DIR, f"{request_id}_{safe_filename}")
+
     try:
+        # Datei lesen und Größe prüfen
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Datei speichern
         async with aiofiles.open(temp_file_path, 'wb') as f:
-            content = await file.read()
             await f.write(content)
-        
+
         logger.info(f"Processing file: {file.filename} with engine: {engine}")
-        
+
         # OCR verarbeiten
         result = await ocr_manager.extract_text(temp_file_path, engine)
-        
+
         # Response erstellen
         response = OCRResponse(
             request_id=request_id,
@@ -132,10 +137,12 @@ async def process_ocr(
                 "output_format": output_format
             }
         )
-        
+
         logger.info(f"OCR completed for {file.filename} in {result.get('processing_time', 0):.2f}s")
         return response
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"OCR processing failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
@@ -449,27 +456,33 @@ async def analyze_pdf_type(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only PDF files are supported for this endpoint")
     
     request_id = str(uuid.uuid4())
+    safe_filename = sanitize_filename(file.filename)
     temp_file_path = None
-    
+
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_file_path = f"/data/temp/{request_id}_{file.filename}"
-        
+        temp_file_path = os.path.join(TEMP_DIR, f"{request_id}_{safe_filename}")
+
         with open(temp_file_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         # Analyze PDF type
         ocr_engine_manager = OCREngineManager()
         pdf_analysis = ocr_engine_manager._analyze_pdf_type(temp_file_path)
-        
+
         return {
             "request_id": request_id,
             "filename": file.filename,
             "pdf_analysis": pdf_analysis,
             "timestamp": datetime.now().isoformat()
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"PDF analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"PDF analysis failed: {str(e)}")
@@ -543,13 +556,17 @@ async def convert_pdf_to_png(
         raise HTTPException(status_code=400, detail="DPI must be between 150 and 600")
     
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_pdf_path = f"/data/temp/{file.filename}_{int(time.time())}.pdf"
-        
+        safe_filename = sanitize_filename(file.filename)
+        temp_pdf_path = os.path.join(TEMP_DIR, f"{safe_filename}_{int(time.time())}.pdf")
+
         with open(temp_pdf_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         if page == 0:
             # Convert all pages and return as ZIP
             import zipfile
@@ -599,6 +616,8 @@ async def convert_pdf_to_png(
                 }
             )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"PDF to PNG conversion failed: {e}")
         # Clean up temp file if it exists
@@ -632,19 +651,23 @@ async def convert_pdf_all_pages_to_png(
         raise HTTPException(status_code=400, detail="DPI must be between 150 and 600")
     
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_pdf_path = f"/data/temp/{file.filename}_{int(time.time())}.pdf"
-        
+        safe_filename = sanitize_filename(file.filename)
+        temp_pdf_path = os.path.join(TEMP_DIR, f"{safe_filename}_{int(time.time())}.pdf")
+
         with open(temp_pdf_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         # Get page count
         import fitz
         pdf_doc = fitz.open(temp_pdf_path)
         page_count = len(pdf_doc)
         pdf_doc.close()
-        
+
         if format.lower() == "zip":
             # Return as ZIP file
             import zipfile
@@ -693,6 +716,8 @@ async def convert_pdf_all_pages_to_png(
                 "total_size_bytes": sum(page["size_bytes"] for page in pages)
             }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"PDF to PNG conversion failed: {e}")
         # Clean up temp file if it exists
@@ -716,28 +741,34 @@ async def get_pdf_page_count(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File must be a PDF")
     
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_pdf_path = f"/data/temp/{file.filename}_{int(time.time())}.pdf"
-        
+        safe_filename = sanitize_filename(file.filename)
+        temp_pdf_path = os.path.join(TEMP_DIR, f"{safe_filename}_{int(time.time())}.pdf")
+
         with open(temp_pdf_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         # Get page count
         import fitz
         pdf_doc = fitz.open(temp_pdf_path)
         page_count = len(pdf_doc)
         pdf_doc.close()
-        
+
         # Clean up temp file
         os.remove(temp_pdf_path)
-        
+
         return {
             "filename": file.filename,
             "page_count": page_count,
             "pages": list(range(1, page_count + 1))
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"PDF page count failed: {e}")
         # Clean up temp file if it exists
@@ -774,19 +805,23 @@ async def convert_pdf_to_combined_png(
         raise HTTPException(status_code=400, detail="DPI must be between 150 and 600")
     
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_pdf_path = f"/data/temp/{file.filename}_{int(time.time())}.pdf"
-        
+        safe_filename = sanitize_filename(file.filename)
+        temp_pdf_path = os.path.join(TEMP_DIR, f"{safe_filename}_{int(time.time())}.pdf")
+
         with open(temp_pdf_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         # Get all pages as individual PNG data
         import fitz
         pdf_doc = fitz.open(temp_pdf_path)
         page_count = len(pdf_doc)
         pdf_doc.close()
-        
+
         if page_count == 1:
             # Single page - just convert normally
             png_data = await ocr_manager.convert_pdf_page_to_png(temp_pdf_path, 0, dpi)
@@ -877,6 +912,8 @@ async def convert_pdf_to_combined_png(
             }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"PDF to combined PNG conversion failed: {e}")
         # Clean up temp file if it exists
@@ -920,19 +957,23 @@ async def convert_pdf_smart(
         raise HTTPException(status_code=400, detail="max_pages_combined must be between 1 and 5")
     
     try:
+        content = await file.read()
+        if not validate_file_size(len(content)):
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
+
         # Save uploaded file temporarily
-        temp_pdf_path = f"/data/temp/{file.filename}_{int(time.time())}.pdf"
-        
+        safe_filename = sanitize_filename(file.filename)
+        temp_pdf_path = os.path.join(TEMP_DIR, f"{safe_filename}_{int(time.time())}.pdf")
+
         with open(temp_pdf_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
-        
+
         # Get page count
         import fitz
         pdf_doc = fitz.open(temp_pdf_path)
         page_count = len(pdf_doc)
         pdf_doc.close()
-        
+
         # Smart decision logic
         if page_count == 1:
             # Single page - convert normally
@@ -1023,6 +1064,8 @@ async def convert_pdf_smart(
                 }
             )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Smart PDF conversion failed: {e}")
         # Clean up temp file if it exists

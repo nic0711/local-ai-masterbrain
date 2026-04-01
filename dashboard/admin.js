@@ -21,6 +21,26 @@
         'uptime-kuma':        'UptimeBot',
     };
 
+    // ── DOM helpers (XSS-safe) ───────────────────────────────────────────────
+
+    // Setzt einen <p class="no-data"> Platzhalter in einem Container (kein innerHTML).
+    function _setLoadingPlaceholder(container, text) {
+        while (container.firstChild) container.removeChild(container.firstChild);
+        var p = document.createElement('p');
+        p.className = 'no-data';
+        p.textContent = text;
+        container.appendChild(p);
+    }
+
+    // Setzt eine farbige Statusmeldung in einem <pre>-Viewer (kein innerHTML).
+    function _setViewerMessage(viewer, text, color) {
+        while (viewer.firstChild) viewer.removeChild(viewer.firstChild);
+        var span = document.createElement('span');
+        if (color) span.style.color = color;
+        span.textContent = text;
+        viewer.appendChild(span);
+    }
+
     // ── Tab Switching ────────────────────────────────────────────────────────
     var _profileLoaded = false;
 
@@ -128,7 +148,8 @@
 
         var keys = Object.keys(SERVICE_INFO);
         if (keys.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="no-data">Keine Dienste konfiguriert.</td></tr>';
+            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+            tbody.appendChild(makeNoDataRow(4, 'Keine Dienste konfiguriert.'));
             return;
         }
 
@@ -201,7 +222,11 @@
         if (!container) return;
 
         if (!events || events.length === 0) {
-            container.innerHTML = '<p class="no-data">Noch keine Ereignisse aufgezeichnet.</p>';
+            while (container.firstChild) container.removeChild(container.firstChild);
+            var emptyP = document.createElement('p');
+            emptyP.className = 'no-data';
+            emptyP.textContent = 'Noch keine Ereignisse aufgezeichnet.';
+            container.appendChild(emptyP);
             return;
         }
 
@@ -238,7 +263,7 @@
             fragment.appendChild(row);
         });
 
-        container.innerHTML = '';
+        while (container.firstChild) container.removeChild(container.firstChild);
         container.appendChild(fragment);
     }
 
@@ -285,7 +310,8 @@
     function fetchBackupList() {
         var tbody = document.getElementById('backup-list-tbody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="4" class="no-data">Lade…</td></tr>';
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+        tbody.appendChild(makeNoDataRow(4, 'Lade…'));
 
         fetch('/_control/backup/list', {
             credentials: 'include',
@@ -297,7 +323,8 @@
             })
             .then(function (backups) {
                 if (!backups || backups.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="no-data">Keine Backups vorhanden.</td></tr>';
+                    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+                    tbody.appendChild(makeNoDataRow(4, 'Keine Backups vorhanden.'));
                     return;
                 }
                 var fragment = document.createDocumentFragment();
@@ -341,11 +368,12 @@
 
                     fragment.appendChild(tr);
                 });
-                tbody.innerHTML = '';
+                while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
                 tbody.appendChild(fragment);
             })
             .catch(function () {
-                tbody.innerHTML = '<tr><td colspan="4" class="no-data">Fehler beim Laden der Backup-Liste.</td></tr>';
+                while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+                tbody.appendChild(makeNoDataRow(4, 'Fehler beim Laden der Backup-Liste.'));
             });
     }
 
@@ -362,8 +390,8 @@
         if (!modal) return;
 
         title.textContent = 'Diff: ' + backupName;
-        fileList.innerHTML = '<p class="no-data">Lade Dateiliste…</p>';
-        if (viewer) { viewer.innerHTML = ''; viewer.classList.add('hidden'); }
+        _setLoadingPlaceholder(fileList, 'Lade Dateiliste…');
+        if (viewer) { while (viewer.firstChild) viewer.removeChild(viewer.firstChild); viewer.classList.add('hidden'); }
         if (placeholder) { placeholder.classList.remove('hidden'); }
         modal.classList.remove('hidden');
 
@@ -377,7 +405,7 @@
             })
             .then(function (files) {
                 if (!files || files.length === 0) {
-                    fileList.innerHTML = '<p class="no-data">Keine Dateien im Backup.</p>';
+                    _setLoadingPlaceholder(fileList, 'Keine Dateien im Backup.');
                     return;
                 }
                 var ul = document.createElement('ul');
@@ -399,11 +427,11 @@
                     });
                     ul.appendChild(li);
                 });
-                fileList.innerHTML = '';
+                while (fileList.firstChild) fileList.removeChild(fileList.firstChild);
                 fileList.appendChild(ul);
             })
             .catch(function () {
-                fileList.innerHTML = '<p class="no-data">Fehler beim Laden der Dateiliste.</p>';
+                _setLoadingPlaceholder(fileList, 'Fehler beim Laden der Dateiliste.');
             });
     }
 
@@ -414,7 +442,7 @@
 
         if (placeholder) placeholder.classList.add('hidden');
         viewer.classList.remove('hidden');
-        viewer.innerHTML = '<span style="color:#666">Lade Diff…</span>';
+        _setViewerMessage(viewer, 'Lade Diff…', '#666');
 
         var url = '/_control/backup/diff?backup=' + encodeURIComponent(backupName) +
                   '&file=' + encodeURIComponent(filePath);
@@ -430,7 +458,7 @@
             .then(function (data) {
                 if (done) done();
                 if (!data.changed) {
-                    viewer.innerHTML = '<span style="color:#66bb6a">Keine Unterschiede – Datei ist identisch.</span>';
+                    _setViewerMessage(viewer, 'Keine Unterschiede – Datei ist identisch.', '#66bb6a');
 
                     // Badge in der Dateiliste aktualisieren
                     var activeItem = document.querySelector('.diff-file-item.active');
@@ -456,20 +484,25 @@
             })
             .catch(function () {
                 if (done) done();
-                viewer.innerHTML = '<span style="color:#ef5350">Fehler beim Laden des Diffs.</span>';
+                _setViewerMessage(viewer, 'Fehler beim Laden des Diffs.', '#ef5350');
             });
     }
 
+    // renderDiff erzeugt HTML-Markup aus diff-Zeilen. Alle Zeileninhalte werden
+    // via HTML-Entity-Escaping gesichert bevor sie in innerHTML gesetzt werden.
     function renderDiff(diffLines) {
         if (!diffLines || diffLines.length === 0) {
+            // Keine dynamischen Daten – statischer String ist sicher
             return '<span style="color:#66bb6a">Keine Unterschiede.</span>';
         }
         var html = '';
         diffLines.forEach(function (line) {
-            var escaped = line
+            // Alle Zeileninhalte werden HTML-escaped (XSS-Schutz)
+            var escaped = String(line)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
             var cls = 'diff-line';
             if (line.startsWith('+') && !line.startsWith('+++')) {
                 cls += ' diff-line-add';
@@ -855,7 +888,9 @@
             var msg = document.getElementById('invite-msg');
             var email = emailInput ? emailInput.value.trim() : '';
             var pw = pwInput ? pwInput.value : '';
-            if (!email || pw.length < 8) {
+            // Einfache E-Mail-Formatvalidierung (client-seitig)
+            var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!email || !emailRe.test(email) || pw.length < 8) {
                 if (msg) { msg.style.color = '#ef5350'; msg.textContent = 'Gültige Email + Passwort (min. 8 Zeichen) erforderlich.'; }
                 return;
             }
@@ -869,7 +904,7 @@
                 .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
                 .then(function (result) {
                     if (result.ok) {
-                        if (msg) { msg.style.color = '#66bb6a'; msg.textContent = 'Benutzer angelegt: ' + result.d.email; }
+                        if (msg) { msg.style.color = '#66bb6a'; msg.textContent = 'Benutzer angelegt: ' + (result.d.email || email); }
                         if (emailInput) emailInput.value = '';
                         if (pwInput) pwInput.value = '';
                         fetchUsers();
