@@ -205,7 +205,7 @@ def process_text():
         })
     except RuntimeError as e:
         logger.error(str(e))
-        return jsonify({"error": str(e)}), 503
+        return jsonify({"error": "Verarbeitungsfehler"}), 503
     except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"error": "Verarbeitungsfehler"}), 500
