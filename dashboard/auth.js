@@ -18,6 +18,32 @@ if (!_supabase && AUTH_ENABLED) {
     document.body.innerHTML = "<h1>Konfigurationsfehler</h1><p>Die Supabase-URL oder der Anon-Key konnte nicht geladen werden. Bitte überprüfe die Konfiguration.</p>";
 }
 
+// --- Redirect-Validierung ---
+// Stellt sicher, dass Redirect-Ziele nur same-origin sind (kein Open Redirect).
+function _safeRedirect(url) {
+    if (!url) return 'index.html';
+    try {
+        // Absolute URLs werden auf gleichen Ursprung geprüft
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.origin !== window.location.origin) return 'index.html';
+        return parsed.pathname + parsed.search + parsed.hash;
+    } catch (_) {
+        // Ungültige URL → sicherer Fallback
+        return 'index.html';
+    }
+}
+
+// --- DOM-Hilfsfunktionen ---
+
+// Setzt Badge-Inhalt sicher ohne innerHTML (XSS-Schutz).
+function _setBadgeContent(badge, label) {
+    while (badge.firstChild) badge.removeChild(badge.firstChild);
+    const dot = document.createElement('span');
+    dot.className = 'sdot';
+    badge.appendChild(dot);
+    badge.appendChild(document.createTextNode(label));
+}
+
 // --- Cookie-Management ---
 
 function setCookie(token) {
@@ -132,7 +158,7 @@ if (loginForm) {
                 const { data: { session } } = await _supabase.auth.getSession();
                 if (session) setCookie(session.access_token);
                 const params = new URLSearchParams(window.location.search);
-                window.location.href = params.get('redirect') || 'index.html';
+                window.location.href = _safeRedirect(params.get('redirect'));
             }
             return;
         }
@@ -170,7 +196,7 @@ if (loginForm) {
 
         if (data.session) setCookie(data.session.access_token);
         const params = new URLSearchParams(window.location.search);
-        window.location.href = params.get('redirect') || 'index.html';
+        window.location.href = _safeRedirect(params.get('redirect'));
     });
 }
 
@@ -270,7 +296,7 @@ async function refresh2FAStatus() {
         if (verified.length > 0) {
             if (badge) {
                 badge.className = 'sbadge sbadge-up';
-                badge.innerHTML = '<span class="sdot"></span>Aktiv';
+                _setBadgeContent(badge, 'Aktiv');
             }
             if (toggleBtn) {
                 toggleBtn.textContent = '2FA deaktivieren';
@@ -283,7 +309,7 @@ async function refresh2FAStatus() {
         } else {
             if (badge) {
                 badge.className = 'sbadge sbadge-unknown';
-                badge.innerHTML = '<span class="sdot"></span>Nicht eingerichtet';
+                _setBadgeContent(badge, 'Nicht eingerichtet');
             }
             if (toggleBtn) {
                 toggleBtn.textContent = '2FA einrichten';
@@ -300,7 +326,7 @@ async function refresh2FAStatus() {
         // Supabase nicht erreichbar (z.B. Zertifikat noch nicht vertraut)
         if (badge) {
             badge.className = 'sbadge sbadge-unknown';
-            badge.innerHTML = '<span class="sdot"></span>Nicht verfügbar';
+            _setBadgeContent(badge, 'Nicht verfügbar');
         }
         if (toggleBtn) {
             toggleBtn.textContent = '2FA (Supabase nicht erreichbar)';
@@ -459,15 +485,6 @@ function initPasswordChange() {
             setTimeout(() => setStatus('', ''), 4000);
         }
     });
-}
-
-// --- Passwort-Änderung: Session aus Cookie auffrischen wenn nötig ---
-async function _ensureFreshSession() {
-    // Wenn getSession() null liefert (expired), versuche über refresh_token zu erneuern
-    const { data } = await _supabase.auth.getSession();
-    if (data?.session) return true;
-    // Kein Cookie-based refresh möglich – User muss sich neu einloggen
-    return false;
 }
 
 // --- Protected Page Check ---
