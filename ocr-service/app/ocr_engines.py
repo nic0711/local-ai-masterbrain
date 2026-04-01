@@ -12,8 +12,10 @@ import cv2
 import numpy as np
 import io
 
-# WICHTIG: PIL Image Size Limit erhöhen für große PDFs
-Image.MAX_IMAGE_PIXELS = 300000000  # 300 Millionen Pixel (statt ~179 Millionen)
+# Increase PIL decompression-bomb limit for large PDFs.
+# Default is ~178 MP. We raise to 300 MP to handle high-DPI PDFs.
+# WARNING: Only accept files from trusted sources when this limit is raised.
+Image.MAX_IMAGE_PIXELS = 300_000_000  # 300 MP
 
 # PDF processing imports
 try:
@@ -165,10 +167,7 @@ class OCREngineManager:
                 enhancer = ImageEnhance.Contrast(image)
                 image = enhancer.enhance(1.2)  # Slight contrast boost
                 
-                # Debug: Save converted image for inspection with DPI
-                debug_path = f"/data/temp/debug_page_{page_num + 1}.png"
-                image.save(debug_path, dpi=(600, 600))
-                logger.info(f"Page {page_num + 1} converted to image: {image.size} pixels (saved to {debug_path} with 600 DPI)")
+                logger.info(f"Page {page_num + 1} converted to image: {image.size} pixels")
                 
                 # Store original image for TrOCR and preprocessed for Tesseract
                 images.append(image)
@@ -429,8 +428,7 @@ class OCREngineManager:
     async def _extract_with_tesseract(self, image: Image.Image) -> str:
         """Extract text using Tesseract OCR with multiple PSM modes"""
         try:
-            # Test: Use original image without preprocessing
-            logger.info(f"Testing Tesseract with original image: {image.size} pixels, mode: {image.mode}")
+            logger.info(f"Tesseract processing image: {image.size} pixels, mode: {image.mode}")
             
             # Convert PIL Image to OpenCV format
             if image.mode == 'L':
@@ -547,13 +545,7 @@ class OCREngineManager:
                 image = enhancer.enhance(1.1)  # Slight sharpness boost
             
             logger.info(f"Image preprocessed for OCR: {image.size} pixels, mode: {image.mode}, for_trocr: {for_trocr}")
-            
-            # Save preprocessed image for debugging
-            debug_suffix = "trocr" if for_trocr else "tesseract"
-            debug_path = f"/data/temp/preprocessed_{debug_suffix}.png"
-            image.save(debug_path)
-            logger.info(f"Preprocessed image saved to {debug_path}")
-            
+
             return image
             
         except Exception as e:

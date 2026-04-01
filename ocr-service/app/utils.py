@@ -22,6 +22,23 @@ SUPPORTED_MIME_TYPES = {
 }
 
 
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+def validate_file_size(size_bytes: int, max_bytes: int = MAX_UPLOAD_SIZE_BYTES) -> bool:
+    """
+    Validate that a file is within the allowed size limit.
+
+    Args:
+        size_bytes: File size in bytes
+        max_bytes: Maximum allowed size in bytes (default 50 MB)
+
+    Returns:
+        bool: True if within limit, False otherwise
+    """
+    return 0 < size_bytes <= max_bytes
+
+
 def validate_file_type(filename: str) -> bool:
     """
     Validiere Dateityp basierend auf Dateiendung
@@ -191,24 +208,37 @@ def convert_layout_to_markdown(layout_data: List[dict]) -> str:
 
 def sanitize_filename(filename: str) -> str:
     """
-    Bereinige Dateinamen für sichere Verwendung
-    
+    Bereinige Dateinamen für sichere Verwendung - verhindert Path-Traversal-Angriffe.
+
     Args:
         filename: Ursprünglicher Dateiname
-        
+
     Returns:
-        str: Bereinigter Dateiname
+        str: Bereinigter Dateiname (nur Basename, keine Pfadanteile)
     """
+    if not filename:
+        return "unknown"
+
+    # Strip any directory components first (path traversal prevention)
+    filename = os.path.basename(filename)
+
+    # Reject names that are only dots (e.g. "..", ".")
+    if not filename or set(filename) == {'.'}:
+        return "unknown"
+
     # Entferne gefährliche Zeichen
-    dangerous_chars = '<>:"/\\|?*'
+    dangerous_chars = '<>:"/\\|?*\x00'
     for char in dangerous_chars:
         filename = filename.replace(char, '_')
-    
+
     # Begrenze Länge
     name, ext = os.path.splitext(filename)
     if len(name) > 100:
         name = name[:100]
-    
+
+    # Ensure extension is safe (no dots other than the leading one)
+    ext = ext[:10] if ext else ""
+
     return f"{name}{ext}"
 
 
