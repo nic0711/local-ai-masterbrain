@@ -174,6 +174,44 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  tts-service:
+    container_name: tts-service
+    build:
+      context: ./tts-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - 8003/tcp
+    volumes:
+      - ./tts_storage/input:/data/input
+      - ./tts_storage/output:/data/output
+      - ./tts_storage/temp:/data/temp
+      - ./tts_storage/models:/data/models
+      - ./tts_storage/voices:/data/voices
+    environment:
+      - HF_HOME=/data/models/huggingface
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_TRANSLATE_MODEL:-qwen2.5:7b-instruct-q4_K_M}
+      - WHISPER_MODEL=${WHISPER_MODEL:-medium}
+      - TTS_DEVICE=${TTS_DEVICE:-metal}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   n8n:
     <<: *service-n8n
     container_name: n8n
@@ -257,6 +295,7 @@ services:
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
       - NLP_HOSTNAME=${NLP_HOSTNAME:-nlp.${DOMAIN}}
       - OCR_HOSTNAME=${OCR_HOSTNAME:-ocr.${DOMAIN}}
+      - TTS_HOSTNAME=${TTS_HOSTNAME:-tts.${DOMAIN}}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
@@ -549,6 +588,7 @@ services:
       - DASHBOARD_HOSTNAME=${DASHBOARD_HOSTNAME:-brain.${DOMAIN}}
       - NLP_HOSTNAME=${NLP_HOSTNAME:-}
       - OCR_HOSTNAME=${OCR_HOSTNAME:-}
+      - TTS_HOSTNAME=${TTS_HOSTNAME:-}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
 
   uptime-kuma:
