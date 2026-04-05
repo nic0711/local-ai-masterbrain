@@ -12,6 +12,7 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 | auth-gateway | `http://auth-gateway:5001` | `https://auth.{DOMAIN}` | 18 |
 | python-nlp-service | `http://python-nlp-service:8001` | `https://nlp.{DOMAIN}` | 10 |
 | ocr-service | `http://ocr-service:8002` | `https://ocr.{DOMAIN}` | 15 |
+| tts-service | `http://tts-service:8003` | `https://tts.{DOMAIN}` | 7 |
 
 ---
 
@@ -143,6 +144,55 @@ Vollständige Beschreibung aller Endpunkte: [14_ocr_service.md](14_ocr_service.m
 | `POST` | `/pdf/to-png-combined` | Seiten zusammenführen |
 | `POST` | `/pdf/to-png-smart` | Smart-Konvertierung |
 | `POST` | `/debug/file-info` | Datei-Metadaten |
+
+---
+
+---
+
+## tts-service (Port 8003)
+
+Vollständige Beschreibung: [18_tts_service.md](18_tts_service.md)
+
+| Methode | Pfad | Beschreibung |
+|---------|------|--------------|
+| `GET` | `/health` | Engine-Status, Gerät, Voices, Disk |
+| `GET` | `/voices` | Gespeicherte Referenzstimmen auflisten |
+| `POST` | `/tts/synthesize` | Text → WAV (mit optionaler Referenzstimme) |
+| `POST` | `/tts/clone` | Text + Referenz-Audio (multipart) → WAV |
+| `POST` | `/dub/video` | Video-Upload oder YouTube-URL → `job_id` |
+| `GET` | `/dub/status/{job_id}` | Dubbing-Fortschritt (0.0–1.0) |
+| `GET` | `/dub/download/{job_id}` | Fertiges Video herunterladen |
+
+### POST `/tts/synthesize`
+```json
+// Request
+{ "text": "Hallo Welt", "language": "de", "voice_id": "meine_stimme" }
+
+// Response: audio/wav
+```
+
+### POST `/tts/clone`
+```bash
+curl -X POST https://tts.brain.local/tts/clone \
+  -F "text=Geklonte Stimme" \
+  -F "reference_audio=@stimme.wav" \
+  -F "save_as=meine_stimme" \
+  --output clone.wav
+```
+
+### POST `/dub/video`
+```json
+// YouTube-URL
+{ "youtube_url": "https://youtu.be/...", "target_language": "de", "voice_id": "meine_stimme" }
+
+// Response
+{ "job_id": "3f8a2b1c-..." }
+```
+
+### GET `/dub/status/{job_id}`
+```json
+{ "job_id": "...", "status": "synthesizing", "progress": 0.65, "download_url": null }
+```
 
 ---
 
