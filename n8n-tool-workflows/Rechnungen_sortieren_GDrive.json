@@ -1,0 +1,2333 @@
+{
+  "name": "Rechnungen sortieren (GDrive)",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 789400237,
+          "mode": "list",
+          "cachedResultName": "2019",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=789400237"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuern_7 }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        380
+      ],
+      "id": "0933d720-0887-4c51-ae91-a5ae509be92c",
+      "name": "2019",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "2020",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        540
+      ],
+      "id": "b7bc88b8-dfaf-4557-9c0d-ec1bd0c9c670",
+      "name": "2020",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1247951686,
+          "mode": "list",
+          "cachedResultName": "2021",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=1247951686"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        680
+      ],
+      "id": "0837cc93-4cf0-4c13-861d-1f1a1798266f",
+      "name": "2021",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 532489132,
+          "mode": "list",
+          "cachedResultName": "2022",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=532489132"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        820
+      ],
+      "id": "38e79664-70f7-45b9-be41-8acc0d86b34a",
+      "name": "2022",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 156406407,
+          "mode": "list",
+          "cachedResultName": "2023",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=156406407"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        960
+      ],
+      "id": "56183648-efd8-4796-afb1-4f14b74a1d9e",
+      "name": "2023",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 478087997,
+          "mode": "list",
+          "cachedResultName": "2024",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=478087997"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        1080
+      ],
+      "id": "be8dba79-974f-47c4-895f-9a77d95ff17f",
+      "name": "2024",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1335578946,
+          "mode": "list",
+          "cachedResultName": "2025",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=1335578946"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        1220
+      ],
+      "id": "be9ced7d-38cb-4bae-bf3d-03909896bc59",
+      "name": "2025",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ",
+          "mode": "list",
+          "cachedResultName": "Rechnungsübersicht",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 976410532,
+          "mode": "list",
+          "cachedResultName": "2026",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12j1fYssNCHXFusANsXqWkg5gT6u-JAjaey4-BcpIFmQ/edit#gid=976410532"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Bezeichnung": "={{ $('Information Extractor').item.json.output.bezeichnung }}",
+            "Rechnungsnummer": "={{ $('Information Extractor').item.json.output.rechnungsnummer }}",
+            "Datum": "={{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+            "Netto": "={{ $('Information Extractor').item.json.output.nettobetrag }}",
+            "Währung": "={{ $('Information Extractor').item.json.output['währung'] }}",
+            "Datei": "={{ $('GetFile').item.json.webViewLink }}",
+            "Unternehmen": "={{ $('Information Extractor').item.json.output.unternehmen }}",
+            "Brutto": "={{ $('Information Extractor').item.json.output.bruttobetrag }}",
+            "Monat": "={{ $('Information Extractor').item.json.output.monat }}",
+            "Steuern 19%": "={{ $('Information Extractor').item.json.output.steuern_19 }}",
+            "Steuern 16%": "={{ $('Information Extractor').item.json.output.steuern_16 }}",
+            "Steuern 7%": "={{ $('Information Extractor').item.json.output.steuen_7 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Unternehmen",
+              "displayName": "Unternehmen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Bezeichnung",
+              "displayName": "Bezeichnung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rechnungsnummer",
+              "displayName": "Rechnungsnummer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Netto",
+              "displayName": "Netto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Brutto",
+              "displayName": "Brutto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 19%",
+              "displayName": "Steuern 19%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 16%",
+              "displayName": "Steuern 16%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Steuern 7%",
+              "displayName": "Steuern 7%",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Währung",
+              "displayName": "Währung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Monat",
+              "displayName": "Monat",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Datei",
+              "displayName": "Datei",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2280,
+        1360
+      ],
+      "id": "01a91daa-d0c5-4d89-addb-fd60052da817",
+      "name": "2026",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o86dmstXrogNUHYb",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Google Drive tracken",
+        "height": 293,
+        "width": 363,
+        "color": 7
+      },
+      "id": "0168239f-5b4d-4c24-a10f-0458d6efd6ca",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        740
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "unit": "minutes"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1EcavZpbT1aR9DgJHHtzNr7RmMmERiXP1",
+          "mode": "list",
+          "cachedResultName": "Rechnungsablage",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1EcavZpbT1aR9DgJHHtzNr7RmMmERiXP1"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        780
+      ],
+      "id": "f71d6623-1e06-4da7-b585-2947fcc8a0ea",
+      "name": "GDrive_Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        440,
+        840
+      ],
+      "id": "b663e8bf-d4ed-425e-bbfe-b3369533961e",
+      "name": "GetFile",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Text aus PDF extrahieren",
+        "height": 293,
+        "width": 403,
+        "color": 7
+      },
+      "id": "888e8bba-9fdf-4556-ac06-4ab7d1d3b835",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        380,
+        740
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Informationsextrahierung mit KI",
+        "height": 293,
+        "width": 403,
+        "color": 7
+      },
+      "id": "ec8cef5f-547b-4ec9-82e1-743888f76a6f",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        820,
+        740
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "unternehmen",
+              "description": "Der Name des Unternehmens, von dem die Rechnung stammt.",
+              "required": true
+            },
+            {
+              "name": "bezeichnung",
+              "description": "Eine kurze Bezeichnung der in Rechnung gestellten Leistungen oder Waren, nachvollziehbar für das Finanzamt.",
+              "required": true
+            },
+            {
+              "name": "rechnungsnummer",
+              "description": "Auf der Rechnung angegebene Rechnungsnummer",
+              "required": true
+            },
+            {
+              "name": "rechnungsdatum",
+              "description": "Das Rechnungsdatum im Format \"YYYY-mm-dd\". Ist kein solches erkennbar, nutze das Zahlungsdatum.",
+              "required": true
+            },
+            {
+              "name": "nettobetrag",
+              "description": "Der Nettobetrag (ohne Mehrwertsteuer). Falls nicht explizit angegeben, berechne ihn aus dem Bruttobetrag und dem Steuersatz.",
+              "required": true
+            },
+            {
+              "name": "bruttobetrag",
+              "description": "Der Bruttobetrag (inklusive Mehrwertsteuer).",
+              "required": true
+            },
+            {
+              "name": "währung",
+              "description": "Verwende das Währungssymbol der Rechnung. Falls nicht ersichtlich: standardmäßig \"€\" für Euro, \"$\" für US-Dollar. Keine Währungscodes verwenden.",
+              "required": true
+            },
+            {
+              "name": "monat",
+              "description": "Der ausgeschriebene Monat des Rechnungsdatums (\"Januar\", \"Februar\". etc.)",
+              "required": true
+            },
+            {
+              "name": "jahr",
+              "description": "Der Jahr des Rechnungsdatums (\"2024\", \"2025\", etc.)",
+              "required": true
+            },
+            {
+              "name": "steuern_19",
+              "description": "Steuerbetrag bei 19% MwSt",
+              "required": true
+            },
+            {
+              "name": "steuern_16",
+              "description": "Steuerbetrag bei 16% MwSt",
+              "required": true
+            },
+            {
+              "name": "steuern_7",
+              "description": "Steuerbetrag bei 7% MwSt",
+              "required": true
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Du bist ein spezialisierter Rechnungs-Extraktionsalgorithmus. DU DENKST NICHT. Extrahiere alle relevanten Daten aus Rechnungen und Belegen. NICHT DENKEN.\n\nKRITISCH - AUSGABEFORMAT:\n- NUR reiner JSON-Code ohne jegliche Zusätze, nicht denken\n- KEINE <think>-Tags oder Markdown-Blöcke\n- KEINE Erklärungen oder Kommentare\n- Direkt mit Öffnungsklammer beginnen und mit Schließklammer enden\n\nDEUTSCHE ZAHLENFORMATE:\n- Dezimaltrennzeichen: IMMER Komma verwenden (130,12 NIEMALS 130.12)\n- Tausendertrennzeichen: Punkt bei Bedarf\n- Geldbeträge OHNE Währungssymbol in den Betragsfeldern\n- Datumsformat: DD.MM.YYYY\n\nBETRAGSERMITTLUNG - WICHTIG:\n- nettobetrag: GESAMTER Nettobetrag der Rechnung (nicht Einzelpositionen)\n- bruttobetrag: GESAMTER Bruttobetrag der Rechnung\n- Suche nach Begriffen wie \"Gesamtsumme\", \"Endbetrag\", \"Rechnungsbetrag\"\n- Bei steuerfreien Rechnungen: Gesamtsumme ist gleichzeitig Netto- und Bruttobetrag\n\nSTEUERBEHANDLUNG:\n- steuern_19, steuern_16, steuern_7: Nur tatsächliche Steuerbeträge\n- Bei 0,00 Euro Steuer: Feld weglassen\n- Nicht vorhandene Steuersätze weglassen\n\nPFLICHTFELDER:\nunternehmen, bezeichnung, rechnungsnummer, rechnungsdatum, nettobetrag, bruttobetrag, waehrung\n\nErstelle eine kurze aussagekräftie Beschreibung (2-3 Worte) als Bezeichnung für die Rechnung nd speichere es in \"bezeichnung\".\n\nAusgabe ausschließlich als reiner JSON ohne Formatierung."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1,
+      "position": [
+        880,
+        840
+      ],
+      "id": "3df66f80-51da-48cd-9757-b70f85c72b65",
+      "name": "Information Extractor"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        620,
+        840
+      ],
+      "id": "bb6b0de2-88c9-48b8-868b-94b3027fd5aa",
+      "name": "ExtractFromPDF"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        200,
+        840
+      ],
+      "id": "ab8b733d-17ec-4173-8bc4-c980b59d1d6e",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.output.jahr }}",
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "1vurrzPH3vdJPSK9hh4iuDt-smm8-zYbk",
+            "mode": "list",
+            "cachedResultName": "Buchhalter",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1vurrzPH3vdJPSK9hh4iuDt-smm8-zYbk"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        840
+      ],
+      "id": "ba1e9909-fba6-4f74-8e2a-d41582e371c9",
+      "name": "GetYearFolder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $('Information Extractor').item.json.output.monat }}",
+        "filter": {
+          "driveId": {
+            "__rl": true,
+            "value": "My Drive",
+            "mode": "list",
+            "cachedResultName": "My Drive",
+            "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.id }}",
+            "mode": "id"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        840
+      ],
+      "id": "1c7ab586-4801-4bb1-a641-63746a2b56bd",
+      "name": "GetMonthFolder",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('GetFile').item.json.id }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1580,
+        840
+      ],
+      "id": "5909bde7-78b6-4c97-9a23-3c3a5b2c9209",
+      "name": "MoveFile",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "newUpdatedFileName": "={{ $('Information Extractor').item.json.output.bezeichnung }}-{{ $('Information Extractor').item.json.output.rechnungsdatum }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1720,
+        840
+      ],
+      "id": "011605c3-dabb-4652-b3a6-c1d9c637bdb6",
+      "name": "UpdateFileName",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Rechnung in entsprechenden Ordner verschieben und umbennenen",
+        "height": 293,
+        "width": 603,
+        "color": 7
+      },
+      "id": "77d06690-d2d6-47c0-8f38-95046b52dd6e",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1260,
+        740
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Dokumentieren",
+        "height": 813,
+        "width": 443,
+        "color": 7
+      },
+      "id": "dd586d7c-1557-4cbf-b6f2-b0640dddc72d",
+      "name": "Sticky Note5",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2240,
+        540
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "# Eingehende Rechnungen verarbeiten",
+        "height": 80,
+        "width": 720,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        620
+      ],
+      "id": "cb2e1359-c731-475a-baa7-e312a71c564b",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2-vision:11b",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        880,
+        1040
+      ],
+      "id": "e45c17ad-232f-4fce-8523-6d2355abf6d9",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "Y2MqaJulhjuWqO2Z",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1EcavZpbT1aR9DgJHHtzNr7RmMmERiXP1",
+          "mode": "list",
+          "cachedResultName": "Rechnungsablage",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1EcavZpbT1aR9DgJHHtzNr7RmMmERiXP1"
+        },
+        "event": "fileUpdated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        940
+      ],
+      "id": "ad905a6c-02d2-4b3e-bc04-eb6db8bb9565",
+      "name": "Google Drive Trigger",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "hHAbz4b6n9IcRCe3",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "528099a1-9aec-4650-92bd-a96fa2f8dd4b",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2019",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2020",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "21fe972d-bb0e-4e01-a63a-b4df1d888ed5"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "75744322-8bfd-4eca-934c-f9492ac6f84f",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2021",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e64f050f-c2c8-406f-8edb-13cd58851a03",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2022",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "77662849-8f00-47e6-be4f-9150da870ecd",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2023",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1d21af10-9824-4770-ad53-4f5ba6e01faf",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2024",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "fffdefed-af55-4841-bbfc-78fac1d3e57b",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3f93b736-7dd3-4525-b7b0-51e20255f4ae",
+                    "leftValue": "={{ $('GetYearFolder').item.json.name }}",
+                    "rightValue": "2026",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1900,
+        740
+      ],
+      "id": "21b9633a-86e8-4719-a44b-8ac0bd9aeff4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        840
+      ],
+      "id": "66bc5c49-0f37-4e06-bde5-896779b859b7",
+      "name": "Aggregate"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "2019": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2020": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2021": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2022": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2023": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2024": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2025": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2026": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GDrive_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetFile": {
+      "main": [
+        [
+          {
+            "node": "ExtractFromPDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "GetYearFolder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExtractFromPDF": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [],
+        [
+          {
+            "node": "GetFile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetYearFolder": {
+      "main": [
+        [
+          {
+            "node": "GetMonthFolder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetMonthFolder": {
+      "main": [
+        [
+          {
+            "node": "MoveFile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MoveFile": {
+      "main": [
+        [
+          {
+            "node": "UpdateFileName",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateFileName": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive Trigger": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "2019",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2020",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2021",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2022",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2023",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2024",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2025",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "2026",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "b4ea1272-7b3c-48b8-abad-66f71ec066e2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a62a6e8f5c65c8abb65ed9977f3bdf2ddf3a9be1561b2650ef0318b2b94299ab"
+  },
+  "id": "h9vbMNgoyqIyORch",
+  "tags": [
+    {
+      "createdAt": "2025-06-05T10:40:15.489Z",
+      "updatedAt": "2025-06-05T10:40:15.489Z",
+      "id": "Ec4Kl7IruHiq2LxP",
+      "name": "Gdrive"
+    }
+  ]
+}

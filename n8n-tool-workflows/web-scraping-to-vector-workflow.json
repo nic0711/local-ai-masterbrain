@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "instanceId": "local"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scrape-to-vector",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "scrape-to-vector"
+    },
+    {
+      "parameters": {
+        "url": "http://crawl4ai:11235/crawl",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"urls\": [\"{{ $json.url }}\"],\n  \"extraction_strategy\": \"LLMExtractionStrategy\",\n  \"extraction_config\": {\n    \"provider\": \"ollama\",\n    \"api_token\": \"\",\n    \"instruction\": \"Extract the main content, headings, and key information from this webpage. Focus on text content and ignore navigation, ads, and boilerplate.\"\n  },\n  \"chunking_strategy\": \"RegexChunking\",\n  \"chunk_size\": 1000,\n  \"chunk_overlap\": 200\n}",
+        "options": {
+          "timeout": 60000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2
+          }
+        }
+      },
+      "id": "crawl4ai-scraping",
+      "name": "crawl4ai Scraping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process crawl4ai response and prepare for chunking\nconst input = $input.first().json;\n\n// Extract content from crawl4ai response\nlet extractedContent = '';\nlet title = '';\nlet url = '';\nlet metadata = {};\n\nif (input.results && input.results.length > 0) {\n  const result = input.results[0];\n  extractedContent = result.extracted_content || result.markdown || result.cleaned_html || '';\n  title = result.title || 'Untitled';\n  url = result.url || $('webhook-trigger').first().json.url;\n  metadata = {\n    success: result.success,\n    status_code: result.status_code,\n    media: result.media || [],\n    links: result.links || [],\n    screenshot: result.screenshot\n  };\n} else {\n  throw new Error('No content extracted from crawl4ai');\n}\n\n// Simple text chunking (can be improved)\nconst chunkSize = 1000;\nconst chunkOverlap = 200;\nconst chunks = [];\n\nif (extractedContent.length > chunkSize) {\n  for (let i = 0; i < extractedContent.length; i += chunkSize - chunkOverlap) {\n    const chunk = extractedContent.slice(i, i + chunkSize);\n    chunks.push({\n      content: chunk,\n      chunk_index: Math.floor(i / (chunkSize - chunkOverlap)),\n      start_pos: i,\n      end_pos: Math.min(i + chunkSize, extractedContent.length)\n    });\n  }\n} else {\n  chunks.push({\n    content: extractedContent,\n    chunk_index: 0,\n    start_pos: 0,\n    end_pos: extractedContent.length\n  });\n}\n\n// Return document info and chunks\nreturn {\n  json: {\n    document: {\n      title: title,\n      source_type: 'web',\n      source_url: url,\n      content_length: extractedContent.length,\n      chunk_count: chunks.length,\n      metadata: metadata,\n      processing_timestamp: new Date().toISOString()\n    },\n    chunks: chunks\n  }\n};"
+      },
+      "id": "process-content",
+      "name": "Process Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "prompt": "=Generate a dense vector embedding for the following text chunk. Return only the embedding vector as a JSON array of numbers.\n\nText to embed:\n{{ $json.content }}\n\nReturn format: [0.1, -0.2, 0.3, ...]",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "generate-embeddings",
+      "name": "Generate Embeddings",
+      "type": "n8n-nodes-base.ollama",
+      "typeVersion": 1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=// Create document node\nCREATE (d:Document {\n  id: $document_id,\n  title: $title,\n  source_type: $source_type,\n  source_url: $source_url,\n  content_length: $content_length,\n  chunk_count: $chunk_count,\n  created_at: datetime(),\n  metadata: $metadata\n})\nRETURN d.id as document_id",
+        "parameters": {
+          "parameters": [
+            {
+              "name": "document_id",
+              "value": "={{ $('process-content').first().json.document.title.replace(/[^a-zA-Z0-9]/g, '_') + '_' + Date.now() }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $('process-content').first().json.document.title }}"
+            },
+            {
+              "name": "source_type",
+              "value": "web"
+            },
+            {
+              "name": "source_url",
+              "value": "={{ $('process-content').first().json.document.source_url }}"
+            },
+            {
+              "name": "content_length",
+              "value": "={{ $('process-content').first().json.document.content_length }}"
+            },
+            {
+              "name": "chunk_count",
+              "value": "={{ $('process-content').first().json.document.chunk_count }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify($('process-content').first().json.document.metadata) }}"
+            }
+          ]
+        }
+      },
+      "id": "create-document-node",
+      "name": "Create Document Node",
+      "type": "n8n-nodes-base.neo4j",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "neo4j": {
+          "id": "neo4j-credentials",
+          "name": "Neo4j Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "documents",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "title": "={{ $('process-content').first().json.document.title }}",
+            "source_type": "web",
+            "source_url": "={{ $('process-content').first().json.document.source_url }}",
+            "metadata": "={{ $('process-content').first().json.document.metadata }}",
+            "processing_status": "completed"
+          }
+        },
+        "options": {}
+      },
+      "id": "store-document-metadata",
+      "name": "Store Document Metadata",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Web content successfully processed and stored\",\n  \"document\": {\n    \"title\": \"{{ $('process-content').first().json.document.title }}\",\n    \"source_url\": \"{{ $('process-content').first().json.document.source_url }}\",\n    \"chunk_count\": {{ $('process-content').first().json.document.chunk_count }},\n    \"content_length\": {{ $('process-content').first().json.document.content_length }}\n  },\n  \"processing_time\": \"{{ new Date().toISOString() }}\"\n}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "crawl4ai-scraping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "crawl4ai-scraping": {
+      "main": [
+        [
+          {
+            "node": "process-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-content": {
+      "main": [
+        [
+          {
+            "node": "generate-embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-embeddings": {
+      "main": [
+        [
+          {
+            "node": "create-document-node",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "store-document-metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-document-node": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "store-document-metadata": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["rag", "web-scraping", "vector", "crawl4ai"],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-04T22:00:00.000Z",
+  "versionId": "1.0"
+}
