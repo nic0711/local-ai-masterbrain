@@ -95,7 +95,9 @@ class TTSEngine:
                 raise ValueError("Ungültiger save_as Name.")
             dest = (VOICES_DIR / f"{save_as}.wav").resolve()
             voices_resolved = VOICES_DIR.resolve()
-            if not str(dest).startswith(str(voices_resolved) + os.sep):
+            try:
+                dest.relative_to(voices_resolved)
+            except ValueError:
                 raise ValueError("Ungültiger Zieldateipfad.")
             import shutil
             shutil.copy2(ref_audio_path, dest)
