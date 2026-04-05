@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import logging
 import sys
@@ -21,11 +22,11 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://host.docker.internal:11434")
 OCR_MODEL = os.environ.get("OCR_MODEL", "glm-ocr")
 
 # Neo4j Konfiguration
-_neo4j_raw = os.environ.get("NEO4J_AUTH", "neo4j/your_password")
+neo4j_auth = os.environ.get("NEO4J_AUTH", "neo4j/your_password")
 _neo4j_uri = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
-_neo4j_parts = _neo4j_raw.split("/", 1)
-NEO4J_USER = _neo4j_parts[0] if len(_neo4j_parts) == 2 else "neo4j"
-NEO4J_PASS = _neo4j_parts[1] if len(_neo4j_parts) == 2 else _neo4j_parts[0]
+parts = neo4j_auth.split("/", 1)
+NEO4J_USER = parts[0] if len(parts) > 0 else "neo4j"
+NEO4J_PASS = parts[1] if len(parts) > 1 else "your_password"
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -64,7 +65,10 @@ def initialize_nlp_models():
 
 
 def _get_nlp(lang: str):
-    return nlp_models.get(lang) or nlp_models.get("de")
+    model = nlp_models.get(lang) or nlp_models.get("de")
+    if model is None:
+        raise RuntimeError("NLP models not loaded; service is not ready")
+    return model
 
 
 def _extract_entities(text: str, lang: str) -> list:
@@ -199,6 +203,9 @@ def process_text():
             "language": lang,
             "entities": entities,
         })
+    except RuntimeError as e:
+        logger.error(str(e))
+        return jsonify({"error": str(e)}), 503
     except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"error": "Verarbeitungsfehler"}), 500
@@ -418,7 +425,6 @@ def graph_index():
         entities = _extract_entities(text[:10_000], lang) if text else []
 
         # Wikilinks aus Text extrahieren [[Notiz-Titel]]
-        import re
         wikilinks = re.findall(r'\[\[([^\]|]+)(?:\|[^\]]*)?\]\]', text)
 
         driver = _get_neo4j()
@@ -506,7 +512,10 @@ def graph_query():
         return jsonify({"error": "JSON body erwartet"}), 400
 
     query = data.get("query", "").strip()
-    limit = min(int(data.get("limit", 10)), 50)
+    try:
+        limit = max(1, min(int(data.get("limit", 10)), 50))
+    except (ValueError, TypeError):
+        return jsonify({"error": "limit muss eine Ganzzahl sein"}), 400
 
     if not query:
         return jsonify({"error": "'query' fehlt"}), 400
@@ -600,4 +609,4 @@ logger.info("Starte Python NLP/Document Service...")
 initialize_nlp_models()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
