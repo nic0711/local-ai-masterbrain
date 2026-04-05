@@ -45,6 +45,8 @@ builder that pairs very well with n8n
 
 ✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling 4 LLM usage or data aggregation, screenshots, etc. 
 
+✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Lokaler Text-to-Speech-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
+
 ✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
 
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector
@@ -69,6 +71,7 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 - ✅ TOTP/2FA via Supabase GoTrue (kein extra Container)
 - ✅ Supabase mit Vector Store & Authentifizierung
 - ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
+- ✅ TTS Service: Voice Cloning (OmniVoice, 600+ Sprachen), Video-Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
 - ✅ Automated startup & cleanup via `start_services.py`
 
 ---
@@ -119,10 +122,24 @@ python3 start_services.py --profile none        # Mac (Ollama lokal)
 | API Reference            | [15_api_reference.md](docs/15_api_reference.md) |
 | Scraping Configurator    | [16_scraping_configurator.md](docs/16_scraping_configurator.md) |
 | Dashboard Architecture   | [17_dashboard_changes.md](docs/17_dashboard_changes.md) |
+| TTS / Voice Cloning / Dubbing | [18_tts_service.md](docs/18_tts_service.md) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-04 – TTS Service: Voice Cloning & Video Dubbing
+
+| Was | Details |
+|-----|---------|
+| `tts-service/` | Neuer FastAPI-Container (Port 8003) mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) – 600+ Sprachen, RTF 0.025 (40x Echtzeit), Apple Silicon MPS |
+| Voice Cloning | Zero-Shot aus 5–15s Referenz-Audio; `ref_text` optional (internes Whisper ASR) |
+| Voice Design | Stimme via Attributbeschreibung (`"female, british accent"`) ohne Referenz-Audio |
+| Video Dubbing | Async-Pipeline: ffmpeg → Whisper → Ollama → OmniVoice → ffmpeg; YouTube-URL-Support |
+| `caddy-addon/tts.conf` | Caddy-Route `tts.{DOMAIN}` mit `forward_auth` + 600s Timeout für Dubbing |
+| `docker-compose.yml` | `tts-service` Block + `TTS_HOSTNAME` in beiden Caddy-Instanzen |
+| `docs/18_tts_service.md` | Vollständige Doku: Setup, alle 7 Endpunkte, Pipeline, Device-Config, Volumes |
+| `docs/15_api_reference.md` | TTS-Service in API-Übersicht ergänzt |
 
 ### 2026-03 – OCR Service, Scraping Configurator & API Reference
 
