@@ -1,8 +1,7 @@
 import asyncio
 import logging
 import os
-import shutil
-import tempfile
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -13,12 +12,13 @@ from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, UploadFile, F
 from fastapi.responses import FileResponse, StreamingResponse
 
 from dubbing import read_status, run_dubbing_job
-from models import DubbingRequest, DubbingStatus, HealthResponse, SynthesizeRequest, VoiceInfo
+from models import DubbingRequest, DubbingStatus, HealthResponse, SynthesizeRequest, VoiceInfo, _SAFE_ID_RE
 from tts_engine import get_engine
 from utils import (
     TEMP_DIR, OUTPUT_DIR, VOICES_DIR,
     audio_duration, cleanup_job, disk_free_gb,
     new_job_id, output_path, validate_audio_duration, voice_path,
+    _safe_audio_ext, _safe_video_ext, _assert_safe_id,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -133,8 +133,9 @@ async def clone_voice(
     if not engine.is_loaded:
         raise HTTPException(503, "TTS-Engine noch nicht bereit. Bitte kurz warten.")
 
-    # Referenz-Audio temporaer speichern
-    tmp = TEMP_DIR / f"ref_{new_job_id()}{Path(reference_audio.filename).suffix or '.wav'}"
+    # Referenz-Audio temporaer speichern (Dateiendung aus Originalname, sanitiert)
+    safe_ext = _safe_audio_ext(reference_audio.filename or "")
+    tmp = TEMP_DIR / f"ref_{new_job_id()}{safe_ext}"
     try:
         async with aiofiles.open(tmp, "wb") as f:
             await f.write(await reference_audio.read())
@@ -143,6 +144,8 @@ async def clone_voice(
         if error:
             raise HTTPException(422, error)
 
+        if save_as is not None and not _SAFE_ID_RE.match(save_as):
+            raise HTTPException(422, "save_as darf nur Buchstaben, Zahlen, - und _ enthalten.")
         wav_bytes = await engine.clone_voice(text, str(tmp), save_as=save_as)
     finally:
         tmp.unlink(missing_ok=True)
@@ -186,9 +189,11 @@ async def dub_video(
         )
         _, stderr = await proc.communicate()
         if proc.returncode != 0:
-            raise HTTPException(422, f"YouTube-Download fehlgeschlagen: {stderr.decode()[:200]}")
+            logger.warning("yt-dlp fehlgeschlagen (job %s): %s", job_id, stderr.decode()[:500])
+            raise HTTPException(422, "YouTube-Download fehlgeschlagen. Bitte URL prüfen.")
     else:
-        video_path = work_dir / f"input{Path(video.filename).suffix or '.mp4'}"
+        safe_ext = _safe_video_ext(video.filename or "")
+        video_path = work_dir / f"input{safe_ext}"
         async with aiofiles.open(video_path, "wb") as f:
             await f.write(await video.read())
 
@@ -208,18 +213,26 @@ async def dub_video(
 
 @app.get("/dub/status/{job_id}", response_model=DubbingStatus)
 async def dub_status(job_id: str):
+    try:
+        _assert_safe_id(job_id, "job_id")
+    except ValueError:
+        raise HTTPException(400, "Ungültige job_id.")
     data = read_status(job_id)
     if data is None:
-        raise HTTPException(404, f"Job '{job_id}' nicht gefunden.")
+        raise HTTPException(404, "Job nicht gefunden.")
     return DubbingStatus(**data)
 
 
 @app.get("/dub/download/{job_id}")
 async def dub_download(job_id: str):
+    try:
+        _assert_safe_id(job_id, "job_id")
+    except ValueError:
+        raise HTTPException(400, "Ungültige job_id.")
     out = output_path(job_id, "mp4")
     if not out.exists():
         status = read_status(job_id)
         if status and status["status"] == "error":
-            raise HTTPException(500, f"Job fehlgeschlagen: {status.get('error')}")
+            raise HTTPException(500, "Job fehlgeschlagen.")
         raise HTTPException(404, "Video noch nicht bereit.")
     return FileResponse(str(out), media_type="video/mp4", filename=f"dubbed_{job_id}.mp4")
