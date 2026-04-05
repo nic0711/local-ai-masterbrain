@@ -37,29 +37,44 @@ def new_job_id() -> str:
     return str(uuid.uuid4())
 
 
+def _safe_path(base: Path, *parts: str) -> Path:
+    """Konstruiert einen Pfad und stellt sicher, dass er innerhalb von base bleibt."""
+    candidate = base.joinpath(*parts).resolve()
+    base_resolved = base.resolve()
+    if not str(candidate).startswith(str(base_resolved) + os.sep):
+        raise ValueError(f"Pfad außerhalb des erlaubten Verzeichnisses: {candidate}")
+    return candidate
+
+
 def job_dir(job_id: str) -> Path:
-    _assert_safe_id(job_id, "job_id")
-    return TEMP_DIR / job_id
+    if not _SAFE_ID_RE.match(job_id):
+        raise ValueError("Ungültige job_id.")
+    return _safe_path(TEMP_DIR, job_id)
 
 
 def job_status_file(job_id: str) -> Path:
-    _assert_safe_id(job_id, "job_id")
-    return TEMP_DIR / f"{job_id}.json"
+    if not _SAFE_ID_RE.match(job_id):
+        raise ValueError("Ungültige job_id.")
+    return _safe_path(TEMP_DIR, f"{job_id}.json")
 
 
 def output_path(job_id: str, ext: str = "mp4") -> Path:
-    _assert_safe_id(job_id, "job_id")
+    if not _SAFE_ID_RE.match(job_id):
+        raise ValueError("Ungültige job_id.")
     if not _SAFE_EXT_RE.match(f".{ext}"):
         raise ValueError(f"Ungültige Dateiendung: {ext}")
-    return OUTPUT_DIR / f"{job_id}.{ext}"
+    return _safe_path(OUTPUT_DIR, f"{job_id}.{ext}")
 
 
 def voice_path(voice_id: str) -> Optional[Path]:
-    _assert_safe_id(voice_id, "voice_id")
+    if not _SAFE_ID_RE.match(voice_id):
+        raise ValueError("Ungültige voice_id.")
     for ext in ("wav", "mp3", "flac"):
-        p = VOICES_DIR / f"{voice_id}.{ext}"
-        # Sicherstellen dass der aufgelöste Pfad innerhalb VOICES_DIR bleibt
-        if p.resolve().parent == VOICES_DIR.resolve() and p.exists():
+        try:
+            p = _safe_path(VOICES_DIR, f"{voice_id}.{ext}")
+        except ValueError:
+            continue
+        if p.exists():
             return p
     return None
 

@@ -11,7 +11,7 @@ librosa>=0.10.1
 pydub>=0.25.1
 
 # TTS + Voice Cloning
-f5-tts>=0.3.0
+omnivoice>=0.1.0
 
 # Transkription (Dubbing)
 faster-whisper>=1.0.0
