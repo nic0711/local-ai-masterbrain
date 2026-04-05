@@ -31,9 +31,6 @@ dashboard/config.js
 #  Abhängigkeiten   #
 # ################# #
 
-# Ignoriere das geklonte Supabase-Repository, um Submodule-Konflikte zu vermeiden.
-/supabase/
-
 # Python-spezifische Ignorierungen
 __pycache__/
 *.pyc
