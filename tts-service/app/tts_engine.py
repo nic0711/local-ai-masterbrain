@@ -2,6 +2,7 @@ import asyncio
 import io
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 VOICES_DIR = Path("/data/voices")
+_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _resolve_device() -> str:
@@ -88,7 +90,12 @@ class TTSEngine:
         wav_bytes = await self.synthesize(text, ref_audio_path, ref_text)
 
         if save_as:
-            dest = VOICES_DIR / f"{save_as}.wav"
+            if not _SAFE_ID_RE.match(save_as):
+                raise ValueError("Ungültiger save_as Name.")
+            dest = (VOICES_DIR / f"{save_as}.wav").resolve()
+            voices_resolved = VOICES_DIR.resolve()
+            if not str(dest).startswith(str(voices_resolved) + os.sep):
+                raise ValueError("Ungültiger Zieldateipfad.")
             import shutil
             shutil.copy2(ref_audio_path, dest)
             logger.info("Referenzstimme gespeichert als: %s", dest)
