@@ -1,0 +1,238 @@
+{
+  "name": "TTS & Voice Dubbing Workflow",
+  "nodes": [
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tts",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-tts",
+      "name": "Webhook: TTS / Dubbing",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "tts-voice-dubbing",
+      "notes": "Einheitlicher Einstieg.\nErwartet JSON body mit 'action': synthesize | clone | dub_url | dub_status | dub_download"
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "action-synthesize",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "synthesize",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-clone",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "clone",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-dub",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "dub_url",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-status",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "dub_status",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-download",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "dub_download",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "router",
+      "name": "Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+
+    {
+      "parameters": {
+        "url": "http://tts-service:8003/tts/synthesize",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.body.text, language: $json.body.language || 'de', voice_id: $json.body.voice_id || undefined, instruct: $json.body.instruct || undefined }) }}",
+        "options": {
+          "response": { "response": { "responseFormat": "file" } },
+          "timeout": 120000
+        }
+      },
+      "id": "tts-synthesize",
+      "name": "TTS: Synthesize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 100],
+      "notes": "Text → WAV\nOptional: voice_id (gespeicherte Stimme) oder instruct (Voice Design)"
+    },
+
+    {
+      "parameters": {
+        "url": "http://tts-service:8003/tts/clone",
+        "sendBody": true,
+        "bodyContentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "text",            "value": "={{ $json.body.text }}" },
+            { "name": "reference_audio", "value": "={{ $json.body.reference_audio }}" },
+            { "name": "ref_text",        "value": "={{ $json.body.ref_text || '' }}" },
+            { "name": "save_as",         "value": "={{ $json.body.save_as || '' }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "file" } },
+          "timeout": 180000
+        }
+      },
+      "id": "tts-clone",
+      "name": "TTS: Voice Clone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 240],
+      "notes": "reference_audio: base64-kodiertes Audio (WAV/MP3/FLAC, 3–30s)\nref_text: optional – OmniVoice transkribiert intern\nsave_as: optional – Stimme dauerhaft speichern"
+    },
+
+    {
+      "parameters": {
+        "url": "http://tts-service:8003/dub/video",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({ youtube_url: $json.body.youtube_url, target_language: $json.body.target_language || 'de', source_language: $json.body.source_language || undefined, voice_id: $json.body.voice_id || undefined, keep_original_audio: $json.body.keep_original_audio || false }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "dub-start",
+      "name": "Dubbing: Start Job (YouTube URL)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 380],
+      "notes": "Startet einen asynchronen Dubbing-Job.\nGibt { job_id } zurück.\nyoutube_url: YouTube-Link\ntarget_language: Zielsprache (de/en/fr/es/...)\nvoice_id: optional – gespeicherte Referenzstimme"
+    },
+
+    {
+      "parameters": {
+        "url": "=http://tts-service:8003/dub/status/{{ $json.body.job_id }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "dub-status",
+      "name": "Dubbing: Status abfragen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 520],
+      "notes": "Gibt zurück:\n{ job_id, status, progress (0–1), download_url }\nstatus: extracting | transcribing | translating | synthesizing | merging | done | error"
+    },
+
+    {
+      "parameters": {
+        "url": "=http://tts-service:8003/dub/download/{{ $json.body.job_id }}",
+        "options": {
+          "response": { "response": { "responseFormat": "file" } },
+          "timeout": 60000
+        }
+      },
+      "id": "dub-download",
+      "name": "Dubbing: Video herunterladen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 660],
+      "notes": "Gibt das fertige Video als Binärdatei (video/mp4) zurück."
+    },
+
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {}
+      },
+      "id": "respond-binary",
+      "name": "Respond: Audio / Video",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 100]
+    },
+
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-json",
+      "name": "Respond: JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 460]
+    },
+
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Unbekannte action. Erlaubt: synthesize | clone | dub_url | dub_status | dub_download' }) }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "respond-error",
+      "name": "Respond: Fehler",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [700, 820]
+    }
+
+  ],
+
+  "connections": {
+    "Webhook: TTS / Dubbing": {
+      "main": [[{ "node": "Action Router", "type": "main", "index": 0 }]]
+    },
+    "Action Router": {
+      "main": [
+        [{ "node": "TTS: Synthesize",                "type": "main", "index": 0 }],
+        [{ "node": "TTS: Voice Clone",               "type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Start Job (YouTube URL)","type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Status abfragen",        "type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Video herunterladen",    "type": "main", "index": 0 }],
+        [{ "node": "Respond: Fehler",                 "type": "main", "index": 0 }]
+      ]
+    },
+    "TTS: Synthesize":                 { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
+    "TTS: Voice Clone":                { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
+    "Dubbing: Start Job (YouTube URL)":{ "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
+    "Dubbing: Status abfragen":        { "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
+    "Dubbing: Video herunterladen":    { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] }
+  },
+
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+
+  "staticData": null,
+  "tags": ["tts", "voice", "dubbing", "audio"],
+  "triggerCount": 1,
+  "updatedAt": "2026-04-06T00:00:00.000Z",
+  "versionId": "1"
+}
