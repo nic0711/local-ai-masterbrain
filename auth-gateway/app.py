@@ -345,7 +345,10 @@ def backup_files():
     if not _validate_backup_name(backup_name):
         return jsonify({"error": "Ungültiger Backup-Name"}), 400
 
-    archive_path = os.path.join(_BACKUP_DIR, backup_name + '.tar.gz')
+    archive_path = os.path.realpath(os.path.join(_BACKUP_DIR, backup_name + '.tar.gz'))
+    real_backup_dir = os.path.realpath(_BACKUP_DIR)
+    if not archive_path.startswith(real_backup_dir + os.sep):
+        return jsonify({"error": "Ungültiger Backup-Name"}), 400
     if not os.path.isfile(archive_path):
         return jsonify({"error": "Backup nicht gefunden"}), 404
 
@@ -379,7 +382,10 @@ def backup_diff():
     if not _validate_filepath(filepath):
         return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
-    archive_path = os.path.join(_BACKUP_DIR, backup_name + '.tar.gz')
+    archive_path = os.path.realpath(os.path.join(_BACKUP_DIR, backup_name + '.tar.gz'))
+    real_backup_dir = os.path.realpath(_BACKUP_DIR)
+    if not archive_path.startswith(real_backup_dir + os.sep):
+        return jsonify({"error": "Ungültiger Backup-Name"}), 400
     if not os.path.isfile(archive_path):
         return jsonify({"error": "Backup nicht gefunden"}), 404
 
@@ -404,8 +410,8 @@ def backup_diff():
             return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
         new_lines = []
-        if os.path.isfile(current_path):
-            with open(current_path, 'r', errors='replace') as f:
+        if os.path.isfile(real_current):
+            with open(real_current, 'r', errors='replace') as f:
                 new_lines = f.readlines()
 
         # Unified Diff berechnen
@@ -478,7 +484,7 @@ def create_user():
         return jsonify({"id": resp.user.id, "email": resp.user.email}), 201
     except Exception as e:
         logging.error(f"create_user error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 @app.route('/control/users/password', methods=['POST'])
@@ -502,7 +508,7 @@ def reset_user_password():
         return jsonify({"status": "updated"}), 200
     except Exception as e:
         logging.error(f"reset_password error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 @app.route('/control/users/delete', methods=['POST'])
@@ -525,7 +531,7 @@ def delete_user():
         return jsonify({"status": "deleted"}), 200
     except Exception as e:
         logging.error(f"delete_user error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 # ── Service Control ──────────────────────────────────────────────────────────
@@ -586,7 +592,7 @@ def docker_service_status():
         return jsonify(result), 200
     except Exception as e:
         logging.error(f"docker_service_status error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 @app.route('/control/services/<service>/<action>', methods=['POST'])
@@ -620,7 +626,7 @@ def service_control(service, action):
         return jsonify({"status": "ok", "message": f"{service} {action} ausgeführt"}), 200
     except Exception as e:
         logging.error(f"service_control error ({service}/{action}): {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 @app.route('/control/services/<service>/logs', methods=['GET'])
@@ -651,7 +657,7 @@ def service_logs(service):
         return jsonify({"service": service, "lines": lines, "logs": log_text}), 200
     except Exception as e:
         logging.error(f"service_logs error ({service}): {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Interner Serverfehler"}), 500
 
 
 @app.route('/control/macros', methods=['GET'])
