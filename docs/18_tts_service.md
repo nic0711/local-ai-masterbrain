@@ -46,7 +46,7 @@ OLLAMA_TRANSLATE_MODEL=qwen2.5:7b-instruct-q4_K_M
 ### 3. Stack starten
 
 ```bash
-docker compose up tts-service -d
+docker compose up -d tts-service
 ```
 
 > Beim ersten Start lädt OmniVoice das Modell (~2 GB) von HuggingFace.

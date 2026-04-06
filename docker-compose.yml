@@ -1,3 +1,5 @@
+name: localai
+
 include:
   - ./supabase/docker/docker-compose.yml
 

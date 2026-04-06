@@ -128,6 +128,14 @@ python3 start_services.py --profile none        # Mac (Ollama lokal)
 
 ## 📋 Changelog
 
+### 2026-04 – Fix: Docker Compose Projektname
+
+| Was | Details |
+|-----|---------|
+| `docker-compose.yml` | `name: localai` gesetzt – Projektname ist jetzt fest definiert, kein `-p localai` mehr nötig |
+
+---
+
 ### 2026-04 – TTS Service: Voice Cloning & Video Dubbing
 
 | Was | Details |
