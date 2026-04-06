@@ -16,6 +16,7 @@ MINIO_LOCAL_URL="http://localhost:9011" # Console port
 CRAWL4AI_LOCAL_URL="http://localhost:8082"
 PYTHON_NLP_LOCAL_URL="http://localhost:5050"
 OCR_LOCAL_URL="http://localhost:8002"
+TTS_LOCAL_URL="http://localhost:8003"
 CLICKHOUSE_URL="http://localhost:8123"
 
 # Environment variables
@@ -38,6 +39,7 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     CRAWL4AI_URL="${PROTOCOL}://${CRAWL4AI_HOSTNAME}"
     PYTHON_NLP_URL="${NLP_HOSTNAME:+${PROTOCOL}://${NLP_HOSTNAME}}"
     OCR_URL="${OCR_HOSTNAME:+${PROTOCOL}://${OCR_HOSTNAME}}"
+    TTS_URL="${TTS_HOSTNAME:+${PROTOCOL}://${TTS_HOSTNAME}}"
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
     CLICKHOUSE_URL=""
     UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
@@ -55,6 +57,7 @@ else
     CRAWL4AI_URL="$CRAWL4AI_LOCAL_URL"
     PYTHON_NLP_URL="$PYTHON_NLP_LOCAL_URL/health"
     OCR_URL="${OCR_HOSTNAME:+https://${OCR_HOSTNAME}}"
+    TTS_URL="$TTS_LOCAL_URL"
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
     UPTIME_KUMA_URL="http://localhost:3002"
@@ -83,6 +86,7 @@ window.APP_CONFIG = {
     crawl4aiHostname: "${CRAWL4AI_URL}",
     pythonNlpHostname: "${PYTHON_NLP_URL}",
     ocrHostname: "${OCR_URL}",
+    ttsHostname: "${TTS_URL}",
     clickhouseHostname: "${CLICKHOUSE_URL}",
     uptimeKumaHostname: "${UPTIME_KUMA_URL}",
 
