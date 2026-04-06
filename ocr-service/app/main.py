@@ -34,9 +34,9 @@ app = FastAPI(
 # CORS für n8n und andere Services
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(","),
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -145,8 +145,8 @@ async def process_ocr(
         raise
     except Exception as e:
         logger.error(f"OCR processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail="OCR processing failed")
+
     finally:
         # Cleanup
         await cleanup_temp_files([temp_file_path])
@@ -203,7 +203,7 @@ async def process_batch_ocr(
         
     except Exception as e:
         logger.error(f"Batch OCR processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Batch processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Batch processing failed")
     
     finally:
         # Cleanup
@@ -240,13 +240,17 @@ async def process_folder_ocr(
         else:
             source_dir = OUTPUT_DIR
     else:
-        # Absoluter Pfad (mit Sicherheitsprüfung)
-        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-            raise HTTPException(status_code=400, detail=f"Folder not found: {folder_path}")
-        source_dir = folder_path
-    
+        # Absoluter Pfad – strikt auf erlaubte Basisverzeichnisse beschränken
+        ALLOWED_BASES = [INPUT_DIR, TEMP_DIR, OUTPUT_DIR, "/data"]
+        resolved = os.path.realpath(folder_path)
+        if not any(resolved.startswith(os.path.realpath(b)) for b in ALLOWED_BASES):
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+        if not os.path.isdir(resolved):
+            raise HTTPException(status_code=400, detail="Folder not found")
+        source_dir = resolved
+
     if not os.path.exists(source_dir):
-        raise HTTPException(status_code=400, detail=f"Source directory not found: {source_dir}")
+        raise HTTPException(status_code=400, detail="Source directory not found")
     
     # Alle unterstützten Dateien finden
     supported_extensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp']

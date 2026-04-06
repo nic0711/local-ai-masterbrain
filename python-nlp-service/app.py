@@ -22,11 +22,13 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://host.docker.internal:11434")
 OCR_MODEL = os.environ.get("OCR_MODEL", "glm-ocr")
 
 # Neo4j Konfiguration
-neo4j_auth = os.environ.get("NEO4J_AUTH", "neo4j/your_password")
+neo4j_auth = os.environ.get("NEO4J_AUTH")
+if not neo4j_auth:
+    raise RuntimeError("NEO4J_AUTH environment variable is required (format: user/password)")
 _neo4j_uri = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 parts = neo4j_auth.split("/", 1)
-NEO4J_USER = parts[0] if len(parts) > 0 else "neo4j"
-NEO4J_PASS = parts[1] if len(parts) > 1 else "your_password"
+NEO4J_USER = parts[0]
+NEO4J_PASS = parts[1] if len(parts) > 1 else ""
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -133,11 +135,13 @@ def _ocr_image_with_ollama(image_bytes: bytes) -> str:
         resp.raise_for_status()
         return resp.json().get("response", "")
     except requests.exceptions.ConnectionError:
-        raise RuntimeError(f"Ollama nicht erreichbar unter {OLLAMA_HOST}")
+        logger.error(f"Ollama nicht erreichbar unter {OLLAMA_HOST}")
+        raise RuntimeError("Ollama nicht erreichbar")
     except requests.exceptions.Timeout:
         raise RuntimeError("Ollama OCR Timeout (>120s)")
     except Exception as e:
-        raise RuntimeError(f"Ollama OCR Fehler: {e}")
+        logger.error(f"Ollama OCR Fehler: {e}")
+        raise RuntimeError("Ollama OCR Fehler")
 
 
 # ---------------------------------------------------------------------------
