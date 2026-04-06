@@ -16,6 +16,7 @@
         'searxng':   'searxng',
         'pythonNlp': 'python-nlp-service',
         'ocr':       'ocr-service',
+        'tts':       'tts-service',
         'supabase':  'supabase',
         'minio':     'minio',
         'obsidian':   'obsidian',
