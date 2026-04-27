@@ -1,5 +1,7 @@
 # Self-hosted AI Masterbrain 🚀
 
+**IMPORTANT: USE AT YOUR OWN RISK! This is a private hobby project and comes with no warranty!**
+
 **Local AI development stack** with n8n, Supabase, Ollama, WebUI, Crawl4AI, Qdrant, and more.  
 Ideal for building your own RAG workflows, data agents, and secure AI experiments – locally or in the cloud.
 
