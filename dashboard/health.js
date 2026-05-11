@@ -21,6 +21,7 @@
         'minio':     'minio',
         'obsidian':   'obsidian',
         'uptimeKuma': 'uptime-kuma',
+        'grafana':    'grafana',
     };
 
     var LS_HISTORY = 'ai_health_history';

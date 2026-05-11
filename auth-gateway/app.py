@@ -12,7 +12,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from types import SimpleNamespace
 import jwt as pyjwt
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from supabase import create_client, Client
@@ -61,6 +61,7 @@ def health():
 
 # Service health check map: name → (host, port, path)
 _SERVICES = {
+    "grafana":            ("grafana", 3000, "/api/health"),
     "n8n":                ("n8n", 5678, "/healthz"),
     "open-webui":         ("open-webui", 8080, "/health"),
     "flowise":            ("flowise", 3001, "/api/v1/ping"),
@@ -193,7 +194,9 @@ def verify_auth():
     user = _get_verified_user()
     if user:
         logging.info(f"Successfully authenticated user: {user.id}")
-        return "OK", 200
+        resp = make_response("OK", 200)
+        resp.headers['X-Forwarded-User'] = user.email or user.id
+        return resp
 
     # Kein Token-Fragment loggen – verhindert versehentliche Credential-Exposition
     logging.warning("Failed authentication attempt - invalid or expired token.")
@@ -550,6 +553,7 @@ def delete_user():
 
 # Allowlist: API-Key → Docker-Container-Name (nur steuerbare App-Dienste)
 _CONTROLLABLE = {
+    'grafana':            'grafana',
     'n8n':                'n8n',
     'open-webui':         'open-webui',
     'flowise':            'flowise',

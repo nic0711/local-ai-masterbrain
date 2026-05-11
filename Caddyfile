@@ -132,6 +132,22 @@
         }
     }
 
+    # n8n Public API: X-N8N-API-KEY Header → kein forward_auth nötig
+    # n8n validiert den Key selbst; Caddy-Auth wäre doppelt und scheitert ohne Cookie.
+    @n8n_api_key {
+        path /api/v1/*
+        header X-N8N-API-KEY *
+    }
+    handle @n8n_api_key {
+        reverse_proxy n8n:5678 {
+            flush_interval -1
+            transport http {
+                response_header_timeout 0
+                dial_timeout             30s
+            }
+        }
+    }
+
     # Alle anderen Requests: Supabase-Auth prüfen, dann weiterleiten
     handle {
         @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
@@ -235,10 +251,77 @@
     reverse_proxy qdrant:6333
 }
 
-# Minio Console
+# Minio Console – KEIN forward_auth (MinIO hat eigenen Login, wie Supabase)
 {$MINIO_HOSTNAME} {
-    import protected
+    import security_headers
     reverse_proxy minio:9001
+}
+
+# Grafana – alle Requests brauchen JWT; /api/* gibt bei Fehler 401 (kein Redirect)
+{$GRAFANA_HOSTNAME} {
+    import security_headers
+
+    handle /public/* {
+        reverse_proxy grafana:3000
+    }
+
+    handle /avatar/* {
+        reverse_proxy grafana:3000
+    }
+
+    # API-Calls aus dem Browser-SPA: JWT prüfen, X-Forwarded-User setzen
+    # Bei fehlendem/ungültigem Cookie → 401 (kein Redirect, AJAX-kompatibel)
+    handle /api/* {
+        forward_auth auth-gateway:5001 {
+            uri /verify
+            header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
+            copy_headers X-Forwarded-User
+            @unauth status 401
+            handle_response @unauth {
+                respond "Unauthorized" 401
+            }
+        }
+        @grafana_api_admin {
+            header X-Forwarded-User "wolf@datista.de"
+        }
+        handle @grafana_api_admin {
+            reverse_proxy grafana:3000 {
+                header_up X-Forwarded-Role "Admin"
+            }
+        }
+        handle {
+            reverse_proxy grafana:3000 {
+                header_up X-Forwarded-Role "Viewer"
+            }
+        }
+    }
+
+    handle {
+        @needs_auth_grafana not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+        forward_auth @needs_auth_grafana auth-gateway:5001 {
+            uri /verify
+            header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
+            copy_headers X-Forwarded-User
+            @unauth status 401
+            handle_response @unauth {
+                redir https://{$DASHBOARD_HOSTNAME}/login.html?redirect={http.request.uri} 302
+            }
+        }
+
+        @grafana_admin {
+            header X-Forwarded-User "wolf@datista.de"
+        }
+        handle @grafana_admin {
+            reverse_proxy grafana:3000 {
+                header_up X-Forwarded-Role "Admin"
+            }
+        }
+        handle {
+            reverse_proxy grafana:3000 {
+                header_up X-Forwarded-Role "Viewer"
+            }
+        }
+    }
 }
 
 import /etc/caddy/addons/*.conf
