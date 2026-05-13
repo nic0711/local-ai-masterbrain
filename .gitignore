@@ -1,3 +1,14 @@
+# #################### #
+#  Claude Code / KI   #
+# #################### #
+
+# Claude Code interne Daten (Pläne, Commands, Memory, Konfiguration)
+.claude/
+.remember/
+CLAUDE.md
+**/CLAUDE.md
+*/.claude/
+
 # ################## #
 #  Secrets & Config  #
 # ################## #
