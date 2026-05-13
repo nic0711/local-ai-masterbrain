@@ -358,17 +358,20 @@ def backup_files():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    backup_name = request.args.get('backup', '')
+    backup_name = os.path.basename(request.args.get('backup', ''))
     if not _validate_backup_name(backup_name):
         return jsonify({"error": "Ungültiger Backup-Name"}), 400
 
-    archive_path = os.path.join(_BACKUP_DIR, backup_name + '.tar.gz')
-    if not os.path.isfile(archive_path):
+    real_backup_dir = os.path.realpath(_BACKUP_DIR)
+    real_archive = os.path.realpath(os.path.join(real_backup_dir, backup_name + '.tar.gz'))
+    if not real_archive.startswith(real_backup_dir + os.sep):
+        return jsonify({"error": "Ungültiger Pfad"}), 400
+    if not os.path.isfile(real_archive):
         return jsonify({"error": "Backup nicht gefunden"}), 404
 
     try:
         files = []
-        with tarfile.open(archive_path, 'r:gz') as tf:
+        with tarfile.open(real_archive, 'r:gz') as tf:
             for member in tf.getmembers():
                 if member.isfile():
                     # Validate member path to prevent path traversal via crafted archives
@@ -392,7 +395,7 @@ def backup_diff():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    backup_name = request.args.get('backup', '')
+    backup_name = os.path.basename(request.args.get('backup', ''))
     filepath = request.args.get('file', '')
 
     if not _validate_backup_name(backup_name):
@@ -400,14 +403,17 @@ def backup_diff():
     if not _validate_filepath(filepath):
         return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
-    archive_path = os.path.join(_BACKUP_DIR, backup_name + '.tar.gz')
-    if not os.path.isfile(archive_path):
+    real_backup_dir = os.path.realpath(_BACKUP_DIR)
+    real_archive = os.path.realpath(os.path.join(real_backup_dir, backup_name + '.tar.gz'))
+    if not real_archive.startswith(real_backup_dir + os.sep):
+        return jsonify({"error": "Ungültiger Pfad"}), 400
+    if not os.path.isfile(real_archive):
         return jsonify({"error": "Backup nicht gefunden"}), 404
 
     try:
         # Alte Version aus dem Archiv lesen
         old_lines = []
-        with tarfile.open(archive_path, 'r:gz') as tf:
+        with tarfile.open(real_archive, 'r:gz') as tf:
             try:
                 member = tf.getmember(filepath)
                 f = tf.extractfile(member)
@@ -417,16 +423,14 @@ def backup_diff():
                 return jsonify({"error": "Datei nicht im Backup gefunden"}), 404
 
         # Aktuelle Version aus /app lesen
-        current_path = os.path.join(_APP_DIR, filepath)
-        # Sicherstellen dass wir nicht außerhalb von _APP_DIR lesen
-        real_current = os.path.realpath(current_path)
         real_app = os.path.realpath(_APP_DIR)
+        real_current = os.path.realpath(os.path.join(real_app, filepath))
         if not real_current.startswith(real_app + os.sep) and real_current != real_app:
             return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
         new_lines = []
-        if os.path.isfile(current_path):
-            with open(current_path, 'r', errors='replace') as f:
+        if os.path.isfile(real_current):
+            with open(real_current, 'r', errors='replace') as f:
                 new_lines = f.readlines()
 
         # Unified Diff berechnen
@@ -761,13 +765,16 @@ def trigger_restore():
         return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json(silent=True) or {}
-    backup_name = data.get('backup', '')
+    backup_name = os.path.basename(data.get('backup', ''))
 
     if not _validate_backup_name(backup_name):
         return jsonify({"error": "Ungültiger Backup-Name"}), 400
 
-    archive_path = os.path.join(_BACKUP_DIR, backup_name + '.tar.gz')
-    if not os.path.isfile(archive_path):
+    real_backup_dir = os.path.realpath(_BACKUP_DIR)
+    real_archive = os.path.realpath(os.path.join(real_backup_dir, backup_name + '.tar.gz'))
+    if not real_archive.startswith(real_backup_dir + os.sep):
+        return jsonify({"error": "Ungültiger Pfad"}), 400
+    if not os.path.isfile(real_archive):
         return jsonify({"error": "Backup nicht gefunden"}), 404
 
     restore_trigger = os.path.join(_BACKUP_DIR, '.restore')

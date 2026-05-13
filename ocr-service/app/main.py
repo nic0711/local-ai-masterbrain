@@ -231,32 +231,15 @@ async def process_folder_ocr(
         archive_files: Verarbeitete Dateien archivieren statt löschen
     """
     
-    # Pfad bestimmen
-    if folder_path in ["input", "temp", "output"]:
-        if folder_path == "input":
-            source_dir = INPUT_DIR
-        elif folder_path == "temp":
-            source_dir = TEMP_DIR
-        else:
-            source_dir = OUTPUT_DIR
+    # Pfad bestimmen – nur bekannte Bezeichner erlaubt
+    if folder_path == "input":
+        source_dir = INPUT_DIR
+    elif folder_path == "temp":
+        source_dir = TEMP_DIR
+    elif folder_path == "output":
+        source_dir = OUTPUT_DIR
     else:
-        # Absoluter Pfad – strikt auf erlaubte Basisverzeichnisse beschränken
-        ALLOWED_BASES = [INPUT_DIR, TEMP_DIR, OUTPUT_DIR, "/data"]
-        resolved = os.path.realpath(folder_path)
-        allowed_base_reals = [os.path.realpath(b) for b in ALLOWED_BASES]
-        try:
-            is_allowed = any(
-                os.path.commonpath([resolved, base_real]) == base_real
-                for base_real in allowed_base_reals
-            )
-        except ValueError:
-            is_allowed = False
-
-        if not is_allowed:
-            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
-        if not os.path.isdir(resolved):
-            raise HTTPException(status_code=400, detail="Folder not found")
-        source_dir = resolved
+        raise HTTPException(status_code=400, detail="Invalid folder_path. Use: input, temp, output")
 
     if not os.path.exists(source_dir):
         raise HTTPException(status_code=400, detail="Source directory not found")
