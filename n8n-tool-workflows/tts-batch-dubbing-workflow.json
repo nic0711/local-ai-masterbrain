@@ -6,7 +6,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "tts-batch",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "id": "webhook",
@@ -15,22 +15,22 @@
       "typeVersion": 1,
       "position": [240, 400],
       "webhookId": "tts-batch-dubbing",
-      "notes": "POST /webhook/tts-batch\n\nBody (JSON):\n{\n  \"urls\": [\"https://youtu.be/...\", ...],\n  \"target_language\": \"de\",\n  \"source_language\": \"en\",       // optional\n  \"voice_id\": \"meine_stimme\",    // optional\n  \"keep_original_audio\": false,  // optional\n  \"storage\": \"minio\",           // minio | local | both\n  \"minio_bucket\": \"tts-output\",  // optional\n  \"local_path\": \"/data/tts-output\" // optional\n}"
+      "notes": "POST /webhook/tts-batch\n\nBody (JSON):\n{\n  \"videos\": [\n    { \"video_url\": \"https://youtu.be/...\", \"referer\": \"\" },\n    { \"video_url\": \"https://vimeo.com/...\", \"referer\": \"https://example.com\" },\n    { \"video_url\": \"https://cdn.example.com/stream.m3u8\", \"referer\": \"https://example.com\" },\n    { \"source\": \"minio\", \"minio_bucket\": \"my-bucket\", \"minio_key\": \"input/video.mp4\" },\n    { \"source\": \"file\",  \"file_path\": \"/data/input/video.mp4\" }\n  ],\n  \"target_language\": \"de\",\n  \"source_language\": \"en\",       // optional\n  \"voice_id\": \"meine_stimme\",    // optional\n  \"keep_original_audio\": false,  // optional\n  \"storage\": \"minio\",           // minio | local | both\n  \"minio_bucket\": \"tts-output\",  // optional (Output-Bucket)\n  \"local_path\": \"/data/tts-output\" // optional\n}"
     },
 
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "urls",         "name": "urls",               "value": "={{ $json.body.urls }}",                         "type": "array" },
-            { "id": "target_lang",  "name": "target_language",    "value": "={{ $json.body.target_language || 'de' }}",       "type": "string" },
-            { "id": "source_lang",  "name": "source_language",    "value": "={{ $json.body.source_language || '' }}",         "type": "string" },
-            { "id": "voice_id",     "name": "voice_id",           "value": "={{ $json.body.voice_id || '' }}",                "type": "string" },
-            { "id": "keep_orig",    "name": "keep_original_audio","value": "={{ $json.body.keep_original_audio || false }}",  "type": "boolean" },
-            { "id": "storage",      "name": "storage",            "value": "={{ $json.body.storage || 'minio' }}",            "type": "string" },
-            { "id": "minio_bucket", "name": "minio_bucket",       "value": "={{ $json.body.minio_bucket || 'tts-output' }}",  "type": "string" },
-            { "id": "local_path",   "name": "local_path",         "value": "={{ $json.body.local_path || '/data/tts-output' }}", "type": "string" },
-            { "id": "batch_id",     "name": "batch_id",           "value": "={{ $now.format('yyyy-MM-dd_HH-mm') }}",          "type": "string" }
+            { "id": "videos",       "name": "videos",             "value": "={{ $json.body.videos }}",                          "type": "array"   },
+            { "id": "target_lang",  "name": "target_language",    "value": "={{ $json.body.target_language || 'de' }}",          "type": "string"  },
+            { "id": "source_lang",  "name": "source_language",    "value": "={{ $json.body.source_language || '' }}",            "type": "string"  },
+            { "id": "voice_id",     "name": "voice_id",           "value": "={{ $json.body.voice_id || '' }}",                   "type": "string"  },
+            { "id": "keep_orig",    "name": "keep_original_audio","value": "={{ $json.body.keep_original_audio || false }}",     "type": "boolean" },
+            { "id": "storage",      "name": "storage",            "value": "={{ $json.body.storage || 'minio' }}",               "type": "string"  },
+            { "id": "minio_bucket", "name": "minio_bucket",       "value": "={{ $json.body.minio_bucket || 'tts-output' }}",     "type": "string"  },
+            { "id": "local_path",   "name": "local_path",         "value": "={{ $json.body.local_path || '/data/tts-output' }}", "type": "string"  },
+            { "id": "batch_id",     "name": "batch_id",           "value": "={{ $now.format('yyyy-MM-dd_HH-mm') }}",             "type": "string"  }
           ]
         },
         "options": {}
@@ -43,12 +43,186 @@
     },
 
     {
-      "parameters": { "fieldToSplitOut": "urls", "options": {} },
-      "id": "split-urls",
-      "name": "URLs aufteilen",
+      "parameters": { "fieldToSplitOut": "videos", "options": {} },
+      "id": "split-videos",
+      "name": "Videos aufteilen",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [680, 400]
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "is-minio-src",
+              "leftValue": "={{ $json.videos.source }}",
+              "rightValue": "minio",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "src-is-minio",
+      "name": "Quelle: MinIO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 400],
+      "notes": "true → MinIO-Key in interne URL umwandeln\nfalse → weiter zu: Lokale Datei?"
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "is-file-src",
+              "leftValue": "={{ $json.videos.source }}",
+              "rightValue": "file",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "src-is-file",
+      "name": "Quelle: Lokal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 600],
+      "notes": "true → Datei nach MinIO hochladen → interne URL\nfalse → video_url direkt verwenden"
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "vu",  "name": "video_url",           "value": "=http://minio:9000/{{ $json.videos.minio_bucket || $('Defaults setzen').item.json.minio_bucket }}/{{ $json.videos.minio_key }}", "type": "string" },
+            { "id": "ref", "name": "referer",             "value": "={{ $json.videos.referer || '' }}",                                           "type": "string"  },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $('Defaults setzen').item.json.target_language }}",                       "type": "string"  },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $('Defaults setzen').item.json.source_language }}",                       "type": "string"  },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $('Defaults setzen').item.json.voice_id }}",                              "type": "string"  },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $('Defaults setzen').item.json.keep_original_audio }}",                   "type": "boolean" },
+            { "id": "sto", "name": "storage",             "value": "={{ $('Defaults setzen').item.json.storage }}",                               "type": "string"  },
+            { "id": "bkt", "name": "minio_bucket",        "value": "={{ $('Defaults setzen').item.json.minio_bucket }}",                          "type": "string"  },
+            { "id": "lpt", "name": "local_path",          "value": "={{ $('Defaults setzen').item.json.local_path }}",                            "type": "string"  },
+            { "id": "bat", "name": "batch_id",            "value": "={{ $('Defaults setzen').item.json.batch_id }}",                              "type": "string"  }
+          ]
+        },
+        "options": {}
+      },
+      "id": "norm-minio",
+      "name": "Norm: MinIO → URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 300]
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "uk",  "name": "upload_key",          "value": "={{ $('Defaults setzen').item.json.batch_id + '/input/' + $json.videos.file_path.split('/').pop() }}", "type": "string" },
+            { "id": "fp",  "name": "file_path",           "value": "={{ $json.videos.file_path }}",                                              "type": "string"  },
+            { "id": "bkt", "name": "upload_bucket",       "value": "={{ $json.videos.minio_bucket || 'tts-input' }}",                            "type": "string"  },
+            { "id": "ref", "name": "referer",             "value": "={{ $json.videos.referer || '' }}",                                           "type": "string"  },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $('Defaults setzen').item.json.target_language }}",                       "type": "string"  },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $('Defaults setzen').item.json.source_language }}",                       "type": "string"  },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $('Defaults setzen').item.json.voice_id }}",                              "type": "string"  },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $('Defaults setzen').item.json.keep_original_audio }}",                   "type": "boolean" },
+            { "id": "sto", "name": "storage",             "value": "={{ $('Defaults setzen').item.json.storage }}",                               "type": "string"  },
+            { "id": "out_bkt", "name": "minio_bucket",    "value": "={{ $('Defaults setzen').item.json.minio_bucket }}",                          "type": "string"  },
+            { "id": "lpt", "name": "local_path",          "value": "={{ $('Defaults setzen').item.json.local_path }}",                            "type": "string"  },
+            { "id": "bat", "name": "batch_id",            "value": "={{ $('Defaults setzen').item.json.batch_id }}",                              "type": "string"  }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prep-file-upload",
+      "name": "Prep: Datei-Upload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 560]
+    },
+
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}"
+      },
+      "id": "read-local-file",
+      "name": "Datei: Lokal lesen",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [1340, 560]
+    },
+
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "={{ $('Prep: Datei-Upload').item.json.upload_bucket }}",
+        "fileName": "={{ $('Prep: Datei-Upload').item.json.upload_key }}",
+        "binaryPropertyName": "data",
+        "additionalFields": { "acl": "public-read", "contentType": "video/mp4" }
+      },
+      "id": "upload-file-minio",
+      "name": "Datei: Nach MinIO hochladen",
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 1,
+      "position": [1560, 560],
+      "credentials": { "aws": { "id": "minio-credentials", "name": "MinIO S3" } }
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "vu",  "name": "video_url",           "value": "=http://minio:9000/{{ $('Prep: Datei-Upload').item.json.upload_bucket }}/{{ $('Prep: Datei-Upload').item.json.upload_key }}", "type": "string" },
+            { "id": "ref", "name": "referer",             "value": "={{ $('Prep: Datei-Upload').item.json.referer }}",            "type": "string"  },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $('Prep: Datei-Upload').item.json.target_language }}",    "type": "string"  },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $('Prep: Datei-Upload').item.json.source_language }}",   "type": "string"  },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $('Prep: Datei-Upload').item.json.voice_id }}",          "type": "string"  },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $('Prep: Datei-Upload').item.json.keep_original_audio }}", "type": "boolean" },
+            { "id": "sto", "name": "storage",             "value": "={{ $('Prep: Datei-Upload').item.json.storage }}",           "type": "string"  },
+            { "id": "bkt", "name": "minio_bucket",        "value": "={{ $('Prep: Datei-Upload').item.json.minio_bucket }}",      "type": "string"  },
+            { "id": "lpt", "name": "local_path",          "value": "={{ $('Prep: Datei-Upload').item.json.local_path }}",        "type": "string"  },
+            { "id": "bat", "name": "batch_id",            "value": "={{ $('Prep: Datei-Upload').item.json.batch_id }}",          "type": "string"  }
+          ]
+        },
+        "options": {}
+      },
+      "id": "norm-file",
+      "name": "Norm: Datei-URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1780, 560]
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "vu",  "name": "video_url",           "value": "={{ $json.videos.video_url }}",                                               "type": "string"  },
+            { "id": "ref", "name": "referer",             "value": "={{ $json.videos.referer || '' }}",                                           "type": "string"  },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $('Defaults setzen').item.json.target_language }}",                       "type": "string"  },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $('Defaults setzen').item.json.source_language }}",                       "type": "string"  },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $('Defaults setzen').item.json.voice_id }}",                              "type": "string"  },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $('Defaults setzen').item.json.keep_original_audio }}",                   "type": "boolean" },
+            { "id": "sto", "name": "storage",             "value": "={{ $('Defaults setzen').item.json.storage }}",                               "type": "string"  },
+            { "id": "bkt", "name": "minio_bucket",        "value": "={{ $('Defaults setzen').item.json.minio_bucket }}",                          "type": "string"  },
+            { "id": "lpt", "name": "local_path",          "value": "={{ $('Defaults setzen').item.json.local_path }}",                            "type": "string"  },
+            { "id": "bat", "name": "batch_id",            "value": "={{ $('Defaults setzen').item.json.batch_id }}",                              "type": "string"  }
+          ]
+        },
+        "options": {}
+      },
+      "id": "norm-url",
+      "name": "Norm: Direkte URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 780],
+      "notes": "YouTube, Vimeo, m3u8, direkter MP4-Link, etc.\nReferer wird optional mitgegeben."
     },
 
     {
@@ -58,27 +232,27 @@
         "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "={{ JSON.stringify({ youtube_url: $json.urls, target_language: $json.target_language, source_language: $json.source_language || undefined, voice_id: $json.voice_id || undefined, keep_original_audio: $json.keep_original_audio }) }}",
+        "jsonBody": "={{ JSON.stringify({ video_url: $json.video_url, target_language: $json.target_language, source_language: $json.source_language || undefined, voice_id: $json.voice_id || undefined, keep_original_audio: $json.keep_original_audio, referer: $json.referer || undefined }) }}",
         "options": { "timeout": 30000 }
       },
       "id": "start-job",
       "name": "Dubbing Job starten",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 400]
+      "position": [2000, 540]
     },
 
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "job_id",  "name": "job_id",           "value": "={{ $json.job_id }}",                                   "type": "string" },
-            { "id": "url",     "name": "url",              "value": "={{ $('URLs aufteilen').item.json.urls }}",             "type": "string" },
-            { "id": "retries", "name": "poll_retries",     "value": "=0",                                                    "type": "number" },
-            { "id": "storage", "name": "storage",          "value": "={{ $('Defaults setzen').item.json.storage }}",        "type": "string" },
-            { "id": "bucket",  "name": "minio_bucket",     "value": "={{ $('Defaults setzen').item.json.minio_bucket }}",   "type": "string" },
-            { "id": "lpath",   "name": "local_path",       "value": "={{ $('Defaults setzen').item.json.local_path }}",     "type": "string" },
-            { "id": "batch",   "name": "batch_id",         "value": "={{ $('Defaults setzen').item.json.batch_id }}",       "type": "string" }
+            { "id": "job_id",  "name": "job_id",           "value": "={{ $json.job_id }}",                                                   "type": "string"  },
+            { "id": "url",     "name": "video_url",        "value": "={{ $('Norm: MinIO → URL').item.json.video_url || $('Norm: Direkte URL').item.json.video_url || $('Norm: Datei-URL').item.json.video_url }}", "type": "string" },
+            { "id": "retries", "name": "poll_retries",     "value": "=0",                                                                    "type": "number"  },
+            { "id": "storage", "name": "storage",          "value": "={{ $json.storage }}",                                                  "type": "string"  },
+            { "id": "bucket",  "name": "minio_bucket",     "value": "={{ $json.minio_bucket }}",                                             "type": "string"  },
+            { "id": "lpath",   "name": "local_path",       "value": "={{ $json.local_path }}",                                               "type": "string"  },
+            { "id": "batch",   "name": "batch_id",         "value": "={{ $json.batch_id }}",                                                  "type": "string"  }
           ]
         },
         "options": {}
@@ -87,7 +261,7 @@
       "name": "Job-ID merken",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1120, 400]
+      "position": [2220, 540]
     },
 
     {
@@ -96,7 +270,7 @@
       "name": "30s warten",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1120, 560]
+      "position": [2220, 700]
     },
 
     {
@@ -108,7 +282,7 @@
       "name": "Status prüfen",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 700]
+      "position": [2220, 860]
     },
 
     {
@@ -122,7 +296,7 @@
       "name": "Fertig?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1340, 700]
+      "position": [2440, 860]
     },
 
     {
@@ -130,7 +304,7 @@
         "conditions": {
           "options": { "caseSensitive": false, "typeValidation": "strict" },
           "conditions": [
-            { "id": "max-retries", "leftValue": "={{ $('Job-ID merken').item.json.poll_retries }}", "rightValue": 40, "operator": { "type": "number", "operation": "lt" } },
+            { "id": "max-retries", "leftValue": "={{ $('30s warten').item.json.poll_retries }}", "rightValue": 40, "operator": { "type": "number", "operation": "lt" } },
             { "id": "not-error",   "leftValue": "={{ $json.status }}", "rightValue": "error", "operator": { "type": "string", "operation": "notEquals" } }
           ]
         },
@@ -140,7 +314,7 @@
       "name": "Noch versuchen?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1560, 820],
+      "position": [2660, 980],
       "notes": "Max 40 × 30s = 20 Minuten"
     },
 
@@ -148,13 +322,13 @@
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "inc", "name": "poll_retries", "value": "={{ $('Job-ID merken').item.json.poll_retries + 1 }}", "type": "number" },
-            { "id": "jid", "name": "job_id",       "value": "={{ $('Job-ID merken').item.json.job_id }}",          "type": "string" },
-            { "id": "sto", "name": "storage",      "value": "={{ $('Job-ID merken').item.json.storage }}",         "type": "string" },
-            { "id": "bkt", "name": "minio_bucket", "value": "={{ $('Job-ID merken').item.json.minio_bucket }}",    "type": "string" },
-            { "id": "lpt", "name": "local_path",   "value": "={{ $('Job-ID merken').item.json.local_path }}",      "type": "string" },
-            { "id": "bat", "name": "batch_id",     "value": "={{ $('Job-ID merken').item.json.batch_id }}",        "type": "string" },
-            { "id": "url", "name": "url",          "value": "={{ $('Job-ID merken').item.json.url }}",             "type": "string" }
+            { "id": "inc", "name": "poll_retries", "value": "={{ $('30s warten').item.json.poll_retries + 1 }}", "type": "number" },
+            { "id": "jid", "name": "job_id",       "value": "={{ $('Job-ID merken').item.json.job_id }}",         "type": "string" },
+            { "id": "sto", "name": "storage",      "value": "={{ $('Job-ID merken').item.json.storage }}",        "type": "string" },
+            { "id": "bkt", "name": "minio_bucket", "value": "={{ $('Job-ID merken').item.json.minio_bucket }}",   "type": "string" },
+            { "id": "lpt", "name": "local_path",   "value": "={{ $('Job-ID merken').item.json.local_path }}",     "type": "string" },
+            { "id": "bat", "name": "batch_id",     "value": "={{ $('Job-ID merken').item.json.batch_id }}",       "type": "string" },
+            { "id": "url", "name": "video_url",    "value": "={{ $('Job-ID merken').item.json.video_url }}",      "type": "string" }
           ]
         },
         "options": {}
@@ -163,7 +337,7 @@
       "name": "Retry-Zähler erhöhen",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1780, 700]
+      "position": [2880, 860]
     },
 
     {
@@ -175,7 +349,7 @@
       "name": "Video herunterladen",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 560]
+      "position": [2660, 700]
     },
 
     {
@@ -191,7 +365,7 @@
       "name": "Dateiname setzen",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1780, 560]
+      "position": [2880, 700]
     },
 
     {
@@ -199,34 +373,33 @@
         "conditions": {
           "options": { "caseSensitive": false },
           "conditions": [
-            {
-              "id": "is-minio",
-              "leftValue": "={{ $('Job-ID merken').item.json.storage }}",
-              "rightValue": "minio",
-              "operator": { "type": "string", "operation": "equals" }
-            },
-            {
-              "id": "is-local",
-              "leftValue": "={{ $('Job-ID merken').item.json.storage }}",
-              "rightValue": "local",
-              "operator": { "type": "string", "operation": "equals" }
-            },
-            {
-              "id": "is-both",
-              "leftValue": "={{ $('Job-ID merken').item.json.storage }}",
-              "rightValue": "both",
-              "operator": { "type": "string", "operation": "equals" }
-            }
+            { "id": "is-minio", "leftValue": "={{ $('Job-ID merken').item.json.storage }}", "rightValue": "minio", "operator": { "type": "string", "operation": "equals" } }
           ]
-        },
-        "combineOperation": "any"
+        }
       },
-      "id": "storage-switch",
-      "name": "Speicher-Weiche",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
-      "position": [2000, 560],
-      "notes": "Output 0 → MinIO\nOutput 1 → Lokal\nOutput 2 → Beides"
+      "id": "storage-minio",
+      "name": "Speicher: MinIO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 700],
+      "notes": "true → MinIO\nfalse → weiter zu: Lokal?"
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            { "id": "is-local", "leftValue": "={{ $('Job-ID merken').item.json.storage }}", "rightValue": "local", "operator": { "type": "string", "operation": "equals" } }
+          ]
+        }
+      },
+      "id": "storage-local",
+      "name": "Speicher: Lokal?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 880],
+      "notes": "true → Lokal\nfalse → Beides (MinIO + Lokal)"
     },
 
     {
@@ -241,7 +414,7 @@
       "name": "→ MinIO",
       "type": "n8n-nodes-base.awsS3",
       "typeVersion": 1,
-      "position": [2220, 360],
+      "position": [3320, 600],
       "credentials": { "aws": { "id": "minio-credentials", "name": "MinIO S3" } },
       "notes": "Credential 'MinIO S3':\n  Endpoint: http://minio:9000\n  Access Key: minio\n  Secret: ${MINIO_ROOT_PASSWORD}\n  Region: us-east-1\n  Force Path Style: ✅"
     },
@@ -255,7 +428,7 @@
       "name": "→ Lokal",
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
-      "position": [2220, 560]
+      "position": [3320, 880]
     },
 
     {
@@ -270,7 +443,7 @@
       "name": "→ Beides: MinIO",
       "type": "n8n-nodes-base.awsS3",
       "typeVersion": 1,
-      "position": [2220, 760],
+      "position": [3320, 1060],
       "credentials": { "aws": { "id": "minio-credentials", "name": "MinIO S3" } }
     },
 
@@ -283,18 +456,18 @@
       "name": "→ Beides: Lokal",
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
-      "position": [2440, 760]
+      "position": [3540, 1060]
     },
 
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "r_url",  "name": "url",      "value": "={{ $('Job-ID merken').item.json.url }}",           "type": "string" },
-            { "id": "r_job",  "name": "job_id",   "value": "={{ $('Job-ID merken').item.json.job_id }}",        "type": "string" },
-            { "id": "r_stat", "name": "status",   "value": "done",                                              "type": "string" },
-            { "id": "r_file", "name": "filename", "value": "={{ $('Dateiname setzen').item.json.filename }}",   "type": "string" },
-            { "id": "r_stor", "name": "storage",  "value": "={{ $('Job-ID merken').item.json.storage }}",       "type": "string" }
+            { "id": "r_url",  "name": "video_url", "value": "={{ $('Job-ID merken').item.json.video_url }}",         "type": "string" },
+            { "id": "r_job",  "name": "job_id",    "value": "={{ $('Job-ID merken').item.json.job_id }}",            "type": "string" },
+            { "id": "r_stat", "name": "status",    "value": "done",                                                  "type": "string" },
+            { "id": "r_file", "name": "filename",  "value": "={{ $('Dateiname setzen').item.json.filename }}",       "type": "string" },
+            { "id": "r_stor", "name": "storage",   "value": "={{ $('Job-ID merken').item.json.storage }}",           "type": "string" }
           ]
         },
         "options": {}
@@ -303,17 +476,17 @@
       "name": "Ergebnis: OK",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2660, 560]
+      "position": [3760, 700]
     },
 
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "e_url",  "name": "url",    "value": "={{ $('Job-ID merken').item.json.url }}",          "type": "string" },
-            { "id": "e_job",  "name": "job_id", "value": "={{ $('Job-ID merken').item.json.job_id }}",       "type": "string" },
-            { "id": "e_stat", "name": "status", "value": "error",                                            "type": "string" },
-            { "id": "e_err",  "name": "error",  "value": "={{ $json.error || 'Timeout nach 20 Minuten' }}", "type": "string" }
+            { "id": "e_url",  "name": "video_url", "value": "={{ $('Job-ID merken').item.json.video_url }}",         "type": "string" },
+            { "id": "e_job",  "name": "job_id",    "value": "={{ $('Job-ID merken').item.json.job_id }}",            "type": "string" },
+            { "id": "e_stat", "name": "status",    "value": "error",                                                 "type": "string" },
+            { "id": "e_err",  "name": "error",     "value": "={{ $json.error || 'Timeout nach 20 Minuten' }}",      "type": "string" }
           ]
         },
         "options": {}
@@ -322,7 +495,7 @@
       "name": "Ergebnis: Fehler",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1780, 980]
+      "position": [2880, 1100]
     },
 
     {
@@ -331,7 +504,7 @@
       "name": "Alle Ergebnisse sammeln",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [2880, 560]
+      "position": [3980, 700]
     },
 
     {
@@ -344,19 +517,37 @@
       "name": "Antwort senden",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [3080, 560]
+      "position": [4180, 700]
     }
 
   ],
 
   "connections": {
-    "Webhook: Batch Start":    { "main": [[{ "node": "Defaults setzen",       "type": "main", "index": 0 }]] },
-    "Defaults setzen":         { "main": [[{ "node": "URLs aufteilen",         "type": "main", "index": 0 }]] },
-    "URLs aufteilen":          { "main": [[{ "node": "Dubbing Job starten",    "type": "main", "index": 0 }]] },
-    "Dubbing Job starten":     { "main": [[{ "node": "Job-ID merken",          "type": "main", "index": 0 }]] },
-    "Job-ID merken":           { "main": [[{ "node": "30s warten",             "type": "main", "index": 0 }]] },
-    "30s warten":              { "main": [[{ "node": "Status prüfen",          "type": "main", "index": 0 }]] },
-    "Status prüfen":           { "main": [[{ "node": "Fertig?",                "type": "main", "index": 0 }]] },
+    "Webhook: Batch Start":       { "main": [[{ "node": "Defaults setzen",          "type": "main", "index": 0 }]] },
+    "Defaults setzen":            { "main": [[{ "node": "Videos aufteilen",          "type": "main", "index": 0 }]] },
+    "Videos aufteilen":           { "main": [[{ "node": "Quelle: MinIO?",            "type": "main", "index": 0 }]] },
+    "Quelle: MinIO?": {
+      "main": [
+        [{ "node": "Norm: MinIO → URL",   "type": "main", "index": 0 }],
+        [{ "node": "Quelle: Lokal?",      "type": "main", "index": 0 }]
+      ]
+    },
+    "Quelle: Lokal?": {
+      "main": [
+        [{ "node": "Prep: Datei-Upload",  "type": "main", "index": 0 }],
+        [{ "node": "Norm: Direkte URL",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Norm: MinIO → URL":          { "main": [[{ "node": "Dubbing Job starten",       "type": "main", "index": 0 }]] },
+    "Norm: Direkte URL":          { "main": [[{ "node": "Dubbing Job starten",       "type": "main", "index": 0 }]] },
+    "Prep: Datei-Upload":         { "main": [[{ "node": "Datei: Lokal lesen",        "type": "main", "index": 0 }]] },
+    "Datei: Lokal lesen":         { "main": [[{ "node": "Datei: Nach MinIO hochladen", "type": "main", "index": 0 }]] },
+    "Datei: Nach MinIO hochladen":{ "main": [[{ "node": "Norm: Datei-URL",           "type": "main", "index": 0 }]] },
+    "Norm: Datei-URL":            { "main": [[{ "node": "Dubbing Job starten",       "type": "main", "index": 0 }]] },
+    "Dubbing Job starten":        { "main": [[{ "node": "Job-ID merken",             "type": "main", "index": 0 }]] },
+    "Job-ID merken":              { "main": [[{ "node": "30s warten",                "type": "main", "index": 0 }]] },
+    "30s warten":                 { "main": [[{ "node": "Status prüfen",             "type": "main", "index": 0 }]] },
+    "Status prüfen":              { "main": [[{ "node": "Fertig?",                   "type": "main", "index": 0 }]] },
     "Fertig?": {
       "main": [
         [{ "node": "Video herunterladen", "type": "main", "index": 0 }],
@@ -369,23 +560,28 @@
         [{ "node": "Ergebnis: Fehler",     "type": "main", "index": 0 }]
       ]
     },
-    "Retry-Zähler erhöhen":   { "main": [[{ "node": "30s warten",             "type": "main", "index": 0 }]] },
-    "Video herunterladen":    { "main": [[{ "node": "Dateiname setzen",        "type": "main", "index": 0 }]] },
-    "Dateiname setzen":       { "main": [[{ "node": "Speicher-Weiche",         "type": "main", "index": 0 }]] },
-    "Speicher-Weiche": {
+    "Retry-Zähler erhöhen":       { "main": [[{ "node": "30s warten",               "type": "main", "index": 0 }]] },
+    "Video herunterladen":        { "main": [[{ "node": "Dateiname setzen",          "type": "main", "index": 0 }]] },
+    "Dateiname setzen":           { "main": [[{ "node": "Speicher: MinIO?",          "type": "main", "index": 0 }]] },
+    "Speicher: MinIO?": {
       "main": [
-        [{ "node": "→ MinIO",          "type": "main", "index": 0 }],
-        [{ "node": "→ Lokal",          "type": "main", "index": 0 }],
-        [{ "node": "→ Beides: MinIO",  "type": "main", "index": 0 }]
+        [{ "node": "→ MinIO",            "type": "main", "index": 0 }],
+        [{ "node": "Speicher: Lokal?",   "type": "main", "index": 0 }]
       ]
     },
-    "→ MinIO":         { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
-    "→ Lokal":         { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
-    "→ Beides: MinIO": { "main": [[{ "node": "→ Beides: Lokal",           "type": "main", "index": 0 }]] },
-    "→ Beides: Lokal": { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
-    "Ergebnis: OK":    { "main": [[{ "node": "Alle Ergebnisse sammeln",   "type": "main", "index": 0 }]] },
-    "Ergebnis: Fehler":{ "main": [[{ "node": "Alle Ergebnisse sammeln",   "type": "main", "index": 0 }]] },
-    "Alle Ergebnisse sammeln": { "main": [[{ "node": "Antwort senden",    "type": "main", "index": 0 }]] }
+    "Speicher: Lokal?": {
+      "main": [
+        [{ "node": "→ Lokal",            "type": "main", "index": 0 }],
+        [{ "node": "→ Beides: MinIO",    "type": "main", "index": 0 }]
+      ]
+    },
+    "→ MinIO":                    { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
+    "→ Lokal":                    { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
+    "→ Beides: MinIO":            { "main": [[{ "node": "→ Beides: Lokal",           "type": "main", "index": 0 }]] },
+    "→ Beides: Lokal":            { "main": [[{ "node": "Ergebnis: OK",              "type": "main", "index": 0 }]] },
+    "Ergebnis: OK":               { "main": [[{ "node": "Alle Ergebnisse sammeln",   "type": "main", "index": 0 }]] },
+    "Ergebnis: Fehler":           { "main": [[{ "node": "Alle Ergebnisse sammeln",   "type": "main", "index": 0 }]] },
+    "Alle Ergebnisse sammeln":    { "main": [[{ "node": "Antwort senden",            "type": "main", "index": 0 }]] }
   },
 
   "settings": {
@@ -398,5 +594,5 @@
   "tags": ["tts", "dubbing", "batch", "minio", "audio"],
   "triggerCount": 1,
   "updatedAt": "2026-04-06T00:00:00.000Z",
-  "versionId": "3"
+  "versionId": "4"
 }
