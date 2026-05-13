@@ -396,7 +396,7 @@ def backup_diff():
         return jsonify({"error": "Unauthorized"}), 401
 
     backup_name = os.path.basename(request.args.get('backup', ''))
-    filepath = request.args.get('file', '')
+    filepath = os.path.normcase(os.path.normpath(request.args.get('file', '')))
 
     if not _validate_backup_name(backup_name):
         return jsonify({"error": "Ungültiger Backup-Name"}), 400
