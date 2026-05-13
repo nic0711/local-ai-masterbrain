@@ -396,11 +396,17 @@ def backup_diff():
         return jsonify({"error": "Unauthorized"}), 401
 
     backup_name = os.path.basename(request.args.get('backup', ''))
-    filepath = os.path.normcase(os.path.normpath(request.args.get('file', '')))
+    raw_filepath = request.args.get('file', '')
+    safe_relpath = os.path.normpath(raw_filepath).replace('\\', '/')
+
+    if safe_relpath in ('', '.'):
+        return jsonify({"error": "Ungültiger Dateipfad"}), 400
+    if os.path.isabs(safe_relpath) or safe_relpath.startswith('../') or '/..' in safe_relpath:
+        return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
     if not _validate_backup_name(backup_name):
         return jsonify({"error": "Ungültiger Backup-Name"}), 400
-    if not _validate_filepath(filepath):
+    if not _validate_filepath(safe_relpath):
         return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
     real_backup_dir = os.path.realpath(_BACKUP_DIR)
@@ -415,7 +421,7 @@ def backup_diff():
         old_lines = []
         with tarfile.open(real_archive, 'r:gz') as tf:
             try:
-                member = tf.getmember(filepath)
+                member = tf.getmember(safe_relpath)
                 f = tf.extractfile(member)
                 if f:
                     old_lines = f.read().decode('utf-8', errors='replace').splitlines(keepends=True)
@@ -424,8 +430,8 @@ def backup_diff():
 
         # Aktuelle Version aus /app lesen
         real_app = os.path.realpath(_APP_DIR)
-        real_current = os.path.realpath(os.path.join(real_app, filepath))
-        if not real_current.startswith(real_app + os.sep) and real_current != real_app:
+        real_current = os.path.realpath(os.path.join(real_app, safe_relpath))
+        if not real_current.startswith(real_app + os.sep):
             return jsonify({"error": "Ungültiger Dateipfad"}), 400
 
         new_lines = []
@@ -437,15 +443,15 @@ def backup_diff():
         diff = list(difflib.unified_diff(
             old_lines,
             new_lines,
-            fromfile='backup/' + filepath,
-            tofile='current/' + filepath,
+            fromfile='backup/' + safe_relpath,
+            tofile='current/' + safe_relpath,
             lineterm=''
         ))
 
         return jsonify({
             "diff": diff,
             "changed": len(diff) > 0,
-            "file": filepath,
+            "file": safe_relpath,
         }), 200
     except Exception as e:
         logging.error(f"backup_diff error: {e}")
