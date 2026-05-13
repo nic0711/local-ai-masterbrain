@@ -17,6 +17,7 @@ volumes:
   langfuse_clickhouse_logs:
   langfuse_minio_data:
   uptime_kuma_data:
+  grafana_storage:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
@@ -34,6 +35,12 @@ x-n8n: &service-n8n
     - WEBHOOK_URL=${N8N_HOSTNAME:+https://}${N8N_HOSTNAME:-http://localhost:5678}
     - OLLAMA_HOST=ollama:11434
     - N8N_RESTRICT_FILE_ACCESS_TO=/home/node/.n8n-files;/data/shared;/data/tts-output
+    - NODE_FUNCTION_ALLOW_BUILTIN=http,https,crypto,url
+    - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+    - N8N_RUNNERS_TASK_TIMEOUT=3600
+    - OSTICKET_MINIO_ACCESS=${OSTICKET_MINIO_ACCESS}
+    - OSTICKET_MINIO_SECRET=${OSTICKET_MINIO_SECRET}
+    - OSTICKET_SUPA_KEY=${SERVICE_ROLE_KEY}
     # Uncomment to enable LocalFileTrigger and ExecuteCommand nodes (disabled by default in n8n v2+)
     # - NODES_EXCLUDE=[]
   logging:
@@ -239,6 +246,39 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    expose:
+      - 3000/tcp
+    volumes:
+      - grafana_storage:/var/lib/grafana
+    environment:
+      - GF_SERVER_ROOT_URL=https://${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_PROXY_ENABLED=true
+      - GF_AUTH_PROXY_HEADER_NAME=X-Forwarded-User
+      - GF_AUTH_PROXY_AUTO_SIGN_UP=true
+      - GF_AUTH_PROXY_HEADERS=Email:X-Forwarded-User Role:X-Forwarded-Role
+      - GF_AUTH_PROXY_SYNC_TTL=60
+      - GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN=false
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Admin
+      - GF_LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   neo4j:
     image: neo4j:latest
     container_name: neo4j
@@ -300,6 +340,7 @@ services:
       - OCR_HOSTNAME=${OCR_HOSTNAME:-ocr.${DOMAIN}}
       - TTS_HOSTNAME=${TTS_HOSTNAME:-tts.${DOMAIN}}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
+      - GRAFANA_HOSTNAME=${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -511,8 +552,8 @@ services:
       - SEARXNG_BASE_URL=http://${SEARXNG_HOSTNAME:-localhost:8081}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
-    # cap_drop:  # Temporarily disabled for SearXNG first run
-    #   - ALL
+    cap_drop:
+      - ALL
     cap_add:
       - CHOWN
       - SETGID
@@ -593,6 +634,7 @@ services:
       - OCR_HOSTNAME=${OCR_HOSTNAME:-}
       - TTS_HOSTNAME=${TTS_HOSTNAME:-}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
+      - GRAFANA_HOSTNAME=${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
 
   uptime-kuma:
     image: louislam/uptime-kuma:1

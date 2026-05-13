@@ -34,9 +34,9 @@ app = FastAPI(
 # CORS für n8n und andere Services
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(","),
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -145,8 +145,8 @@ async def process_ocr(
         raise
     except Exception as e:
         logger.error(f"OCR processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail="OCR processing failed")
+
     finally:
         # Cleanup
         await cleanup_temp_files([temp_file_path])
@@ -203,7 +203,7 @@ async def process_batch_ocr(
         
     except Exception as e:
         logger.error(f"Batch OCR processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Batch processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Batch processing failed")
     
     finally:
         # Cleanup
@@ -231,22 +231,18 @@ async def process_folder_ocr(
         archive_files: Verarbeitete Dateien archivieren statt löschen
     """
     
-    # Pfad bestimmen
-    if folder_path in ["input", "temp", "output"]:
-        if folder_path == "input":
-            source_dir = INPUT_DIR
-        elif folder_path == "temp":
-            source_dir = TEMP_DIR
-        else:
-            source_dir = OUTPUT_DIR
+    # Pfad bestimmen – nur bekannte Bezeichner erlaubt
+    if folder_path == "input":
+        source_dir = INPUT_DIR
+    elif folder_path == "temp":
+        source_dir = TEMP_DIR
+    elif folder_path == "output":
+        source_dir = OUTPUT_DIR
     else:
-        # Absoluter Pfad (mit Sicherheitsprüfung)
-        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-            raise HTTPException(status_code=400, detail=f"Folder not found: {folder_path}")
-        source_dir = folder_path
-    
+        raise HTTPException(status_code=400, detail="Invalid folder_path. Use: input, temp, output")
+
     if not os.path.exists(source_dir):
-        raise HTTPException(status_code=400, detail=f"Source directory not found: {source_dir}")
+        raise HTTPException(status_code=400, detail="Source directory not found")
     
     # Alle unterstützten Dateien finden
     supported_extensions = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp']

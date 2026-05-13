@@ -15,7 +15,7 @@
       "typeVersion": 1,
       "position": [240, 300],
       "webhookId": "tts-voice-dubbing",
-      "notes": "Einheitlicher Einstieg.\nErwartet JSON body mit 'action': synthesize | clone | dub_url | dub_status | dub_download"
+      "notes": "Einheitlicher Einstieg.\nErwartet JSON body mit 'action':\n  synthesize | clone\n  dub_url  → video_url (+ opt. referer)\n  dub_minio → minio_bucket + minio_key (+ opt. referer)\n  dub_file  → file_path (lokale Datei, wird nach MinIO hochgeladen)\n  dub_status | dub_download"
     },
 
     {
@@ -51,6 +51,18 @@
               "id": "action-download",
               "leftValue": "={{ $json.body.action }}",
               "rightValue": "dub_download",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-dub-minio",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "dub_minio",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "action-dub-file",
+              "leftValue": "={{ $json.body.action }}",
+              "rightValue": "dub_file",
               "operator": { "type": "string", "operation": "equals" }
             }
           ]
@@ -122,15 +134,15 @@
         },
         "sendBody": true,
         "bodyContentType": "json",
-        "jsonBody": "={{ JSON.stringify({ youtube_url: $json.body.youtube_url, target_language: $json.body.target_language || 'de', source_language: $json.body.source_language || undefined, voice_id: $json.body.voice_id || undefined, keep_original_audio: $json.body.keep_original_audio || false }) }}",
+        "jsonBody": "={{ JSON.stringify({ video_url: $json.video_url || $json.body.video_url, target_language: $json.body.target_language || $json.target_language || 'de', source_language: $json.body.source_language || $json.source_language || undefined, voice_id: $json.body.voice_id || $json.voice_id || undefined, keep_original_audio: $json.body.keep_original_audio ?? $json.keep_original_audio ?? false, referer: $json.body.referer || $json.referer || undefined }) }}",
         "options": { "timeout": 30000 }
       },
       "id": "dub-start",
-      "name": "Dubbing: Start Job (YouTube URL)",
+      "name": "Dubbing: Start Job",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [700, 380],
-      "notes": "Startet einen asynchronen Dubbing-Job.\nGibt { job_id } zurück.\nyoutube_url: YouTube-Link\ntarget_language: Zielsprache (de/en/fr/es/...)\nvoice_id: optional – gespeicherte Referenzstimme"
+      "position": [1100, 380],
+      "notes": "Startet einen asynchronen Dubbing-Job.\nGibt { job_id } zurück.\nvideo_url: beliebige Video-URL (YouTube, Vimeo, m3u8, MP4, ...)\nreferer: optional – für Streams mit Referer-Anforderung\ntarget_language: Zielsprache (de/en/fr/es/...)\nvoice_id: optional – gespeicherte Referenzstimme"
     },
 
     {
@@ -164,6 +176,100 @@
 
     {
       "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "vu",  "name": "video_url",           "value": "=http://minio:9000/{{ $json.body.minio_bucket }}/{{ $json.body.minio_key }}", "type": "string" },
+            { "id": "ref", "name": "referer",             "value": "={{ $json.body.referer || '' }}",                      "type": "string" },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $json.body.target_language || 'de' }}",            "type": "string" },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $json.body.source_language || '' }}",             "type": "string" },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $json.body.voice_id || '' }}",                    "type": "string" },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $json.body.keep_original_audio || false }}",      "type": "boolean" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prep-minio",
+      "name": "Prep: MinIO → URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [700, 820],
+      "notes": "Baut interne MinIO-URL aus minio_bucket + minio_key.\nVoraussetzung: Bucket ist im Docker-Netz erreichbar (http://minio:9000)."
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "uk",  "name": "upload_key",          "value": "={{ $now.format('yyyy-MM-dd_HH-mm-ss') + '_' + $json.body.file_path.split('/').pop() }}", "type": "string" },
+            { "id": "fp",  "name": "file_path",           "value": "={{ $json.body.file_path }}",                         "type": "string" },
+            { "id": "bkt", "name": "upload_bucket",       "value": "={{ $json.body.minio_bucket || 'tts-input' }}",       "type": "string" },
+            { "id": "ref", "name": "referer",             "value": "={{ $json.body.referer || '' }}",                     "type": "string" },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $json.body.target_language || 'de' }}",           "type": "string" },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $json.body.source_language || '' }}",            "type": "string" },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $json.body.voice_id || '' }}",                   "type": "string" },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $json.body.keep_original_audio || false }}",     "type": "boolean" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "gen-upload-key",
+      "name": "Datei: Upload-Key setzen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [700, 980]
+    },
+
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}"
+      },
+      "id": "read-local-file",
+      "name": "Datei: Lokal lesen",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [920, 980]
+    },
+
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "={{ $('Datei: Upload-Key setzen').item.json.upload_bucket }}",
+        "fileName": "={{ $('Datei: Upload-Key setzen').item.json.upload_key }}",
+        "binaryPropertyName": "data",
+        "additionalFields": { "acl": "public-read", "contentType": "video/mp4" }
+      },
+      "id": "upload-local-to-minio",
+      "name": "Datei: Nach MinIO hochladen",
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 1,
+      "position": [1140, 980],
+      "credentials": { "aws": { "id": "minio-credentials", "name": "MinIO S3" } },
+      "notes": "Lädt lokale Datei in den MinIO-Bucket (Standard: tts-input).\nBucket muss mit public-read oder interner Erreichbarkeit konfiguriert sein."
+    },
+
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "vu",  "name": "video_url",           "value": "=http://minio:9000/{{ $('Datei: Upload-Key setzen').item.json.upload_bucket }}/{{ $('Datei: Upload-Key setzen').item.json.upload_key }}", "type": "string" },
+            { "id": "ref", "name": "referer",             "value": "={{ $('Datei: Upload-Key setzen').item.json.referer }}",             "type": "string" },
+            { "id": "tl",  "name": "target_language",     "value": "={{ $('Datei: Upload-Key setzen').item.json.target_language }}",     "type": "string" },
+            { "id": "sl",  "name": "source_language",     "value": "={{ $('Datei: Upload-Key setzen').item.json.source_language }}",    "type": "string" },
+            { "id": "vi",  "name": "voice_id",            "value": "={{ $('Datei: Upload-Key setzen').item.json.voice_id }}",           "type": "string" },
+            { "id": "ko",  "name": "keep_original_audio", "value": "={{ $('Datei: Upload-Key setzen').item.json.keep_original_audio }}", "type": "boolean" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prep-file-url",
+      "name": "Prep: Datei-URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1360, 980]
+    },
+
+    {
+      "parameters": {
         "respondWith": "binary",
         "options": {}
       },
@@ -184,20 +290,20 @@
       "name": "Respond: JSON",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [960, 460]
+      "position": [1340, 380]
     },
 
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ error: 'Unbekannte action. Erlaubt: synthesize | clone | dub_url | dub_status | dub_download' }) }}",
+        "responseBody": "={{ JSON.stringify({ error: 'Unbekannte action. Erlaubt: synthesize | clone | dub_url | dub_minio | dub_file | dub_status | dub_download' }) }}",
         "options": { "responseCode": 400 }
       },
       "id": "respond-error",
       "name": "Respond: Fehler",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [700, 820]
+      "position": [700, 300]
     }
 
   ],
@@ -208,19 +314,26 @@
     },
     "Action Router": {
       "main": [
-        [{ "node": "TTS: Synthesize",                "type": "main", "index": 0 }],
-        [{ "node": "TTS: Voice Clone",               "type": "main", "index": 0 }],
-        [{ "node": "Dubbing: Start Job (YouTube URL)","type": "main", "index": 0 }],
-        [{ "node": "Dubbing: Status abfragen",        "type": "main", "index": 0 }],
-        [{ "node": "Dubbing: Video herunterladen",    "type": "main", "index": 0 }],
-        [{ "node": "Respond: Fehler",                 "type": "main", "index": 0 }]
+        [{ "node": "TTS: Synthesize",              "type": "main", "index": 0 }],
+        [{ "node": "TTS: Voice Clone",             "type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Start Job",           "type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Status abfragen",     "type": "main", "index": 0 }],
+        [{ "node": "Dubbing: Video herunterladen", "type": "main", "index": 0 }],
+        [{ "node": "Prep: MinIO → URL",            "type": "main", "index": 0 }],
+        [{ "node": "Datei: Upload-Key setzen",     "type": "main", "index": 0 }],
+        [{ "node": "Respond: Fehler",              "type": "main", "index": 0 }]
       ]
     },
-    "TTS: Synthesize":                 { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
-    "TTS: Voice Clone":                { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
-    "Dubbing: Start Job (YouTube URL)":{ "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
-    "Dubbing: Status abfragen":        { "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
-    "Dubbing: Video herunterladen":    { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] }
+    "TTS: Synthesize":                { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
+    "TTS: Voice Clone":               { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
+    "Dubbing: Start Job":             { "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
+    "Dubbing: Status abfragen":       { "main": [[{ "node": "Respond: JSON",          "type": "main", "index": 0 }]] },
+    "Dubbing: Video herunterladen":   { "main": [[{ "node": "Respond: Audio / Video", "type": "main", "index": 0 }]] },
+    "Prep: MinIO → URL":              { "main": [[{ "node": "Dubbing: Start Job",     "type": "main", "index": 0 }]] },
+    "Datei: Upload-Key setzen":       { "main": [[{ "node": "Datei: Lokal lesen",     "type": "main", "index": 0 }]] },
+    "Datei: Lokal lesen":             { "main": [[{ "node": "Datei: Nach MinIO hochladen", "type": "main", "index": 0 }]] },
+    "Datei: Nach MinIO hochladen":    { "main": [[{ "node": "Prep: Datei-URL",        "type": "main", "index": 0 }]] },
+    "Prep: Datei-URL":                { "main": [[{ "node": "Dubbing: Start Job",     "type": "main", "index": 0 }]] }
   },
 
   "settings": {
@@ -234,5 +347,5 @@
   "tags": ["tts", "voice", "dubbing", "audio"],
   "triggerCount": 1,
   "updatedAt": "2026-04-06T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "2"
 }

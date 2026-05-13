@@ -18,6 +18,7 @@ PYTHON_NLP_LOCAL_URL="http://localhost:5050"
 OCR_LOCAL_URL="http://localhost:8002"
 TTS_LOCAL_URL="http://localhost:8003"
 CLICKHOUSE_URL="http://localhost:8123"
+GRAFANA_LOCAL_URL="http://localhost:3000"
 
 # Environment variables
 
@@ -43,6 +44,7 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
     CLICKHOUSE_URL=""
     UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
+    GRAFANA_URL="${GRAFANA_HOSTNAME:+${PROTOCOL}://${GRAFANA_HOSTNAME}}"
 else
     # Private environment: Use local URLs
     N8N_URL="$N8N_LOCAL_URL"
@@ -61,6 +63,7 @@ else
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
     UPTIME_KUMA_URL="http://localhost:3002"
+    GRAFANA_URL="$GRAFANA_LOCAL_URL"
 fi
 
 # Cookie-Domain für alle Subdomains setzen (mit führendem Punkt)
@@ -89,6 +92,7 @@ window.APP_CONFIG = {
     ttsHostname: "${TTS_URL}",
     clickhouseHostname: "${CLICKHOUSE_URL}",
     uptimeKumaHostname: "${UPTIME_KUMA_URL}",
+    grafanaHostname: "${GRAFANA_URL}",
 
     // Supabase specific config
     supabaseUrl: "${SUPABASE_FINAL_URL}",
