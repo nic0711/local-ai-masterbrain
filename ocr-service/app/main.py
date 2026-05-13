@@ -243,7 +243,16 @@ async def process_folder_ocr(
         # Absoluter Pfad – strikt auf erlaubte Basisverzeichnisse beschränken
         ALLOWED_BASES = [INPUT_DIR, TEMP_DIR, OUTPUT_DIR, "/data"]
         resolved = os.path.realpath(folder_path)
-        if not any(resolved.startswith(os.path.realpath(b)) for b in ALLOWED_BASES):
+        allowed_base_reals = [os.path.realpath(b) for b in ALLOWED_BASES]
+        try:
+            is_allowed = any(
+                os.path.commonpath([resolved, base_real]) == base_real
+                for base_real in allowed_base_reals
+            )
+        except ValueError:
+            is_allowed = False
+
+        if not is_allowed:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
         if not os.path.isdir(resolved):
             raise HTTPException(status_code=400, detail="Folder not found")
