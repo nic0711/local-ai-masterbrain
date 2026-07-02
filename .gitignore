@@ -72,6 +72,18 @@ ocr_storage/output/*
 !ocr_storage/output/.gitkeep
 !ocr_storage/temp/.gitkeep
 
+# TTS storage runtime data (models, audio, temp files)
+tts_storage/input/*
+tts_storage/output/*
+tts_storage/temp/*
+tts_storage/models/*
+tts_storage/voices/*
+!tts_storage/input/.gitkeep
+!tts_storage/output/.gitkeep
+!tts_storage/temp/.gitkeep
+!tts_storage/models/.gitkeep
+!tts_storage/voices/.gitkeep
+
 # Credentials & certs
 *.pem
 *.key

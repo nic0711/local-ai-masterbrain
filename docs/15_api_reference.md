@@ -53,12 +53,49 @@ Alle `/control/*`-Routen erfordern ein gültiges JWT (Cookie `sb-access-token` o
 ### GET `/verify`
 Wird von Caddy als `forward_auth` aufgerufen. Gibt `200 OK` zurück wenn das JWT gültig ist, sonst `401`.
 
+### GET `/control/services/status`
+Gibt den laufenden Status aller kontrollierbaren Docker-Services zurück.
+
+```json
+{
+  "n8n": "up", "open-webui": "up", "flowise": "down",
+  "neo4j": "down", "minio": "up", "clickhouse": "up",
+  "langfuse-web": "up", "langfuse-worker": "down"
+}
+```
+
 ### POST `/control/services/{service}/{action}`
 `action` = `start` | `stop` | `restart`
 
+**Optionale Services** (starten nicht automatisch beim Stack-Start, werden bei `start` per `docker compose --profile optional up -d` erstellt falls kein Container existiert):
+`neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker`
+
 ```bash
-curl -X POST https://auth.brain.local/control/services/ocr-service/restart \
+curl -X POST https://auth.brain.local/control/services/neo4j/start \
   -H "Authorization: Bearer $TOKEN"
+
+# Response
+{ "status": "ok", "message": "neo4j gestartet (compose)" }
+```
+
+### POST `/control/macro/{macro_id}`
+Führt ein vordefiniertes Macro aus (`dashboard/macros.json`).
+
+| Macro-ID | Beschreibung |
+|---|---|
+| `light-mode` | Nur n8n + Open WebUI |
+| `research` | SearXNG + Crawl4AI + Open WebUI + n8n |
+| `rag-mode` | Qdrant + Neo4j + NLP + Open WebUI + n8n |
+| `langfuse-start` | MinIO + ClickHouse + Langfuse starten |
+| `save-resources` | Alle optionalen Services stoppen |
+| `restart-core` | n8n + Open WebUI + Flowise neustarten |
+
+```bash
+curl -X POST https://auth.brain.local/control/macro/langfuse-start \
+  -H "Authorization: Bearer $TOKEN"
+
+# Response
+{ "status": "ok", "macro": "langfuse-start", "results": ["start minio: ok", ...], "errors": [] }
 ```
 
 ---

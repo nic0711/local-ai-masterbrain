@@ -7,6 +7,7 @@ import hashlib
 import tarfile
 import difflib
 import logging
+import subprocess
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -50,6 +51,8 @@ _BACKUP_NAME_RE = re.compile(r'^backup_\d{8}_\d{6}$')
 _BACKUP_DIR = os.path.dirname(_BACKUP_TRIGGER)
 # auth-gateway bekommt ./:/app:ro – damit kann diff aktuelle Dateien lesen
 _APP_DIR = os.environ.get("APP_DIR", "/app")
+# Host-seitiger Projektpfad für docker compose subprocess (Volumes müssen Host-Pfade sein)
+_HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", _APP_DIR)
 
 
 @app.route('/health', methods=['GET'])
@@ -582,6 +585,18 @@ _CONTROLLABLE = {
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
 
+# Services die per `profiles: [optional]` nicht automatisch starten.
+# Beim ersten Start wird `docker compose --profile optional up -d <service>` ausgeführt.
+_OPTIONAL_COMPOSE_SERVICES = {
+    'neo4j':           'neo4j',
+    'flowise':         'flowise',
+    'minio':           'minio',
+    'clickhouse':      'clickhouse',
+    'langfuse-web':    'langfuse-web',
+    'langfuse-worker': 'langfuse-worker',
+    'crawl4ai':        'crawl4ai',
+}
+
 
 def _get_docker_container(service_key):
     """Gibt den Docker-Container für einen erlaubten Service zurück oder None."""
@@ -639,6 +654,22 @@ def service_control(service, action):
         import docker as docker_sdk
         client, container = _get_docker_container(service)
         if container is None:
+            if action == 'start' and service in _OPTIONAL_COMPOSE_SERVICES:
+                compose_svc = _OPTIONAL_COMPOSE_SERVICES[service]
+                result = subprocess.run(
+                    ["docker", "compose",
+                     "--project-directory", _APP_DIR,
+                     "--project-name", "localai",
+                     "--profile", "optional",
+                     "up", "-d", compose_svc],
+                    capture_output=True, text=True, timeout=120,
+                    env={**os.environ, "HOST_PROJECT_DIR": _HOST_PROJECT_DIR},
+                )
+                if result.returncode != 0:
+                    logging.error(f"compose up {service} failed: {result.stderr}")
+                    return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
+                logging.info(f"[CONTROL] {user.id} → compose up {service}")
+                return jsonify({"status": "ok", "message": f"{service} gestartet (compose)"}), 200
             return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
 
         if action == 'start':
@@ -740,6 +771,10 @@ def run_macro(macro_id):
             import docker as docker_sdk
             _, container = _get_docker_container(svc)
             if container is None:
+                if act == 'stop':
+                    results.append(f"stop {svc}: bereits gestoppt")
+                    logging.info(f"[CONTROL] macro={macro_id} {user.id} → stop {svc} (bereits absent)")
+                    continue
                 errors.append(f"{svc}: Container nicht gefunden")
                 continue
             if act == 'start':

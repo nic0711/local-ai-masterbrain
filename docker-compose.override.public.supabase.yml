@@ -1,12 +1,16 @@
 services:
-  analytics:
-    ports: !reset null
-
+  # Kong: ports nicht nach außen, 2 Worker reichen für lokalen Betrieb (default: 8)
   kong:
     ports: !reset null
+    environment:
+      KONG_NGINX_WORKER_PROCESSES: "2"
 
   supavisor:
     ports: !reset null
+
+  # Daten-Volume ist PG15-initialisiert; Image auf 15.x pinnen bis Migration durchgeführt wird
+  db:
+    image: supabase/postgres:15.8.1.085
 
   # TOTP / MFA für GoTrue aktivieren
   auth:

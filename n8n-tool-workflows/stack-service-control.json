@@ -1,0 +1,105 @@
+{
+  "name": "Stack Service Control",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "service-control",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "service-control"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "validate-action",
+              "leftValue": "={{ ['start','stop','restart'].includes($json.body.action) && ['neo4j','flowise','minio','clickhouse','langfuse-web','langfuse-worker','n8n','open-webui','qdrant','crawl4ai','searxng','python-nlp-service','langfuse','uptime-kuma'].includes($json.body.service) }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "validate",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://auth-gateway:5001/control/services/{{ $('Webhook').item.json.body.service }}/{{ $('Webhook').item.json.body.action }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-auth-gateway",
+      "name": "Call Auth Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "auth-gateway-jwt",
+          "name": "Auth Gateway JWT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "{\"error\": \"Ungültige Aktion oder Service. Erlaubte actions: start|stop|restart\"}"
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[ { "node": "Validate Input", "type": "main", "index": 0 } ]]
+    },
+    "Validate Input": {
+      "main": [
+        [ { "node": "Call Auth Gateway", "type": "main", "index": 0 } ],
+        [ { "node": "Respond Error",     "type": "main", "index": 0 } ]
+      ]
+    },
+    "Call Auth Gateway": {
+      "main": [[ { "node": "Respond OK", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "local-ai-masterbrain"
+  },
+  "_readme": "Webhook: POST /webhook/service-control\nBody: { \"service\": \"neo4j\", \"action\": \"start\" }\nCredential: n8n HTTP Header Auth mit 'Authorization: Bearer <jwt>' oder Cookie sb-access-token\nDirekte Nutzung per curl: curl -X POST https://n8n.brain.local/webhook/service-control -H 'Content-Type: application/json' -d '{\"service\":\"neo4j\",\"action\":\"start\"}' -H 'Cookie: sb-access-token=<token>'"
+}

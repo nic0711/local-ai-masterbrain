@@ -360,6 +360,46 @@ class TestServiceControl:
         assert "permission denied" not in body.get("error", "")
         assert "docker.sock" not in body.get("error", "")
 
+    @patch("app.subprocess.run")
+    @patch("app._get_docker_container")
+    def test_optional_service_start_uses_compose_when_container_absent(self, mock_gdc, mock_run, client):
+        """Wenn ein optional-Service noch nicht als Container existiert, wird compose up aufgerufen."""
+        mock_gdc.return_value = (MagicMock(), None)
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        resp = client.post(
+            "/control/services/neo4j/start",
+            headers=self._auth_header(),
+        )
+        assert resp.status_code == 200
+        args = mock_run.call_args[0][0]
+        assert "docker" in args[0]
+        assert "compose" in args
+        assert "--profile" in args
+        assert "optional" in args
+        assert "neo4j" in args
+
+    @patch("app.subprocess.run")
+    @patch("app._get_docker_container")
+    def test_optional_service_compose_failure_returns_500(self, mock_gdc, mock_run, client):
+        """Wenn compose up fehlschlägt, muss 500 zurückgegeben werden."""
+        mock_gdc.return_value = (MagicMock(), None)
+        mock_run.return_value = MagicMock(returncode=1, stderr="image not found")
+        resp = client.post(
+            "/control/services/flowise/start",
+            headers=self._auth_header(),
+        )
+        assert resp.status_code == 500
+
+    @patch("app._get_docker_container")
+    def test_non_optional_service_not_found_returns_404(self, mock_gdc, client):
+        """Nicht-optionale Services liefern 404 wenn Container fehlt."""
+        mock_gdc.return_value = (MagicMock(), None)
+        resp = client.post(
+            "/control/services/n8n/start",
+            headers=self._auth_header(),
+        )
+        assert resp.status_code == 404
+
 
 # ---------------------------------------------------------------------------
 # JWT cache collision – SHA-256 key prevents suffix-based collision
