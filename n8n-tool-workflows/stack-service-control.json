@@ -6,6 +6,7 @@
         "httpMethod": "POST",
         "path": "service-control",
         "responseMode": "responseNode",
+        "authentication": "headerAuth",
         "options": {}
       },
       "id": "webhook-trigger",
@@ -13,7 +14,13 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [240, 300],
-      "webhookId": "service-control"
+      "webhookId": "service-control",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "service-control-webhook-auth",
+          "name": "Service Control Webhook Auth"
+        }
+      }
     },
     {
       "parameters": {
@@ -101,5 +108,5 @@
   "meta": {
     "instanceId": "local-ai-masterbrain"
   },
-  "_readme": "Webhook: POST /webhook/service-control\nBody: { \"service\": \"neo4j\", \"action\": \"start\" }\nCredential: n8n HTTP Header Auth mit 'Authorization: Bearer <jwt>' oder Cookie sb-access-token\nDirekte Nutzung per curl: curl -X POST https://n8n.brain.local/webhook/service-control -H 'Content-Type: application/json' -d '{\"service\":\"neo4j\",\"action\":\"start\"}' -H 'Cookie: sb-access-token=<token>'"
+  "_readme": "Webhook: POST /webhook/service-control\nBody: { \"service\": \"neo4j\", \"action\": \"start\" }\n\nAuth: Der Webhook erfordert eine HTTP Header Auth Credential (n8n-native Webhook-Auth).\nCredential anlegen: n8n Settings → Credentials → New → 'HTTP Header Auth'\n  Name: 'Service Control Webhook Auth'\n  Header Name: 'Authorization'\n  Header Value: 'Bearer <webhook-secret>'\n\ncurl-Beispiel:\ncurl -X POST https://n8n.brain.local/webhook/service-control \\\n  -H 'Content-Type: application/json' \\\n  -H 'Authorization: Bearer <webhook-secret>' \\\n  -d '{\"service\":\"neo4j\",\"action\":\"start\"}'\n\nHinweis: Der Webhook ist zusätzlich durch Caddy forward_auth geschützt (Supabase JWT).\nDie Webhook-Auth ist eine zweite unabhängige Schicht (eigenes Shared Secret)."
 }

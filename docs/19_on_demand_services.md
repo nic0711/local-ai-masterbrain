@@ -74,14 +74,25 @@ curl -X POST https://brain.local/_control/macro/langfuse-start \
 
 Workflow: `n8n-tool-workflows/stack-service-control.json`
 
+Der Webhook ist mit n8n-nativer Header-Auth gesichert (zweite Auth-Schicht neben Caddy). Zwei Credentials müssen in n8n angelegt sein:
+
+**Credential 1 – Webhook-Schutz:**
+n8n → Settings → Credentials → New → „HTTP Header Auth"
+- Name: `Service Control Webhook Auth`
+- Header Name: `Authorization`
+- Header Value: `Bearer <webhook-secret>` (eigenes Shared Secret wählen)
+
+**Credential 2 – Auth-Gateway-Aufruf:**
+n8n → Settings → Credentials → New → „HTTP Header Auth"
+- Name: `Auth Gateway JWT`
+- Header: `Authorization: Bearer <langlebiger Supabase JWT>`
+
 ```bash
 curl -X POST https://n8n.brain.local/webhook/service-control \
   -H "Content-Type: application/json" \
-  -H "Cookie: sb-access-token=$TOKEN" \
+  -H "Authorization: Bearer <webhook-secret>" \
   -d '{"service": "neo4j", "action": "start"}'
 ```
-
-**n8n-Credential anlegen:** HTTP Header Auth mit Name `Auth Gateway JWT`, Header `Authorization: Bearer <langlebiger JWT>`.
 
 ---
 
