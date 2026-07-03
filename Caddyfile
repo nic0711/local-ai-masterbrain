@@ -51,6 +51,9 @@
 # Dashboard – KEIN forward_auth, sonst Redirect-Loop
 {$DASHBOARD_HOSTNAME} {
     import security_headers
+    # CSP: Supabase-JS von CDN (mit SRI geladen), API-Calls zu Supabase-Backend,
+    # data: für QR-Codes bei 2FA-Enrollment, keine unsicheren inline-scripts
+    header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://{$SUPABASE_HOSTNAME}; frame-ancestors 'none'"
 
     # Health-Status Proxy → auth-gateway (kein auth nötig, nur up/down-Info)
     handle /_status {
@@ -282,7 +285,7 @@
             }
         }
         @grafana_api_admin {
-            header X-Forwarded-User "wolf@datista.de"
+            header X-Forwarded-User "{$GRAFANA_ADMIN_EMAIL}"
         }
         handle @grafana_api_admin {
             reverse_proxy grafana:3000 {
@@ -309,7 +312,7 @@
         }
 
         @grafana_admin {
-            header X-Forwarded-User "wolf@datista.de"
+            header X-Forwarded-User "{$GRAFANA_ADMIN_EMAIL}"
         }
         handle @grafana_admin {
             reverse_proxy grafana:3000 {

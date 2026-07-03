@@ -111,9 +111,12 @@ def stop_existing_containers(profile=None, environment=None, compose_env=None, r
     if environment == "public":
         cmd.extend(["--profile", "auth"])
 
+    # Include optional profile in down so on-demand services are also stopped
+    cmd.extend(["--profile", "optional"])
+
     # Add all compose files
     cmd.extend(compose_files)
-    
+
     # Add down command with options
     down_options = ["down", "--remove-orphans"]
     
@@ -232,6 +235,19 @@ def start_supabase(environment=None, compose_env=None):
     
     # Wait for Supabase to be ready
     wait_for_service_ready("Supabase", 8000)
+
+_CUSTOM_SERVICES = ["auth-gateway", "python-nlp-service", "ocr-service", "tts-service"]
+
+def rebuild_custom_services(compose_env=None):
+    """Rebuild all custom Docker images with latest base images and OS packages."""
+    print("🔨 Rebuilding custom services (--pull fetches latest base images)...")
+    cmd = [
+        "docker", "compose", "-p", "localai",
+        "-f", "docker-compose.yml",
+        "build", "--pull", "--no-cache",
+    ] + _CUSTOM_SERVICES
+    run_command(cmd, env=compose_env)
+    print("✅ Rebuild complete.")
 
 def start_local_ai(profile=None, environment=None, compose_env=None):
     """Start the local AI services with proper dependency handling."""
@@ -461,7 +477,9 @@ def main():
                       help='Remove all volumes (WARNING: This will delete all data!)')
     parser.add_argument('--no-cleanup', action='store_true',
                       help='Skip the cleanup phase (for debugging)')
-    
+    parser.add_argument('--rebuild', action='store_true',
+                      help='Rebuild custom images before start (--pull + --no-cache; updates base images and OS packages)')
+
     args = parser.parse_args()
 
     # Safety check for volume removal
@@ -505,8 +523,11 @@ def main():
     # print("Waiting for Supabase to initialize...")
     # time.sleep(10) # Kann beibehalten oder entfernt werden, je nach Bedarf
 
+    if args.rebuild:
+        rebuild_custom_services(compose_env=compose_env)
+
     start_local_ai(args.profile, args.environment, compose_env=compose_env)
-    
+
     print("🎉 All services started successfully!")
 
 if __name__ == "__main__":

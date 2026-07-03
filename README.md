@@ -60,6 +60,8 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 
 ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
 
+✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
+
 ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ---
@@ -72,6 +74,9 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 - ✅ Supabase mit Vector Store & Authentifizierung
 - ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
 - ✅ TTS Service: Voice Cloning (OmniVoice, 600+ Sprachen), Video-Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
+- ✅ Grafana Monitoring mit Caddy-Routing + Auth-Proxy-Header
+- ✅ On-Demand Service Control: Dashboard-Admin-Tab, REST API, n8n-Toolcall
+- ✅ Ollama standardmäßig nativ auf dem Host – kein Ollama-Container beim normalen Start
 - ✅ Automated startup & cleanup via `start_services.py`
 
 ---
@@ -89,10 +94,10 @@ Before you begin, make sure you have the following software installed:
 ```bash
 git clone -b stable https://github.com/nic0711/local-ai-masterbrain
 cd local-ai-masterbrain
-cp .env.example .env   # Secrets eintragen!
-python3 start_services.py --profile none        # Mac (Ollama lokal)
-# python3 start_services.py --profile cpu       # CPU / kein lokales Ollama
-# python3 start_services.py --profile gpu-nvidia  # Nvidia GPU
+cp .env.example .env              # Secrets eintragen!
+python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
+# python3 start_services.py --profile gpu-nvidia     # Nvidia GPU (ohne Ollama-Container)
+# docker compose --profile ollama-docker up -d       # Ollama als Docker-Container
 ```
 
 > Weitere Details zu `--profile` und `--environment`: [docs/03_start_services.md](docs/03_start_services.md)
@@ -123,10 +128,47 @@ python3 start_services.py --profile none        # Mac (Ollama lokal)
 | Scraping Configurator    | [16_scraping_configurator.md](docs/16_scraping_configurator.md) |
 | Dashboard Architecture   | [17_dashboard_changes.md](docs/17_dashboard_changes.md) |
 | TTS / Voice Cloning / Dubbing | [18_tts_service.md](docs/18_tts_service.md) |
+| On-Demand Services (Service Control) | [19_on_demand_services.md](docs/19_on_demand_services.md) |
+| Ressourcen-Optimierung (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-07 – Ollama: Host-First als Standard
+
+| Was | Details |
+|-----|---------|
+| `docker-compose.yml` | Ollama-Container (`ollama-cpu/gpu/gpu-amd` + Init-Services) aus den Profilen `cpu`/`gpu-nvidia`/`gpu-amd` herausgelöst – neues separates Profil `ollama-docker` |
+| `n8n` | `OLLAMA_HOST`: `ollama:11434` → `http://host.docker.internal:11434` |
+| `tts-service` | `OLLAMA_HOST`: `http://ollama:11434` → `http://host.docker.internal:11434` |
+| Standardverhalten | `python3 start_services.py` startet **keinen** Ollama-Container mehr; Ollama läuft nativ auf dem Host |
+| Ollama als Container | Nur noch bei explizitem `docker compose --profile ollama-docker up -d` |
+
+### 2026-07 – Security Hardening: Admin-Rollen, JWT-Audience, CSP
+
+| Was | Details |
+|-----|---------|
+| `auth-gateway/app.py` | Admin-Rollenkontrolle: `ADMIN_EMAILS` Env-Var + `_require_admin()`; 11 privilegierte `/control/*`-Endpoints erfordern Admin-Rechte |
+| `auth-gateway/app.py` | JWT Audience-Verifikation: `aud: "authenticated"` wird geprüft (verhindert Missbrauch von Service-Role-Tokens) |
+| `Caddyfile` | Grafana-Admin-E-Mail aus hardcoded `wolf@datista.de` → `{$GRAFANA_ADMIN_EMAIL}` (Env-Var) |
+| `.env.example` | `GRAFANA_ADMIN_EMAIL` und `ADMIN_EMAILS` dokumentiert |
+| `Caddyfile` | Content Security Policy für Dashboard-Block (script-src CDN-Whitelist, connect-src Supabase, frame-ancestors none) |
+| `n8n-tool-workflows/stack-service-control.json` | Confused-Deputy-Fix: Caller-JWT wird weitergeleitet statt privilegiertem Workflow-Credential; `X-Webhook-Token` als Webhook-Auth |
+| `docs/05_security_hardening.md` | Admin-Rollen, JWT-Audience, CSP, Cookie-Eigenschaften und bekannte Einschränkungen dokumentiert |
+| `docs/15_api_reference.md` | Auth-Level (Auth vs. Admin) pro Endpoint ergänzt |
+
+### 2026-06 – Grafana, n8n On-Demand Service Control
+
+| Was | Details |
+|-----|---------|
+| `grafana` | Grafana in Stack integriert (`grafana.{DOMAIN}`), mit Caddy-Routing und Auth-Proxy-Header |
+| `n8n-tool-workflows/stack-service-control.json` | n8n-Workflow zum Starten/Stoppen von Stack-Services per KI-Agent-Toolcall |
+| `dashboard/macros.json` | Macros erweitert (light-mode, research, rag-mode, langfuse-start, save-resources, restart-core) |
+| `docs/19_on_demand_services.md` | Neue Doku: Service Control (Dashboard, REST API, n8n-Toolcall, Macros) |
+| `docs/20_resource_optimization.md` | Neue Doku: Memory-Limits, Logging, Disk-Maintenance, Custom-Image-Updates |
+
+---
 
 ### 2026-04 – Fix: Docker Compose Projektname
 

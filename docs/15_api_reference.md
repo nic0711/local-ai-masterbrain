@@ -18,28 +18,28 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 
 ## auth-gateway (Port 5001)
 
-Alle `/control/*`-Routen erfordern ein gültiges JWT (Cookie `sb-access-token` oder `Authorization: Bearer`).
+Auth-Level: **Auth** = gültiges JWT erforderlich · **Admin** = zusätzlich in `ADMIN_EMAILS` eingetragen (siehe [05_security_hardening.md](05_security_hardening.md))
 
-| Methode | Pfad | Beschreibung |
-|---------|------|--------------|
-| `GET` | `/health` | Detaillierter Health-Check (DB, Supabase) |
-| `GET` | `/status` | Version und Uptime |
-| `GET` | `/verify` | JWT verifizieren (Caddy `forward_auth` target) |
-| `POST` | `/control/backup` | Datenbank-Backup auslösen |
-| `GET` | `/control/backup/status` | Status des letzten Backups |
-| `GET` | `/control/backup/list` | Verfügbare Backup-Archive auflisten |
-| `GET` | `/control/backup/files` | Dateien innerhalb eines Backups |
-| `GET` | `/control/backup/diff` | Diff zwischen zwei Backups |
-| `GET` | `/control/users` | Supabase-Benutzer auflisten |
-| `POST` | `/control/users` | Neuen Benutzer anlegen |
-| `POST` | `/control/users/password` | Passwort ändern |
-| `POST` | `/control/users/delete` | Benutzer löschen |
-| `GET` | `/control/services/status` | Status aller Docker-Services |
-| `POST` | `/control/services/{service}/{action}` | Service starten / stoppen / neustarten |
-| `GET` | `/control/services/{service}/logs` | Service-Logs abrufen |
-| `GET` | `/control/macros` | Verfügbare Control-Macros auflisten |
-| `POST` | `/control/macro/{macro_id}` | Control-Macro ausführen |
-| `POST` | `/control/restore` | Datenbank aus Backup wiederherstellen |
+| Methode | Pfad | Auth | Beschreibung |
+|---------|------|------|--------------|
+| `GET` | `/health` | – | Health-Check (öffentlich) |
+| `GET` | `/status` | Auth | Service-Status (alle auth. Nutzer) |
+| `GET` | `/verify` | – | JWT verifizieren (Caddy `forward_auth` target) |
+| `GET` | `/control/backup/status` | Auth | Status des letzten Backups |
+| `GET` | `/control/backup/list` | Auth | Verfügbare Backup-Archive auflisten |
+| `GET` | `/control/services/status` | Auth | Status aller Docker-Services |
+| `GET` | `/control/macros` | Auth | Verfügbare Control-Macros auflisten |
+| `POST` | `/control/backup` | **Admin** | Backup erstellen |
+| `GET` | `/control/backup/files` | **Admin** | Dateien innerhalb eines Backups |
+| `GET` | `/control/backup/diff` | **Admin** | Diff zwischen zwei Backups |
+| `POST` | `/control/restore` | **Admin** | Backup wiederherstellen |
+| `GET` | `/control/users` | **Admin** | Supabase-Benutzer auflisten |
+| `POST` | `/control/users` | **Admin** | Neuen Benutzer anlegen |
+| `POST` | `/control/users/password` | **Admin** | Passwort zurücksetzen |
+| `POST` | `/control/users/delete` | **Admin** | Benutzer löschen |
+| `POST` | `/control/services/{service}/{action}` | **Admin** | Service starten / stoppen / neustarten |
+| `GET` | `/control/services/{service}/logs` | **Admin** | Service-Logs abrufen |
+| `POST` | `/control/macro/{macro_id}` | **Admin** | Control-Macro ausführen |
 
 ### POST `/control/backup`
 ```json
@@ -53,12 +53,49 @@ Alle `/control/*`-Routen erfordern ein gültiges JWT (Cookie `sb-access-token` o
 ### GET `/verify`
 Wird von Caddy als `forward_auth` aufgerufen. Gibt `200 OK` zurück wenn das JWT gültig ist, sonst `401`.
 
+### GET `/control/services/status`
+Gibt den laufenden Status aller kontrollierbaren Docker-Services zurück.
+
+```json
+{
+  "n8n": "up", "open-webui": "up", "flowise": "down",
+  "neo4j": "down", "minio": "up", "clickhouse": "up",
+  "langfuse-web": "up", "langfuse-worker": "down"
+}
+```
+
 ### POST `/control/services/{service}/{action}`
 `action` = `start` | `stop` | `restart`
 
+**Optionale Services** (starten nicht automatisch beim Stack-Start, werden bei `start` per `docker compose --profile optional up -d` erstellt falls kein Container existiert):
+`neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker`
+
 ```bash
-curl -X POST https://auth.brain.local/control/services/ocr-service/restart \
+curl -X POST https://auth.brain.local/control/services/neo4j/start \
   -H "Authorization: Bearer $TOKEN"
+
+# Response
+{ "status": "ok", "message": "neo4j gestartet (compose)" }
+```
+
+### POST `/control/macro/{macro_id}`
+Führt ein vordefiniertes Macro aus (`dashboard/macros.json`).
+
+| Macro-ID | Beschreibung |
+|---|---|
+| `light-mode` | Nur n8n + Open WebUI |
+| `research` | SearXNG + Crawl4AI + Open WebUI + n8n |
+| `rag-mode` | Qdrant + Neo4j + NLP + Open WebUI + n8n |
+| `langfuse-start` | MinIO + ClickHouse + Langfuse starten |
+| `save-resources` | Alle optionalen Services stoppen |
+| `restart-core` | n8n + Open WebUI + Flowise neustarten |
+
+```bash
+curl -X POST https://auth.brain.local/control/macro/langfuse-start \
+  -H "Authorization: Bearer $TOKEN"
+
+# Response
+{ "status": "ok", "macro": "langfuse-start", "results": ["start minio: ok", ...], "errors": [] }
 ```
 
 ---

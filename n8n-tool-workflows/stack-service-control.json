@@ -1,0 +1,201 @@
+{
+  "name": "Stack Service Control",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "service-control",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 340],
+      "webhookId": "service-control",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "service-control-webhook-auth",
+          "name": "Service Control Webhook Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "extract-bearer",
+              "name": "callerAuth",
+              "value": "={{ $json.headers.authorization ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-jwt",
+      "name": "Extract JWT",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 340]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://auth-gateway:5001/verify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.callerAuth }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "verify-caller",
+      "name": "Verify Caller JWT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 340],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "check-no-error",
+              "leftValue": "={{ $json.error ?? '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "auth-check",
+      "name": "Auth OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [980, 340]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"error\": \"Unauthorized: Gültiger Supabase-JWT erforderlich (Authorization: Bearer <token>)\"}"
+      },
+      "id": "respond-401",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1220, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "validate-action",
+              "leftValue": "={{ ['start','stop','restart'].includes($('Webhook').item.json.body.action) && ['neo4j','flowise','minio','clickhouse','langfuse-web','langfuse-worker','n8n','open-webui','qdrant','crawl4ai','searxng','python-nlp-service','langfuse','uptime-kuma'].includes($('Webhook').item.json.body.service) }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "validate",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1220, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://auth-gateway:5001/control/services/{{ $('Webhook').item.json.body.service }}/{{ $('Webhook').item.json.body.action }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Extract JWT').item.json.callerAuth }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-auth-gateway",
+      "name": "Call Auth Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1460, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1700, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "{\"error\": \"Ungültige Aktion oder Service. Erlaubte actions: start|stop|restart\"}"
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1460, 340]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[ { "node": "Extract JWT", "type": "main", "index": 0 } ]]
+    },
+    "Extract JWT": {
+      "main": [[ { "node": "Verify Caller JWT", "type": "main", "index": 0 } ]]
+    },
+    "Verify Caller JWT": {
+      "main": [[ { "node": "Auth OK?", "type": "main", "index": 0 } ]]
+    },
+    "Auth OK?": {
+      "main": [
+        [ { "node": "Validate Input", "type": "main", "index": 0 } ],
+        [ { "node": "Respond 401",    "type": "main", "index": 0 } ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [ { "node": "Call Auth Gateway", "type": "main", "index": 0 } ],
+        [ { "node": "Respond Error",     "type": "main", "index": 0 } ]
+      ]
+    },
+    "Call Auth Gateway": {
+      "main": [[ { "node": "Respond OK", "type": "main", "index": 0 } ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "local-ai-masterbrain"
+  },
+  "_readme": "Webhook: POST /webhook/service-control\nBody: { \"service\": \"neo4j\", \"action\": \"start\" }\n\nAuth – zwei unabhängige Schichten:\n1. X-Webhook-Token (n8n-native Webhook-Auth, Shared Secret)\n   Credential anlegen: n8n → Settings → Credentials → New → 'HTTP Header Auth'\n     Name:         'Service Control Webhook Auth'\n     Header Name:  'X-Webhook-Token'\n     Header Value: '<webhook-secret>'\n\n2. Authorization: Bearer <supabase-jwt> (Caller-Identität)\n   Der Workflow leitet diesen JWT an auth-gateway weiter.\n   Auth-gateway validiert ihn – kein privilegiertes Workflow-Credential mehr.\n\ncurl-Beispiel:\ncurl -X POST https://n8n.brain.local/webhook/service-control \\\n  -H 'Content-Type: application/json' \\\n  -H 'X-Webhook-Token: <webhook-secret>' \\\n  -H 'Authorization: Bearer <supabase-jwt>' \\\n  -d '{\"service\": \"neo4j\", \"action\": \"start\"}'\n\nDie zuvor benötigte Credential 'Auth Gateway JWT' wird nicht mehr verwendet.\nDer Webhook-Credential 'Service Control Webhook Auth' muss mit Header 'X-Webhook-Token' konfiguriert sein."
+}

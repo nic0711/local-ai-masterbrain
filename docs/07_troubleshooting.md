@@ -127,18 +127,29 @@ Bekanntes Supabase-Problem: [GitHub Issue #30210](https://github.com/supabase/su
 
 ## Ollama & Modelle
 
-**Problem: Ollama-Container crasht oder Modelle laden nicht**
+**Problem: Ollama nicht erreichbar von n8n oder tts-service aus**
+
+Standard seit 2026-07: Alle Services verbinden sich über `http://host.docker.internal:11434` – Ollama läuft lokal auf dem Host, nicht als Docker-Container.
+
+```bash
+# Ollama lokal erreichbar?
+curl http://localhost:11434/api/tags
+
+# Env-Var im Container prüfen
+docker exec n8n env | grep OLLAMA
+docker exec tts-service env | grep OLLAMA
+# Sollte: OLLAMA_HOST=http://host.docker.internal:11434
+```
+
+Falls Ollama **als Container** betrieben wird (`docker compose --profile ollama-docker up -d`), muss die n8n-Credential manuell auf `http://ollama:11434/` umgestellt werden.
+
+**Problem: Ollama-Container crasht oder Modelle laden nicht** (nur bei `--profile ollama-docker`)
 
 ```bash
 df -h           # Speicherplatz prüfen
 docker logs ollama
 docker exec ollama ollama list
 ```
-
-**Problem: Ollama nicht erreichbar von n8n aus**
-
-- Mac (Ollama lokal): `OLLAMA_HOST=http://host.docker.internal:11434` in `.env`
-- Server (Ollama in Docker): `OLLAMA_HOST=http://ollama:11434` in `.env`
 
 ---
 
@@ -207,6 +218,33 @@ docker logs auth-gateway | grep -i backup
 mkdir -p ./backups && chmod 755 ./backups
 docker compose -p localai restart auth-gateway
 ```
+
+---
+
+## Supabase-Datenbank
+
+**Problem: `supabase-db` unhealthy – "configuration file contains errors"**
+
+Das `localai_db-config`-Volume fehlt das `conf.d`-Verzeichnis (wird von `postgresql.conf` per `include_dir` erwartet):
+
+```bash
+docker run --rm -v localai_db-config:/etc/postgresql-custom \
+  --user=105:106 alpine mkdir -p /etc/postgresql-custom/conf.d
+docker start supabase-db
+```
+
+**Problem: `supabase-db` unhealthy – "database files are incompatible with server" (PG15 vs PG17)**
+
+Das Supabase-Submodul wurde auf `postgres:17.x` aktualisiert, das Daten-Volume ist aber noch PG15-initialisiert.
+Workaround: Image in `docker-compose.override.public.supabase.yml` auf PG15 pinnen:
+
+```yaml
+services:
+  db:
+    image: supabase/postgres:15.8.1.085
+```
+
+Für eine echte Migration: `pg_dump` mit PG15-Container, dann `pg_restore` in frischem PG17-Volume.
 
 ---
 

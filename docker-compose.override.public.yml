@@ -1,7 +1,4 @@
 services:
-  analytics:
-    ports: !reset null
-
   kong:
     ports: !reset null
 

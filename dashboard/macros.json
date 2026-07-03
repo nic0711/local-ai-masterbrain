@@ -37,6 +37,17 @@
       ]
     },
     {
+      "id": "langfuse-start",
+      "label": "Langfuse starten",
+      "description": "LLM Observability: MinIO + ClickHouse + Langfuse",
+      "actions": [
+        {"action": "start",  "service": "minio"},
+        {"action": "start",  "service": "clickhouse"},
+        {"action": "start",  "service": "langfuse-web"},
+        {"action": "start",  "service": "langfuse-worker"}
+      ]
+    },
+    {
       "id": "save-resources",
       "label": "Ressourcen sparen",
       "description": "Schwere Dienste stoppen",
@@ -45,7 +56,9 @@
         {"action": "stop",   "service": "flowise"},
         {"action": "stop",   "service": "crawl4ai"},
         {"action": "stop",   "service": "langfuse-web"},
-        {"action": "stop",   "service": "langfuse-worker"}
+        {"action": "stop",   "service": "langfuse-worker"},
+        {"action": "stop",   "service": "minio"},
+        {"action": "stop",   "service": "clickhouse"}
       ]
     },
     {

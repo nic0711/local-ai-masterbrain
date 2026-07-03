@@ -7,6 +7,7 @@ import hashlib
 import tarfile
 import difflib
 import logging
+import subprocess
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -50,6 +51,8 @@ _BACKUP_NAME_RE = re.compile(r'^backup_\d{8}_\d{6}$')
 _BACKUP_DIR = os.path.dirname(_BACKUP_TRIGGER)
 # auth-gateway bekommt ./:/app:ro – damit kann diff aktuelle Dateien lesen
 _APP_DIR = os.environ.get("APP_DIR", "/app")
+# Host-seitiger Projektpfad für docker compose subprocess (Volumes müssen Host-Pfade sein)
+_HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", _APP_DIR)
 
 
 @app.route('/health', methods=['GET'])
@@ -155,7 +158,7 @@ def _get_verified_user():
                 return None
             payload = pyjwt.decode(
                 token, _JWT_SECRET, algorithms=["HS256"],
-                options={"verify_aud": False},
+                audience="authenticated",
             )
             user = SimpleNamespace(
                 id=payload.get("sub", ""),
@@ -181,6 +184,22 @@ def _get_verified_user():
         _jwt_cache[cache_key] = (user, now + _JWT_CACHE_TTL)
 
     return user
+
+
+_ADMIN_EMAILS = [e.strip() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
+if not _ADMIN_EMAILS:
+    logging.warning(
+        "ADMIN_EMAILS nicht gesetzt – alle authentifizierten Nutzer haben Admin-Zugriff auf "
+        "Control-Endpoints. Für externe Server ADMIN_EMAILS=user@example.com setzen."
+    )
+
+
+def _require_admin(user) -> bool:
+    """True wenn der User Admin-Rechte hat.
+    Ohne ADMIN_EMAILS-Konfiguration haben alle auth. Nutzer Admin-Zugriff (lokaler Betrieb)."""
+    if not _ADMIN_EMAILS:
+        return True
+    return user.email in _ADMIN_EMAILS
 
 
 @app.route('/verify', methods=['GET'])
@@ -229,6 +248,8 @@ def trigger_backup():
     if not user:
         logging.warning("Unauthorized backup trigger attempt.")
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     try:
         os.makedirs(_BACKUP_DIR, exist_ok=True)
@@ -353,10 +374,12 @@ def backup_list():
 
 @app.route('/control/backup/files', methods=['GET'])
 def backup_files():
-    """Listet alle Dateien in einem Backup-Archiv. Auth erforderlich."""
+    """Listet alle Dateien in einem Backup-Archiv. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     backup_name = os.path.basename(request.args.get('backup', ''))
     if not _validate_backup_name(backup_name):
@@ -390,10 +413,12 @@ def backup_files():
 
 @app.route('/control/backup/diff', methods=['GET'])
 def backup_diff():
-    """Vergleicht eine Datei aus dem Backup mit der aktuellen Version. Auth erforderlich."""
+    """Vergleicht eine Datei aus dem Backup mit der aktuellen Version. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     backup_name = os.path.basename(request.args.get('backup', ''))
     raw_filepath = request.args.get('file', '')
@@ -467,6 +492,8 @@ def list_users():
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     try:
@@ -487,10 +514,12 @@ def list_users():
 
 @app.route('/control/users', methods=['POST'])
 def create_user():
-    """Legt einen neuen Benutzer an. Auth erforderlich."""
+    """Legt einen neuen Benutzer an. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -514,10 +543,12 @@ def create_user():
 
 @app.route('/control/users/password', methods=['POST'])
 def reset_user_password():
-    """Setzt das Passwort eines Benutzers zurück. Auth erforderlich."""
+    """Setzt das Passwort eines Benutzers zurück. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -538,10 +569,12 @@ def reset_user_password():
 
 @app.route('/control/users/delete', methods=['POST'])
 def delete_user():
-    """Löscht einen Benutzer. Auth erforderlich. Eigenes Konto kann nicht gelöscht werden."""
+    """Löscht einen Benutzer. Auth + Admin erforderlich. Eigenes Konto kann nicht gelöscht werden."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -581,6 +614,18 @@ _CONTROLLABLE = {
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
+
+# Services die per `profiles: [optional]` nicht automatisch starten.
+# Beim ersten Start wird `docker compose --profile optional up -d <service>` ausgeführt.
+_OPTIONAL_COMPOSE_SERVICES = {
+    'neo4j':           'neo4j',
+    'flowise':         'flowise',
+    'minio':           'minio',
+    'clickhouse':      'clickhouse',
+    'langfuse-web':    'langfuse-web',
+    'langfuse-worker': 'langfuse-worker',
+    'crawl4ai':        'crawl4ai',
+}
 
 
 def _get_docker_container(service_key):
@@ -624,10 +669,12 @@ def docker_service_status():
 @app.route('/control/services/<service>/<action>', methods=['POST'])
 @limiter.limit("10 per minute")
 def service_control(service, action):
-    """Startet, stoppt oder startet einen Container neu. Auth erforderlich."""
+    """Startet, stoppt oder startet einen Container neu. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     if service not in _CONTROLLABLE:
         return jsonify({"error": "Dienst nicht erlaubt"}), 400
@@ -639,6 +686,22 @@ def service_control(service, action):
         import docker as docker_sdk
         client, container = _get_docker_container(service)
         if container is None:
+            if action == 'start' and service in _OPTIONAL_COMPOSE_SERVICES:
+                compose_svc = _OPTIONAL_COMPOSE_SERVICES[service]
+                result = subprocess.run(
+                    ["docker", "compose",
+                     "--project-directory", _APP_DIR,
+                     "--project-name", "localai",
+                     "--profile", "optional",
+                     "up", "-d", compose_svc],
+                    capture_output=True, text=True, timeout=120,
+                    env={**os.environ, "HOST_PROJECT_DIR": _HOST_PROJECT_DIR},
+                )
+                if result.returncode != 0:
+                    logging.error(f"compose up {service} failed: {result.stderr}")
+                    return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
+                logging.info(f"[CONTROL] {user.id} → compose up {service}")
+                return jsonify({"status": "ok", "message": f"{service} gestartet (compose)"}), 200
             return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
 
         if action == 'start':
@@ -658,10 +721,12 @@ def service_control(service, action):
 @app.route('/control/services/<service>/logs', methods=['GET'])
 @limiter.limit("30 per minute")
 def service_logs(service):
-    """Gibt die letzten N Log-Zeilen eines Containers zurück. Auth erforderlich."""
+    """Gibt die letzten N Log-Zeilen eines Containers zurück. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     if service not in _CONTROLLABLE:
         return jsonify({"error": "Dienst nicht erlaubt"}), 400
@@ -708,10 +773,12 @@ def list_macros():
 @app.route('/control/macro/<macro_id>', methods=['POST'])
 @limiter.limit("5 per minute")
 def run_macro(macro_id):
-    """Führt ein vordefiniertes Macro aus. Auth erforderlich."""
+    """Führt ein vordefiniertes Macro aus. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     try:
         with open(_MACROS_FILE, 'r') as f:
@@ -740,6 +807,10 @@ def run_macro(macro_id):
             import docker as docker_sdk
             _, container = _get_docker_container(svc)
             if container is None:
+                if act == 'stop':
+                    results.append(f"stop {svc}: bereits gestoppt")
+                    logging.info(f"[CONTROL] macro={macro_id} {user.id} → stop {svc} (bereits absent)")
+                    continue
                 errors.append(f"{svc}: Container nicht gefunden")
                 continue
             if act == 'start':
@@ -764,11 +835,13 @@ def run_macro(macro_id):
 
 @app.route('/control/restore', methods=['POST'])
 def trigger_restore():
-    """Schreibt einen Restore-Trigger, damit backup-daemon den Restore ausführt. Auth erforderlich."""
+    """Schreibt einen Restore-Trigger, damit backup-daemon den Restore ausführt. Auth + Admin erforderlich."""
     user = _get_verified_user()
     if not user:
         logging.warning("Unauthorized restore attempt.")
         return jsonify({"error": "Unauthorized"}), 401
+    if not _require_admin(user):
+        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
 
     data = request.get_json(silent=True) or {}
     backup_name = os.path.basename(data.get('backup', ''))

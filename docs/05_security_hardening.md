@@ -111,6 +111,46 @@ sudo apt install iptables-persistent
 
 ---
 
+## Admin-Rollenkontrolle
+
+Privilegierte Control-Endpoints (User-Management, Service-Start/Stop, Macros, Backup, Restore) erfordern zusätzlich zur JWT-Authentifizierung Admin-Rechte.
+
+### Konfiguration
+
+In `.env`:
+```bash
+# Kommagetrennte E-Mail-Adressen mit Admin-Zugriff
+ADMIN_EMAILS=you@example.com,admin2@example.com
+```
+
+In `docker-compose.yml` wird `ADMIN_EMAILS` automatisch an auth-gateway übergeben.
+
+**Ohne `ADMIN_EMAILS`** (leere Variable): Alle authentifizierten Nutzer haben Admin-Zugriff. Das ist für lokale Single-User-Setups (`brain.local`) akzeptabel. Für externe Server **muss** `ADMIN_EMAILS` gesetzt sein.
+
+Beim Start loggt auth-gateway eine Warnung wenn `ADMIN_EMAILS` nicht konfiguriert ist:
+```
+WARNING: ADMIN_EMAILS nicht gesetzt – alle auth. Nutzer haben Admin-Zugriff...
+```
+
+### Betroffene Endpoints (Auth + Admin)
+
+| Endpoint | Funktion |
+|---|---|
+| `POST /control/backup` | Backup erstellen |
+| `GET /control/backup/files` | Archiv-Inhalte lesen |
+| `GET /control/backup/diff` | Datei-Diff anzeigen |
+| `POST /control/restore` | Restore auslösen |
+| `GET/POST /control/users` | Benutzer auflisten / anlegen |
+| `POST /control/users/password` | Passwort zurücksetzen |
+| `POST /control/users/delete` | Benutzer löschen |
+| `POST /control/services/{svc}/{action}` | Service starten/stoppen/neustarten |
+| `GET /control/services/{svc}/logs` | Container-Logs lesen |
+| `POST /control/macro/{id}` | Macro ausführen |
+
+Nur-Lese-Endpoints (`/control/backup/status`, `/control/backup/list`, `/control/services/status`, `/control/macros`) sind für alle authentifizierten Nutzer zugänglich.
+
+---
+
 ## Auth-Gateway Performance
 
 ### JWT-Verifikation
@@ -136,8 +176,13 @@ Für den üblichen Anwendungsfall (Logout via Dashboard) kein Problem – der Co
 ```yaml
 # docker-compose.yml – auth-gateway
 environment:
-  - JWT_SECRET=${JWT_SECRET}   # Supabase JWT Secret aus .env
+  - JWT_SECRET=${JWT_SECRET}      # Supabase JWT Secret aus .env
+  - ADMIN_EMAILS=${ADMIN_EMAILS:-} # Kommaliste Admin-E-Mails (leer = alle)
 ```
+
+### JWT Audience-Verifikation
+
+auth-gateway prüft bei lokaler JWT-Verifikation die `aud`-Claim auf `"authenticated"`. Das verhindert, dass Tokens mit anderen Audiences (z.B. Service-Role-Tokens) für normale User-Auth verwendet werden.
 
 ### Brute-Force-Schutz
 
@@ -164,3 +209,35 @@ Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen ei
 | `Domain` | `.brain.local` | `.yourdomain.com` |
 
 Der Cookie gilt für alle Subdomains (`*.brain.local` / `*.yourdomain.com`), nicht für externe Domains.
+
+**Warum kein `HttpOnly`:** Das Supabase SDK muss das Token aus JavaScript lesen können, um es bei API-Calls weiterzuschicken. `HttpOnly`-Cookies wären für JS unsichtbar. Eine `HttpOnly`-Lösung würde eine server-seitige Session-Architektur erfordern (Caddy liest Cookie direkt, JS nutzt separate Cookie-Session).
+
+---
+
+## Content Security Policy (Dashboard)
+
+Das Dashboard (`brain.local`) sendet einen strikten CSP-Header:
+
+```
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' https://cdn.jsdelivr.net;   # Supabase JS (mit SRI)
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;                   # QR-Codes für 2FA-Enrollment
+  font-src 'self';
+  connect-src 'self' https://{SUPABASE_HOSTNAME}; # Supabase Auth API
+  frame-ancestors 'none'                         # kein iFrame-Embedding
+```
+
+Andere Services (n8n, Grafana, Langfuse) senden ihre eigenen CSP-Header – kein globaler Override durch Caddy.
+
+---
+
+## Bekannte Einschränkungen
+
+| Thema | Status | Begründung |
+|---|---|---|
+| Cookie ohne `HttpOnly` | Bewusst | JS muss Token lesen (Supabase SDK) |
+| AnonKey im Frontend | Akzeptiert | Supabase-Design-Muster; durch RLS + `DISABLE_SIGNUP=true` geschützt |
+| Docker-Socket-Zugriff in auth-gateway | Notwendig | Pflicht für Service Control (start/stop) |
+| `SERVICE_ROLE_KEY` in Env-Vars | Standard | Docker-Pattern; kein Fix ohne Swarm Secrets |
