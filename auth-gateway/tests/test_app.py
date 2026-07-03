@@ -28,11 +28,12 @@ _TEST_EMAIL = "test@example.com"
 
 
 def _make_token(secret=_TEST_SECRET, sub=_TEST_USER_ID, email=_TEST_EMAIL,
-                exp_offset=3600, extra_header=None):
+                exp_offset=3600, extra_header=None, aud="authenticated"):
     """Return a signed HS256 JWT."""
     payload = {
         "sub": sub,
         "email": email,
+        "aud": aud,
         "iat": int(time.time()),
         "exp": int(time.time()) + exp_offset,
     }
