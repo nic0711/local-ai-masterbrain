@@ -74,25 +74,29 @@ curl -X POST https://brain.local/_control/macro/langfuse-start \
 
 Workflow: `n8n-tool-workflows/stack-service-control.json`
 
-Der Webhook ist mit n8n-nativer Header-Auth gesichert (zweite Auth-Schicht neben Caddy). Zwei Credentials müssen in n8n angelegt sein:
+Der Webhook ist mit zwei unabhängigen Auth-Schichten gesichert:
 
-**Credential 1 – Webhook-Schutz:**
+**Schicht 1 – Webhook-Secret (n8n-nativ, `X-Webhook-Token`)**
+
+Verhindert unauthentifiziertes Probing. Credential anlegen:
 n8n → Settings → Credentials → New → „HTTP Header Auth"
 - Name: `Service Control Webhook Auth`
-- Header Name: `Authorization`
-- Header Value: `Bearer <webhook-secret>` (eigenes Shared Secret wählen)
+- Header Name: `X-Webhook-Token`
+- Header Value: `<webhook-secret>` (eigenes Shared Secret)
 
-**Credential 2 – Auth-Gateway-Aufruf:**
-n8n → Settings → Credentials → New → „HTTP Header Auth"
-- Name: `Auth Gateway JWT`
-- Header: `Authorization: Bearer <langlebiger Supabase JWT>`
+**Schicht 2 – Caller-JWT-Forwarding**
+
+Der Workflow leitet den `Authorization: Bearer <supabase-jwt>` des Callers direkt an auth-gateway weiter. Auth-gateway validiert diesen JWT selbst. Das Workflow besitzt **kein eigenes privilegiertes Credential** mehr für den auth-gateway-Aufruf → kein Confused Deputy.
 
 ```bash
 curl -X POST https://n8n.brain.local/webhook/service-control \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <webhook-secret>" \
+  -H "X-Webhook-Token: <webhook-secret>" \
+  -H "Authorization: Bearer <supabase-jwt>" \
   -d '{"service": "neo4j", "action": "start"}'
 ```
+
+> Die frühere Credential `Auth Gateway JWT` wird nicht mehr benötigt.
 
 ---
 
