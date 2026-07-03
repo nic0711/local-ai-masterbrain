@@ -391,6 +391,7 @@ services:
       - TTS_HOSTNAME=${TTS_HOSTNAME:-tts.${DOMAIN}}
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
       - GRAFANA_HOSTNAME=${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
+      - GRAFANA_ADMIN_EMAIL=${GRAFANA_ADMIN_EMAIL}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -839,6 +840,7 @@ services:
       - SUPABASE_URL=http://kong:8000
       - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
       - APP_DIR=/opt/project
