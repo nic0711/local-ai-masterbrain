@@ -145,6 +145,19 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Standardverhalten | `python3 start_services.py` startet **keinen** Ollama-Container mehr; Ollama läuft nativ auf dem Host |
 | Ollama als Container | Nur noch bei explizitem `docker compose --profile ollama-docker up -d` |
 
+### 2026-07 – Security Hardening: Admin-Rollen, JWT-Audience, CSP
+
+| Was | Details |
+|-----|---------|
+| `auth-gateway/app.py` | Admin-Rollenkontrolle: `ADMIN_EMAILS` Env-Var + `_require_admin()`; 11 privilegierte `/control/*`-Endpoints erfordern Admin-Rechte |
+| `auth-gateway/app.py` | JWT Audience-Verifikation: `aud: "authenticated"` wird geprüft (verhindert Missbrauch von Service-Role-Tokens) |
+| `Caddyfile` | Grafana-Admin-E-Mail aus hardcoded `wolf@datista.de` → `{$GRAFANA_ADMIN_EMAIL}` (Env-Var) |
+| `.env.example` | `GRAFANA_ADMIN_EMAIL` und `ADMIN_EMAILS` dokumentiert |
+| `Caddyfile` | Content Security Policy für Dashboard-Block (script-src CDN-Whitelist, connect-src Supabase, frame-ancestors none) |
+| `n8n-tool-workflows/stack-service-control.json` | Confused-Deputy-Fix: Caller-JWT wird weitergeleitet statt privilegiertem Workflow-Credential; `X-Webhook-Token` als Webhook-Auth |
+| `docs/05_security_hardening.md` | Admin-Rollen, JWT-Audience, CSP, Cookie-Eigenschaften und bekannte Einschränkungen dokumentiert |
+| `docs/15_api_reference.md` | Auth-Level (Auth vs. Admin) pro Endpoint ergänzt |
+
 ### 2026-06 – Grafana, n8n On-Demand Service Control
 
 | Was | Details |
