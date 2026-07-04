@@ -84,6 +84,9 @@ tts_storage/voices/*
 !tts_storage/models/.gitkeep
 !tts_storage/voices/.gitkeep
 
+# Hermes Agent – lokale Daten (via Docker Volume, kein Repo-Inhalt)
+hermes_data/
+
 # Credentials & certs
 *.pem
 *.key

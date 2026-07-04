@@ -18,6 +18,7 @@ volumes:
   langfuse_minio_data:
   uptime_kuma_data:
   grafana_storage:
+  hermes_data:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
@@ -392,6 +393,7 @@ services:
       - UPTIME_KUMA_HOSTNAME=${UPTIME_KUMA_HOSTNAME:-status.${DOMAIN}}
       - GRAFANA_HOSTNAME=${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
       - GRAFANA_ADMIN_EMAIL=${GRAFANA_ADMIN_EMAIL}
+      - HERMES_HOSTNAME=${HERMES_HOSTNAME:-hermes.invalid}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -851,6 +853,68 @@ services:
           memory: 256M
         reservations:
           memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Hermes Agent (optional) ──────────────────────────────────────
+  # Autonomer KI-Agent mit Telegram/Slack-Gateway und Web-Dashboard.
+  # Starten: docker compose --profile optional up -d hermes-gateway hermes-dashboard
+  hermes-gateway:
+    build:
+      context: ./hermes-agent
+    image: hermes-agent:local
+    container_name: hermes-gateway
+    restart: unless-stopped
+    profiles: [optional]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - hermes_data:/opt/data
+      - ./hermes-config/cli-config.yaml:/opt/data/cli-config.yaml:ro
+    environment:
+      - HERMES_UID=${HERMES_UID:-1000}
+      - HERMES_GID=${HERMES_GID:-1000}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS:-}
+      - TELEGRAM_HOME_CHANNEL=${TELEGRAM_HOME_CHANNEL:-}
+    command: ["gateway", "run"]
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  hermes-dashboard:
+    image: hermes-agent:local
+    container_name: hermes-dashboard
+    restart: unless-stopped
+    profiles: [optional]
+    depends_on:
+      - hermes-gateway
+    expose:
+      - 9119/tcp
+    volumes:
+      - hermes_data:/opt/data
+      - ./hermes-config/cli-config.yaml:/opt/data/cli-config.yaml:ro
+    environment:
+      - HERMES_UID=${HERMES_UID:-1000}
+      - HERMES_GID=${HERMES_GID:-1000}
+    command: ["dashboard", "--host", "0.0.0.0", "--no-open"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
     logging:
       driver: "json-file"
       options:
