@@ -62,6 +62,8 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 
 ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
 
+✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama
+
 ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ---
@@ -77,6 +79,7 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 - ✅ Grafana Monitoring mit Caddy-Routing + Auth-Proxy-Header
 - ✅ On-Demand Service Control: Dashboard-Admin-Tab, REST API, n8n-Toolcall
 - ✅ Ollama standardmäßig nativ auf dem Host – kein Ollama-Container beim normalen Start
+- ✅ Hermes Agent: autonomer KI-Agent mit Teams-Gateway, Web-Dashboard, per Dashboard-Macro steuerbar
 - ✅ Automated startup & cleanup via `start_services.py`
 
 ---
@@ -130,6 +133,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | TTS / Voice Cloning / Dubbing | [18_tts_service.md](docs/18_tts_service.md) |
 | On-Demand Services (Service Control) | [19_on_demand_services.md](docs/19_on_demand_services.md) |
 | Ressourcen-Optimierung (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
+| Hermes Agent (KI-Agent, Teams, Web-UI) | [21_hermes_agent.md](docs/21_hermes_agent.md) |
 
 ---
 
@@ -144,6 +148,18 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | `tts-service` | `OLLAMA_HOST`: `http://ollama:11434` → `http://host.docker.internal:11434` |
 | Standardverhalten | `python3 start_services.py` startet **keinen** Ollama-Container mehr; Ollama läuft nativ auf dem Host |
 | Ollama als Container | Nur noch bei explizitem `docker compose --profile ollama-docker up -d` |
+
+### 2026-07 – Hermes Agent
+
+| Was | Details |
+|-----|---------|
+| `hermes-agent/` | Git-Submodul (NousResearch/hermes-agent, MIT) |
+| `hermes-gateway` | Autonomer KI-Agent-Prozess mit Microsoft Teams Gateway |
+| `hermes-dashboard` | Web-UI auf `agent.brain.local` hinter Caddy `forward_auth` |
+| `hermes-config/cli-config.yaml` | Lokales Ollama als LLM-Provider vorkonfiguriert (`qwen2.5:7b`) |
+| `dashboard/macros.json` | Macros „Hermes Agent starten" + „stoppen" |
+| `auth-gateway/app.py` | `hermes-gateway` + `hermes-dashboard` in Service-Control registriert |
+| `docs/21_hermes_agent.md` | Setup, Teams-Registrierung, Modell-Konfiguration |
 
 ### 2026-07 – Security Hardening: Admin-Rollen, JWT-Audience, CSP
 
