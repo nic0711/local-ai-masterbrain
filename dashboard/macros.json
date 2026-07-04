@@ -70,6 +70,24 @@
         {"action": "restart", "service": "open-webui"},
         {"action": "restart", "service": "flowise"}
       ]
+    },
+    {
+      "id": "hermes-start",
+      "label": "Hermes Agent starten",
+      "description": "KI-Agent starten (Gateway + Dashboard auf agent.brain.local)",
+      "actions": [
+        {"action": "start", "service": "hermes-gateway"},
+        {"action": "start", "service": "hermes-dashboard"}
+      ]
+    },
+    {
+      "id": "hermes-stop",
+      "label": "Hermes Agent stoppen",
+      "description": "Hermes Gateway + Dashboard stoppen",
+      "actions": [
+        {"action": "stop", "service": "hermes-dashboard"},
+        {"action": "stop", "service": "hermes-gateway"}
+      ]
     }
   ]
 }
