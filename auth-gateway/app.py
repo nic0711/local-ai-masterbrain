@@ -611,6 +611,8 @@ _CONTROLLABLE = {
     'clickhouse':         'localai-clickhouse-1',
     'redis':              'redis',
     'uptime-kuma':        'uptime-kuma',
+    'hermes-gateway':     'hermes-gateway',
+    'hermes-dashboard':   'hermes-dashboard',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
@@ -618,13 +620,15 @@ _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json
 # Services die per `profiles: [optional]` nicht automatisch starten.
 # Beim ersten Start wird `docker compose --profile optional up -d <service>` ausgeführt.
 _OPTIONAL_COMPOSE_SERVICES = {
-    'neo4j':           'neo4j',
-    'flowise':         'flowise',
-    'minio':           'minio',
-    'clickhouse':      'clickhouse',
-    'langfuse-web':    'langfuse-web',
-    'langfuse-worker': 'langfuse-worker',
-    'crawl4ai':        'crawl4ai',
+    'neo4j':             'neo4j',
+    'flowise':           'flowise',
+    'minio':             'minio',
+    'clickhouse':        'clickhouse',
+    'langfuse-web':      'langfuse-web',
+    'langfuse-worker':   'langfuse-worker',
+    'crawl4ai':          'crawl4ai',
+    'hermes-gateway':    'hermes-gateway',
+    'hermes-dashboard':  'hermes-dashboard',
 }
 
 

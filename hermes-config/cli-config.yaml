@@ -1,0 +1,19 @@
+# Hermes Agent – Konfiguration für Local AI Masterbrain Stack
+# Wird als Read-Only-Mount in den Container eingebunden: /opt/data/cli-config.yaml
+# Lokale Anpassungen: diese Datei bearbeiten und den Container neu starten.
+
+model:
+  # Lokales Ollama via OpenAI-kompatibler API
+  # "ollama" ist ein Alias für "custom" (OpenAI-kompatibler Endpunkt)
+  provider: "ollama"
+  base_url: "http://host.docker.internal:11434/v1"
+  default: "qwen2.5:7b"
+  # Alternativen: qwen2.5:14b, llama3.2:latest, mistral:7b
+
+terminal:
+  backend: "local"
+  timeout: 60
+
+compression:
+  enabled: true
+  threshold: 0.85
