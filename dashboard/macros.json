@@ -106,6 +106,28 @@
         {"action": "stop", "service": "odysseus"},
         {"action": "stop", "service": "chromadb-odysseus"}
       ]
+    },
+    {
+      "id": "monitoring-start",
+      "label": "Monitoring starten",
+      "description": "Prometheus + cAdvisor + node-exporter + Pushgateway starten",
+      "actions": [
+        {"action": "start", "service": "prometheus"},
+        {"action": "start", "service": "node-exporter"},
+        {"action": "start", "service": "cadvisor"},
+        {"action": "start", "service": "pushgateway"}
+      ]
+    },
+    {
+      "id": "monitoring-stop",
+      "label": "Monitoring stoppen",
+      "description": "Prometheus-Stack stoppen",
+      "actions": [
+        {"action": "stop", "service": "pushgateway"},
+        {"action": "stop", "service": "cadvisor"},
+        {"action": "stop", "service": "node-exporter"},
+        {"action": "stop", "service": "prometheus"}
+      ]
     }
   ]
 }

@@ -639,6 +639,10 @@ _CONTROLLABLE = {
     'hermes-dashboard':   'hermes-dashboard',
     'odysseus':           'odysseus',
     'chromadb-odysseus':  'chromadb-odysseus',
+    'prometheus':         'prometheus',
+    'node-exporter':      'node-exporter',
+    'cadvisor':           'cadvisor',
+    'pushgateway':        'pushgateway',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
@@ -657,6 +661,14 @@ _OPTIONAL_COMPOSE_SERVICES = {
     'hermes-dashboard':  'hermes-dashboard',
     'odysseus':          'odysseus',
     'chromadb-odysseus': 'chromadb-odysseus',
+}
+
+# Services die per `profiles: [monitoring]` laufen.
+_MONITORING_COMPOSE_SERVICES = {
+    'prometheus':    'prometheus',
+    'node-exporter': 'node-exporter',
+    'cadvisor':      'cadvisor',
+    'pushgateway':   'pushgateway',
 }
 
 
@@ -734,6 +746,22 @@ def service_control(service, action):
                     return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
                 logging.info(f"[CONTROL] {user.id} → compose up {service}")
                 return jsonify({"status": "ok", "message": f"{service} gestartet (compose)"}), 200
+            if action == 'start' and service in _MONITORING_COMPOSE_SERVICES:
+                compose_svc = _MONITORING_COMPOSE_SERVICES[service]
+                result = subprocess.run(
+                    ["docker", "compose",
+                     "--project-directory", _APP_DIR,
+                     "--project-name", "localai",
+                     "--profile", "monitoring",
+                     "up", "-d", compose_svc],
+                    capture_output=True, text=True, timeout=120,
+                    env={**os.environ, "HOST_PROJECT_DIR": _HOST_PROJECT_DIR},
+                )
+                if result.returncode != 0:
+                    logging.error(f"compose up {service} failed: {result.stderr}")
+                    return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
+                logging.info(f"[CONTROL] {user.id} → compose up {service} (monitoring)")
+                return jsonify({"status": "ok", "message": f"{service} gestartet (monitoring)"}), 200
             return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
 
         if action == 'start':
