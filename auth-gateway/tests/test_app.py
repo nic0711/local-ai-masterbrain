@@ -104,6 +104,47 @@ def client(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Fixtures für Superadmin-Tests
+# ---------------------------------------------------------------------------
+
+_SUPERADMIN_EMAIL = "superadmin@example.com"
+_ADMIN_ONLY_EMAIL = "admin@example.com"
+
+@pytest.fixture()
+def client_with_roles(tmp_path):
+    """Client mit SUPERADMIN_EMAILS und ADMIN_EMAILS gesetzt."""
+    env_patch = {
+        "SUPABASE_URL": "http://fake-supabase",
+        "SUPABASE_SERVICE_ROLE_KEY": "fake-key",
+        "JWT_SECRET": _TEST_SECRET,
+        "BACKUP_TRIGGER_FILE": str(tmp_path / ".trigger"),
+        "BACKUP_STATUS_FILE": str(tmp_path / ".backup_status"),
+        "APP_DIR": str(tmp_path),
+        "SUPERADMIN_EMAILS": _SUPERADMIN_EMAIL,
+        "ADMIN_EMAILS": _ADMIN_ONLY_EMAIL,
+    }
+    with patch.dict(os.environ, env_patch):
+        mock_supabase = MagicMock()
+        with patch("supabase.create_client", return_value=mock_supabase):
+            if "app" in sys.modules:
+                del sys.modules["app"]
+            import app as app_module
+
+            app_module.supabase = mock_supabase
+            app_module._JWT_SECRET = _TEST_SECRET
+            app_module._BACKUP_TRIGGER = str(tmp_path / ".trigger")
+            app_module._BACKUP_STATUS = str(tmp_path / ".backup_status")
+            app_module._BACKUP_DIR = str(tmp_path)
+            app_module._APP_DIR = str(tmp_path)
+            app_module.app.config["TESTING"] = True
+            app_module.limiter.enabled = False
+
+            with app_module.app.test_client() as c:
+                c._app_module = app_module
+                yield c
+
+
+# ---------------------------------------------------------------------------
 # /verify endpoint
 # ---------------------------------------------------------------------------
 
@@ -400,6 +441,100 @@ class TestServiceControl:
             headers=self._auth_header(),
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Superadmin-Rollentrennung
+# ---------------------------------------------------------------------------
+
+class TestSuperadminRole:
+    """Superadmin-only Endpoints müssen Admin-Token mit 403 ablehnen."""
+
+    def _superadmin_token(self):
+        return _make_token(email=_SUPERADMIN_EMAIL)
+
+    def _admin_token(self):
+        return _make_token(email=_ADMIN_ONLY_EMAIL)
+
+    def test_restore_requires_superadmin_not_admin(self, client_with_roles, tmp_path):
+        """Admin-Token darf /control/restore nicht ausführen."""
+        token = self._admin_token()
+        resp = client_with_roles.post(
+            "/control/restore",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"backup": "backup_20240101_120000"},
+        )
+        assert resp.status_code == 403
+
+    def test_restore_allowed_for_superadmin(self, client_with_roles, tmp_path):
+        """Superadmin-Token darf /control/restore ausführen (backup muss existieren)."""
+        backup_dir = str(tmp_path)
+        import app as app_module
+        app_module._BACKUP_DIR = backup_dir
+        # Archiv anlegen damit 404 nicht aus "nicht gefunden" kommt
+        import tarfile, os
+        archive = os.path.join(backup_dir, "backup_20240101_120000.tar.gz")
+        with tarfile.open(archive, "w:gz"):
+            pass
+        token = self._superadmin_token()
+        resp = client_with_roles.post(
+            "/control/restore",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"backup": "backup_20240101_120000"},
+        )
+        assert resp.status_code == 200
+
+    def test_list_users_requires_superadmin(self, client_with_roles):
+        """Admin-Token darf /control/users nicht auflisten."""
+        token = self._admin_token()
+        resp = client_with_roles.get(
+            "/control/users",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    def test_create_user_requires_superadmin(self, client_with_roles):
+        """Admin-Token darf /control/users (POST) nicht aufrufen."""
+        token = self._admin_token()
+        resp = client_with_roles.post(
+            "/control/users",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"email": "new@example.com", "password": "secret123"},
+        )
+        assert resp.status_code == 403
+
+    def test_delete_user_requires_superadmin(self, client_with_roles):
+        """Admin-Token darf /control/users/delete nicht aufrufen."""
+        token = self._admin_token()
+        resp = client_with_roles.post(
+            "/control/users/delete",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"user_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+        )
+        assert resp.status_code == 403
+
+    def test_password_reset_requires_superadmin(self, client_with_roles):
+        """Admin-Token darf /control/users/password nicht aufrufen."""
+        token = self._admin_token()
+        resp = client_with_roles.post(
+            "/control/users/password",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"user_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "password": "newpass123"},
+        )
+        assert resp.status_code == 403
+
+    def test_admin_can_still_control_services(self, client_with_roles):
+        """Admin-Token darf weiterhin Service-Control aufrufen."""
+        from unittest.mock import patch, MagicMock
+        with patch("app._get_docker_container") as mock_gdc:
+            mock_container = MagicMock()
+            mock_gdc.return_value = (MagicMock(), mock_container)
+            token = self._admin_token()
+            resp = client_with_roles.post(
+                "/control/services/n8n/restart",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 
 ## auth-gateway (Port 5001)
 
-Auth-Level: **Auth** = gültiges JWT erforderlich · **Admin** = zusätzlich in `ADMIN_EMAILS` eingetragen (siehe [05_security_hardening.md](05_security_hardening.md))
+Auth-Level: **Auth** = gültiges JWT · **Admin** = in `ADMIN_EMAILS` · **Superadmin** = in `SUPERADMIN_EMAILS` (siehe [05_security_hardening.md](05_security_hardening.md))
 
 | Methode | Pfad | Auth | Beschreibung |
 |---------|------|------|--------------|
@@ -30,16 +30,16 @@ Auth-Level: **Auth** = gültiges JWT erforderlich · **Admin** = zusätzlich in 
 | `GET` | `/control/services/status` | Auth | Status aller Docker-Services |
 | `GET` | `/control/macros` | Auth | Verfügbare Control-Macros auflisten |
 | `POST` | `/control/backup` | **Admin** | Backup erstellen |
-| `GET` | `/control/backup/files` | **Admin** | Dateien innerhalb eines Backups |
-| `GET` | `/control/backup/diff` | **Admin** | Diff zwischen zwei Backups |
-| `POST` | `/control/restore` | **Admin** | Backup wiederherstellen |
-| `GET` | `/control/users` | **Admin** | Supabase-Benutzer auflisten |
-| `POST` | `/control/users` | **Admin** | Neuen Benutzer anlegen |
-| `POST` | `/control/users/password` | **Admin** | Passwort zurücksetzen |
-| `POST` | `/control/users/delete` | **Admin** | Benutzer löschen |
 | `POST` | `/control/services/{service}/{action}` | **Admin** | Service starten / stoppen / neustarten |
 | `GET` | `/control/services/{service}/logs` | **Admin** | Service-Logs abrufen |
 | `POST` | `/control/macro/{macro_id}` | **Admin** | Control-Macro ausführen |
+| `GET` | `/control/backup/files` | **Superadmin** | Dateien innerhalb eines Backups |
+| `GET` | `/control/backup/diff` | **Superadmin** | Diff zwischen Backup und aktuellem Stand |
+| `POST` | `/control/restore` | **Superadmin** | Backup wiederherstellen |
+| `GET` | `/control/users` | **Superadmin** | Supabase-Benutzer auflisten |
+| `POST` | `/control/users` | **Superadmin** | Neuen Benutzer anlegen |
+| `POST` | `/control/users/password` | **Superadmin** | Passwort zurücksetzen |
+| `POST` | `/control/users/delete` | **Superadmin** | Benutzer löschen |
 
 ### POST `/control/backup`
 ```json

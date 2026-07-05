@@ -186,7 +186,14 @@ def _get_verified_user():
     return user
 
 
+_SUPERADMIN_EMAILS = [e.strip() for e in os.environ.get("SUPERADMIN_EMAILS", "").split(",") if e.strip()]
 _ADMIN_EMAILS = [e.strip() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
+
+if not _SUPERADMIN_EMAILS:
+    logging.warning(
+        "SUPERADMIN_EMAILS nicht gesetzt – Superadmin-Endpoints (Restore, User-Mgmt, Archiv) "
+        "fallen auf Admin-Prüfung zurück. Für Team-Betrieb SUPERADMIN_EMAILS=you@example.com setzen."
+    )
 if not _ADMIN_EMAILS:
     logging.warning(
         "ADMIN_EMAILS nicht gesetzt – alle authentifizierten Nutzer haben Admin-Zugriff auf "
@@ -195,11 +202,19 @@ if not _ADMIN_EMAILS:
 
 
 def _require_admin(user) -> bool:
-    """True wenn der User Admin-Rechte hat.
+    """True wenn der User Admin- oder Superadmin-Rechte hat.
     Ohne ADMIN_EMAILS-Konfiguration haben alle auth. Nutzer Admin-Zugriff (lokaler Betrieb)."""
     if not _ADMIN_EMAILS:
         return True
-    return user.email in _ADMIN_EMAILS
+    return user.email in _ADMIN_EMAILS or user.email in _SUPERADMIN_EMAILS
+
+
+def _require_superadmin(user) -> bool:
+    """True wenn der User Superadmin-Rechte hat.
+    Ohne SUPERADMIN_EMAILS-Konfiguration fällt dies auf Admin-Prüfung zurück."""
+    if not _SUPERADMIN_EMAILS:
+        return _require_admin(user)
+    return user.email in _SUPERADMIN_EMAILS
 
 
 @app.route('/verify', methods=['GET'])
@@ -242,6 +257,7 @@ _BACKUP_SOURCES = [
 
 
 @app.route('/control/backup', methods=['POST'])
+@limiter.limit("5 per minute")
 def trigger_backup():
     """Erstellt ein Backup direkt in Python – kein externer Daemon nötig."""
     user = _get_verified_user()
@@ -307,6 +323,7 @@ def trigger_backup():
 
 
 @app.route('/control/backup/status', methods=['GET'])
+@limiter.limit("30 per minute")
 def backup_status():
     """Liest den Backup-Status aus der Status-Datei. Auth erforderlich."""
     user = _get_verified_user()
@@ -344,6 +361,7 @@ def _validate_filepath(filepath):
 
 
 @app.route('/control/backup/list', methods=['GET'])
+@limiter.limit("30 per minute")
 def backup_list():
     """Listet alle verfügbaren Backups mit Metadaten. Auth erforderlich."""
     user = _get_verified_user()
@@ -373,13 +391,14 @@ def backup_list():
 
 
 @app.route('/control/backup/files', methods=['GET'])
+@limiter.limit("20 per minute")
 def backup_files():
-    """Listet alle Dateien in einem Backup-Archiv. Auth + Admin erforderlich."""
+    """Listet alle Dateien in einem Backup-Archiv. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
 
     backup_name = os.path.basename(request.args.get('backup', ''))
     if not _validate_backup_name(backup_name):
@@ -412,13 +431,14 @@ def backup_files():
 
 
 @app.route('/control/backup/diff', methods=['GET'])
+@limiter.limit("20 per minute")
 def backup_diff():
-    """Vergleicht eine Datei aus dem Backup mit der aktuellen Version. Auth + Admin erforderlich."""
+    """Vergleicht eine Datei aus dem Backup mit der aktuellen Version. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
 
     backup_name = os.path.basename(request.args.get('backup', ''))
     raw_filepath = request.args.get('file', '')
@@ -487,13 +507,14 @@ _USER_ID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 
 
 @app.route('/control/users', methods=['GET'])
+@limiter.limit("20 per minute")
 def list_users():
-    """Listet alle Benutzer. Auth + Admin erforderlich."""
+    """Listet alle Benutzer. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     try:
@@ -513,13 +534,14 @@ def list_users():
 
 
 @app.route('/control/users', methods=['POST'])
+@limiter.limit("10 per minute")
 def create_user():
-    """Legt einen neuen Benutzer an. Auth + Admin erforderlich."""
+    """Legt einen neuen Benutzer an. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -542,13 +564,14 @@ def create_user():
 
 
 @app.route('/control/users/password', methods=['POST'])
+@limiter.limit("10 per minute")
 def reset_user_password():
-    """Setzt das Passwort eines Benutzers zurück. Auth + Admin erforderlich."""
+    """Setzt das Passwort eines Benutzers zurück. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -568,13 +591,14 @@ def reset_user_password():
 
 
 @app.route('/control/users/delete', methods=['POST'])
+@limiter.limit("5 per minute")
 def delete_user():
-    """Löscht einen Benutzer. Auth + Admin erforderlich. Eigenes Konto kann nicht gelöscht werden."""
+    """Löscht einen Benutzer. Auth + Superadmin erforderlich. Eigenes Konto kann nicht gelöscht werden."""
     user = _get_verified_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
     if not supabase:
         return jsonify({"error": "Auth service not configured"}), 500
     data = request.get_json(silent=True) or {}
@@ -838,14 +862,15 @@ def run_macro(macro_id):
 
 
 @app.route('/control/restore', methods=['POST'])
+@limiter.limit("3 per minute")
 def trigger_restore():
-    """Schreibt einen Restore-Trigger, damit backup-daemon den Restore ausführt. Auth + Admin erforderlich."""
+    """Schreibt einen Restore-Trigger, damit backup-daemon den Restore ausführt. Auth + Superadmin erforderlich."""
     user = _get_verified_user()
     if not user:
         logging.warning("Unauthorized restore attempt.")
         return jsonify({"error": "Unauthorized"}), 401
-    if not _require_admin(user):
-        return jsonify({"error": "Forbidden: Admin-Rechte erforderlich"}), 403
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
 
     data = request.get_json(silent=True) or {}
     backup_name = os.path.basename(data.get('backup', ''))
