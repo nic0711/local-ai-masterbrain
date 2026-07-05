@@ -1,0 +1,116 @@
+{
+  "name": "Asana Sync – Offene Tasks in Teams",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Täglich 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-tasks",
+      "name": "Asana Tasks holen",
+      "type": "n8n-nodes-base.asana",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "getAll",
+        "resource": "task",
+        "projectId": "={{ $vars.ASANA_PROJECT_ID }}",
+        "returnAll": false,
+        "limit": 50,
+        "filters": {
+          "completed": false
+        },
+        "options": {
+          "fields": ["name", "assignee", "due_on", "notes", "custom_fields"]
+        }
+      },
+      "credentials": {
+        "asanaApi": { "id": "asana-cred", "name": "Asana" }
+      }
+    },
+    {
+      "id": "filter-overdue",
+      "name": "Überfällige filtern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst tasks = $input.all();\n\nconst overdue = tasks.filter(t => {\n  const due = t.json.due_on;\n  return due && due < today;\n});\n\nconst dueSoon = tasks.filter(t => {\n  const due = t.json.due_on;\n  if (!due) return false;\n  const daysLeft = (new Date(due) - new Date()) / (1000 * 60 * 60 * 24);\n  return daysLeft >= 0 && daysLeft <= 3;\n});\n\nconst formatTask = t => {\n  const assignee = t.json.assignee?.name || 'Unzugewiesen';\n  const due = t.json.due_on || 'Kein Datum';\n  return `• **${t.json.name}** (${assignee}, fällig: ${due})`;\n};\n\nconst lines = [];\nif (overdue.length > 0) {\n  lines.push(`🔴 **Überfällig (${overdue.length}):**`);\n  lines.push(...overdue.map(formatTask));\n  lines.push('');\n}\nif (dueSoon.length > 0) {\n  lines.push(`🟡 **Fällig in ≤3 Tagen (${dueSoon.length}):**`);\n  lines.push(...dueSoon.map(formatTask));\n}\n\nif (lines.length === 0) {\n  return [{ json: { skip: true, message: 'Keine überfälligen oder bald fälligen Tasks.' } }];\n}\n\nreturn [{ json: { skip: false, summary: lines.join('\\n'), overdueCount: overdue.length, dueSoonCount: dueSoon.length } }];"
+      }
+    },
+    {
+      "id": "skip-if-empty",
+      "name": "Nichts fällig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "skip-cond",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "send-teams-summary",
+      "name": "Teams Zusammenfassung",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.TEAMS_ALERT_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"type\": \"message\",\n  \"attachments\": [{\n    \"contentType\": \"application/vnd.microsoft.card.adaptive\",\n    \"content\": {\n      \"$schema\": \"http://adaptivecards.io/schemas/adaptive-card.json\",\n      \"type\": \"AdaptiveCard\",\n      \"version\": \"1.4\",\n      \"body\": [\n        {\n          \"type\": \"TextBlock\",\n          \"text\": \"📋 Asana Tages-Update\",\n          \"weight\": \"Bolder\",\n          \"size\": \"Medium\"\n        },\n        {\n          \"type\": \"TextBlock\",\n          \"text\": {{ JSON.stringify($json.summary) }},\n          \"wrap\": true\n        }\n      ],\n      \"actions\": [{\n        \"type\": \"Action.OpenUrl\",\n        \"title\": \"Asana öffnen\",\n        \"url\": \"https://app.asana.com/0/{{ $vars.ASANA_PROJECT_ID }}\"\n      }]\n    }\n  }]\n}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Täglich 08:00": {
+      "main": [[{ "node": "Asana Tasks holen", "type": "main", "index": 0 }]]
+    },
+    "Asana Tasks holen": {
+      "main": [[{ "node": "Überfällige filtern", "type": "main", "index": 0 }]]
+    },
+    "Überfällige filtern": {
+      "main": [[{ "node": "Nichts fällig?", "type": "main", "index": 0 }]]
+    },
+    "Nichts fällig?": {
+      "main": [
+        [{ "node": "Teams Zusammenfassung", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Sendet täglich um 08:00 Uhr eine Teams-Nachricht mit überfälligen und bald fälligen Asana-Tasks. Benötigt: Asana-Credential, n8n-Variablen ASANA_PROJECT_ID und TEAMS_ALERT_WEBHOOK_URL."
+  }
+}
