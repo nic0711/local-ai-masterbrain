@@ -1,0 +1,169 @@
+{
+  "name": "osTicket → Wissensdatenbank (Neo4j + Qdrant)",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Täglich 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "triggerAtHour": 2, "triggerAtMinute": 0 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "query-closed",
+      "name": "Gelöste Tickets holen",
+      "type": "n8n-nodes-base.mysql",
+      "typeVersion": 2.4,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  t.id,\n  t.number,\n  t.created,\n  t.closed,\n  COALESCE(d.subject, '') AS subject,\n  GROUP_CONCAT(\n    CASE WHEN te.type = 'M' THEN te.body END\n    ORDER BY te.id ASC SEPARATOR '\\n---\\n'\n  ) AS question,\n  GROUP_CONCAT(\n    CASE WHEN te.type = 'R' THEN te.body END\n    ORDER BY te.id ASC SEPARATOR '\\n---\\n'\n  ) AS solution\nFROM ost_ticket t\nJOIN ost_ticket__cdata d ON d.ticket_id = t.id\nJOIN ost_thread_entry te ON te.thread_id = t.thread_id\nWHERE\n  t.status_id = 3\n  AND t.closed > NOW() - INTERVAL 7 DAY\nGROUP BY t.id, t.number, t.created, t.closed, d.subject\nHAVING solution IS NOT NULL\nORDER BY t.closed DESC\nLIMIT 100",
+        "options": {}
+      },
+      "credentials": {
+        "mysql": { "id": "osticket-db", "name": "osTicket DB" }
+      }
+    },
+    {
+      "id": "loop-tickets",
+      "name": "Tickets iterieren",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "prepare-text",
+      "name": "Text aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "jsCode": "const t = $input.first().json;\n\n// HTML-Tags entfernen\nconst stripHtml = s => (s || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n\nconst question = stripHtml(t.question).slice(0, 2000);\nconst solution = stripHtml(t.solution).slice(0, 2000);\nconst subject = stripHtml(t.subject);\n\n// Kombinierter Text für Embedding\nconst combinedText = `${subject}\\n\\nFrage:\\n${question}\\n\\nLösung:\\n${solution}`;\n\nreturn [{\n  json: {\n    id: t.id,\n    number: t.number,\n    subject: subject,\n    question: question,\n    solution: solution,\n    combinedText: combinedText,\n    closedAt: t.closed\n  }\n}];"
+      }
+    },
+    {
+      "id": "create-embedding",
+      "name": "Embedding erstellen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": {{ JSON.stringify($json.combinedText.slice(0, 4000)) }}\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "upsert-qdrant",
+      "name": "Qdrant upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 220],
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/osticket_solutions/points",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"points\": [\n    {\n      \"id\": {{ $('Text aufbereiten').first().json.id }},\n      \"vector\": {{ JSON.stringify($json.embedding) }},\n      \"payload\": {\n        \"number\": {{ JSON.stringify($('Text aufbereiten').first().json.number) }},\n        \"subject\": {{ JSON.stringify($('Text aufbereiten').first().json.subject) }},\n        \"question\": {{ JSON.stringify($('Text aufbereiten').first().json.question.slice(0, 1000)) }},\n        \"solution\": {{ JSON.stringify($('Text aufbereiten').first().json.solution.slice(0, 1000)) }},\n        \"closed_at\": {{ JSON.stringify($('Text aufbereiten').first().json.closedAt) }}\n      }\n    }\n  ]\n}",
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "nlp-analyze",
+      "name": "NLP-Analyse (Entitäten)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/document/analyze",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"text\": {{ JSON.stringify($('Text aufbereiten').first().json.combinedText.slice(0, 3000)) }},\n  \"lang\": \"de\"\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "index-neo4j",
+      "name": "Neo4j indexieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/graph/index",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"document_id\": \"osticket_{{ $('Text aufbereiten').first().json.number }}\",\n  \"document_type\": \"support_ticket\",\n  \"title\": {{ JSON.stringify($('Text aufbereiten').first().json.subject) }},\n  \"content\": {{ JSON.stringify($('Text aufbereiten').first().json.combinedText.slice(0, 2000)) }},\n  \"entities\": {{ JSON.stringify($('NLP-Analyse (Entitäten)').first().json.entities || []) }},\n  \"metadata\": {\n    \"ticket_number\": {{ JSON.stringify($('Text aufbereiten').first().json.number) }},\n    \"closed_at\": {{ JSON.stringify($('Text aufbereiten').first().json.closedAt) }},\n    \"source\": \"osticket\"\n  }\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "loop-back",
+      "name": "Nächstes Ticket",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Täglich 02:00": {
+      "main": [[{ "node": "Gelöste Tickets holen", "type": "main", "index": 0 }]]
+    },
+    "Gelöste Tickets holen": {
+      "main": [[{ "node": "Tickets iterieren", "type": "main", "index": 0 }]]
+    },
+    "Tickets iterieren": {
+      "main": [
+        [{ "node": "Text aufbereiten", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Text aufbereiten": {
+      "main": [[{ "node": "Embedding erstellen", "type": "main", "index": 0 }]]
+    },
+    "Embedding erstellen": {
+      "main": [
+        [
+          { "node": "Qdrant upsert", "type": "main", "index": 0 },
+          { "node": "NLP-Analyse (Entitäten)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "NLP-Analyse (Entitäten)": {
+      "main": [[{ "node": "Neo4j indexieren", "type": "main", "index": 0 }]]
+    },
+    "Qdrant upsert": {
+      "main": [[{ "node": "Nächstes Ticket", "type": "main", "index": 0 }]]
+    },
+    "Neo4j indexieren": {
+      "main": [[{ "node": "Nächstes Ticket", "type": "main", "index": 0 }]]
+    },
+    "Nächstes Ticket": {
+      "main": [[{ "node": "Tickets iterieren", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Liest täglich um 02:00 Uhr gelöste osTicket-Tickets der letzten 7 Tage direkt aus MySQL. Pro Ticket: HTML bereinigen → Ollama Embedding → Qdrant upsert (Collection 'osticket_solutions') + NLP-Analyse → Neo4j indexieren. Benötigt: MySQL-Credential 'osTicket DB', Qdrant-Collection 'osticket_solutions' (Dimension 768 für nomic-embed-text)."
+  }
+}
