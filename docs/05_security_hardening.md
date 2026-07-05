@@ -111,43 +111,35 @@ sudo apt install iptables-persistent
 
 ---
 
-## Admin-Rollenkontrolle
+## Rollen-Hierarchie
 
-Privilegierte Control-Endpoints (User-Management, Service-Start/Stop, Macros, Backup, Restore) erfordern zusätzlich zur JWT-Authentifizierung Admin-Rechte.
+Drei Rollen, gesteuert über `.env`:
 
-### Konfiguration
-
-In `.env`:
 ```bash
-# Kommagetrennte E-Mail-Adressen mit Admin-Zugriff
-ADMIN_EMAILS=you@example.com,admin2@example.com
+SUPERADMIN_EMAILS=owner@example.com           # Vollzugriff – auch User-Mgmt, Restore, Archiv
+ADMIN_EMAILS=team1@example.com,team2@example.com  # Operativ – Service-Start/Stop, Backup, Macros
+# alle anderen Supabase-User = "User" – nutzen Services (n8n, WebUI, Odysseus, …), keine Control-Endpoints
 ```
 
-In `docker-compose.yml` wird `ADMIN_EMAILS` automatisch an auth-gateway übergeben.
+In `docker-compose.yml` werden beide Variablen automatisch an auth-gateway übergeben.
 
-**Ohne `ADMIN_EMAILS`** (leere Variable): Alle authentifizierten Nutzer haben Admin-Zugriff. Das ist für lokale Single-User-Setups (`brain.local`) akzeptabel. Für externe Server **muss** `ADMIN_EMAILS` gesetzt sein.
+**Ohne Konfiguration:** Alle authentifizierten Nutzer haben Admin-Zugriff (Single-User-Betrieb). Für Team-Betrieb **müssen** beide Variablen gesetzt werden.
 
-Beim Start loggt auth-gateway eine Warnung wenn `ADMIN_EMAILS` nicht konfiguriert ist:
-```
-WARNING: ADMIN_EMAILS nicht gesetzt – alle auth. Nutzer haben Admin-Zugriff...
-```
+### Berechtigungen
 
-### Betroffene Endpoints (Auth + Admin)
-
-| Endpoint | Funktion |
-|---|---|
-| `POST /control/backup` | Backup erstellen |
-| `GET /control/backup/files` | Archiv-Inhalte lesen |
-| `GET /control/backup/diff` | Datei-Diff anzeigen |
-| `POST /control/restore` | Restore auslösen |
-| `GET/POST /control/users` | Benutzer auflisten / anlegen |
-| `POST /control/users/password` | Passwort zurücksetzen |
-| `POST /control/users/delete` | Benutzer löschen |
-| `POST /control/services/{svc}/{action}` | Service starten/stoppen/neustarten |
-| `GET /control/services/{svc}/logs` | Container-Logs lesen |
-| `POST /control/macro/{id}` | Macro ausführen |
-
-Nur-Lese-Endpoints (`/control/backup/status`, `/control/backup/list`, `/control/services/status`, `/control/macros`) sind für alle authentifizierten Nutzer zugänglich.
+| Endpoint | Superadmin | Admin | User |
+|---|---|---|---|
+| Alle Services nutzen (n8n, WebUI, Odysseus, …) | ✅ | ✅ | ✅ |
+| Service start/stop/restart | ✅ | ✅ | ✗ |
+| Macros ausführen | ✅ | ✅ | ✗ |
+| Backup erstellen, Status, Liste | ✅ | ✅ | ✗ |
+| Container-Logs lesen | ✅ | ✅ | ✗ |
+| **Backup-Archiv-Inhalte lesen** | ✅ | ✗ | ✗ |
+| **Datei-Diff anzeigen** | ✅ | ✗ | ✗ |
+| **Restore auslösen** | ✅ | ✗ | ✗ |
+| **User auflisten / anlegen** | ✅ | ✗ | ✗ |
+| **Passwort zurücksetzen** | ✅ | ✗ | ✗ |
+| **User löschen** | ✅ | ✗ | ✗ |
 
 ---
 
@@ -184,10 +176,18 @@ environment:
 
 auth-gateway prüft bei lokaler JWT-Verifikation die `aud`-Claim auf `"authenticated"`. Das verhindert, dass Tokens mit anderen Audiences (z.B. Service-Role-Tokens) für normale User-Auth verwendet werden.
 
-### Brute-Force-Schutz
+### Brute-Force-Schutz (Rate Limiting per IP)
 
-`/verify` ist auf **600 Req/min** begrenzt (Flask-Limiter, pro IP).
-Das erlaubt normale Browser-Nutzung (parallel Asset-Loads), blockiert aber Scripting-Angriffe.
+| Endpoint | Limit |
+|---|---|
+| `GET /verify` | 600/min (parallel Asset-Loads erlaubt) |
+| `GET /status` | 60/min |
+| `GET/POST /control/backup/*` | 5–30/min je Endpoint |
+| `GET/POST /control/users*` | 5–20/min je Endpoint |
+| `POST /control/restore` | 3/min |
+| `POST /control/services/{svc}/{action}` | 10/min |
+| `GET /control/services/{svc}/logs` | 30/min |
+| `POST /control/macro/{id}` | 5/min |
 
 ### Concurrency
 
@@ -205,12 +205,66 @@ Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen ei
 | `Secure` | Nein (Self-Signed blockiert es) | Ja |
 | `SameSite` | Lax | Lax |
 | `HttpOnly` | Nein (JS muss den Cookie setzen) | Nein |
-| `Max-Age` | 3600s (1h) | 3600s (1h) |
+| `Max-Age` | 30 Tage (2592000s) | 30 Tage |
 | `Domain` | `.brain.local` | `.yourdomain.com` |
+
+**Hinweis:** Der Cookie selbst läuft nach 30 Tagen ab, der JWT darin nach 1h. Caddy verifiziert den JWT-Inhalt (inkl. `exp`-Claim) – ein abgelaufener JWT wird auch mit gültigem Cookie abgelehnt. Der 30-Tage-Cookie stellt sicher, dass der Browser das Cookie nicht löscht, bevor Auto-Refresh (`onAuthStateChange`) den JWT erneuert hat.
 
 Der Cookie gilt für alle Subdomains (`*.brain.local` / `*.yourdomain.com`), nicht für externe Domains.
 
 **Warum kein `HttpOnly`:** Das Supabase SDK muss das Token aus JavaScript lesen können, um es bei API-Calls weiterzuschicken. `HttpOnly`-Cookies wären für JS unsichtbar. Eine `HttpOnly`-Lösung würde eine server-seitige Session-Architektur erfordern (Caddy liest Cookie direkt, JS nutzt separate Cookie-Session).
+
+---
+
+## MFA / TOTP erzwingen (für Team-Server)
+
+Standardmäßig ist MFA optional. Für den Team-Betrieb sollte MFA für alle Admins verpflichtend sein.
+
+### Konfiguration in Supabase
+
+```bash
+# Supabase Dashboard → Authentication → Sign In / MFA
+# → Enable MFA → "Required" für alle User
+```
+
+Alternativ via Supabase Management API:
+```bash
+curl -X PATCH "https://api.supabase.com/v1/projects/<project-ref>/auth/config" \
+  -H "Authorization: Bearer <mgmt-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"mfa_required": true}'
+```
+
+### Lokale Supabase-Instanz
+
+In `supabase/docker/.env.local` (oder via Supabase Studio → Auth-Settings):
+```bash
+# GoTrue-Konfiguration
+GOTRUE_MFA_ENABLED=true
+```
+
+### Was passiert bei aktiviertem MFA-Zwang?
+
+1. User loggt sich mit Passwort ein
+2. `mfa.getAuthenticatorAssuranceLevel()` gibt `aal.nextLevel = 'aal2'` zurück
+3. Login-Flow zeigt automatisch TOTP-Eingabefeld (bereits implementiert in `auth.js`)
+4. Ohne registrierten TOTP-Faktor: Login nicht möglich
+
+### Backup bei verlorenem TOTP-Device
+
+Superadmin kann TOTP-Faktor für einen User über die Supabase-Admin-API zurücksetzen:
+```bash
+# Alle MFA-Faktoren eines Users auflisten
+SERVICE_KEY=$(grep "^SERVICE_ROLE_KEY=" .env | cut -d= -f2)
+curl -s "http://localhost:8000/auth/v1/admin/users/<user-id>/factors" \
+  -H "Authorization: Bearer $SERVICE_KEY" \
+  -H "apikey: $SERVICE_KEY"
+
+# Faktor löschen
+curl -s -X DELETE "http://localhost:8000/auth/v1/admin/users/<user-id>/factors/<factor-id>" \
+  -H "Authorization: Bearer $SERVICE_KEY" \
+  -H "apikey: $SERVICE_KEY"
+```
 
 ---
 
