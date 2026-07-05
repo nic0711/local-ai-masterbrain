@@ -637,6 +637,8 @@ _CONTROLLABLE = {
     'uptime-kuma':        'uptime-kuma',
     'hermes-gateway':     'hermes-gateway',
     'hermes-dashboard':   'hermes-dashboard',
+    'odysseus':           'odysseus',
+    'chromadb-odysseus':  'chromadb-odysseus',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
@@ -653,6 +655,8 @@ _OPTIONAL_COMPOSE_SERVICES = {
     'crawl4ai':          'crawl4ai',
     'hermes-gateway':    'hermes-gateway',
     'hermes-dashboard':  'hermes-dashboard',
+    'odysseus':          'odysseus',
+    'chromadb-odysseus': 'chromadb-odysseus',
 }
 
 

@@ -19,6 +19,8 @@ volumes:
   uptime_kuma_data:
   grafana_storage:
   hermes_data:
+  odysseus_data:
+  chromadb_odysseus_data:
 
 x-n8n: &service-n8n
   image: n8nio/n8n:latest
@@ -394,6 +396,7 @@ services:
       - GRAFANA_HOSTNAME=${GRAFANA_HOSTNAME:-grafana.${DOMAIN}}
       - GRAFANA_ADMIN_EMAIL=${GRAFANA_ADMIN_EMAIL}
       - HERMES_HOSTNAME=${HERMES_HOSTNAME:-hermes.invalid}
+      - ODYSSEUS_HOSTNAME=${ODYSSEUS_HOSTNAME:-workspace.invalid}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -918,6 +921,77 @@ services:
           memory: 512M
         reservations:
           memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Odysseus AI Workspace (optional) ─────────────────────────────
+  # Deep-Research, Dokumente, MCP, Team-UI – erreichbar via workspace.brain.local
+  # Starten: docker compose --profile optional up -d chromadb-odysseus odysseus
+  chromadb-odysseus:
+    image: docker.io/chromadb/chroma:latest
+    container_name: chromadb-odysseus
+    restart: unless-stopped
+    profiles: [optional]
+    expose:
+      - 8000/tcp
+    volumes:
+      - chromadb_odysseus_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=FALSE
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  odysseus:
+    build:
+      context: ./odysseus
+    image: odysseus:local
+    container_name: odysseus
+    restart: unless-stopped
+    profiles: [optional]
+    expose:
+      - 7000/tcp
+    depends_on:
+      - chromadb-odysseus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - odysseus_data:/app/data
+    environment:
+      - LLM_HOST=http://host.docker.internal:11434/v1
+      - LLM_HOSTS=${LLM_HOSTS:-}
+      - OPENAI_API_KEY=${OPENROUTER_API_KEY:-}
+      - SEARXNG_INSTANCE=http://searxng:8080
+      - CHROMADB_HOST=chromadb-odysseus
+      - CHROMADB_PORT=8000
+      - AUTH_ENABLED=true
+      - LOCALHOST_BYPASS=false
+      - ODYSSEUS_ADMIN_USER=${ODYSSEUS_ADMIN_USER:-admin}
+      - ODYSSEUS_ADMIN_PASSWORD=${ODYSSEUS_ADMIN_PASSWORD}
+      - ALLOWED_ORIGINS=https://${ODYSSEUS_HOSTNAME:-workspace.brain.local}
+      - SECURE_COOKIES=true
+      - DATABASE_URL=sqlite:///./data/app.db
+      - EMBEDDING_URL=http://host.docker.internal:11434/v1
+      - EMBEDDING_MODEL=${ODYSSEUS_EMBEDDING_MODEL:-nomic-embed-text}
+      - PUID=${ODYSSEUS_UID:-1000}
+      - PGID=${ODYSSEUS_GID:-1000}
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 256M
     logging:
       driver: "json-file"
       options:

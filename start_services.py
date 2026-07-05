@@ -249,10 +249,10 @@ def rebuild_custom_services(compose_env=None):
     run_command(cmd, env=compose_env)
     print("✅ Rebuild complete.")
 
-def start_local_ai(profile=None, environment=None, compose_env=None):
+def start_local_ai(profile=None, environment=None, compose_env=None, env_vars=None):
     """Start the local AI services with proper dependency handling."""
     print("Starting local AI services...")
-    
+
     cmd = ["docker", "compose", "-p", "localai"]
 
     # Hardware profile (cpu / gpu-nvidia / gpu-amd)
@@ -275,10 +275,27 @@ def start_local_ai(profile=None, environment=None, compose_env=None):
     # Handle 'none' profile specifically
     if profile == "none":
         cmd.extend(["-f", "docker-compose.override.none.yml"])
-    
+
     cmd.extend(["up", "-d"])
-    
+
     run_command(cmd, env=compose_env)
+
+    # Autostart optionale Services (AUTOSTART_HERMES / AUTOSTART_ODYSSEUS in .env)
+    autostart = []
+    if env_vars and env_vars.get("AUTOSTART_HERMES", "false").lower() == "true":
+        autostart.extend(["hermes-gateway", "hermes-dashboard"])
+    if env_vars and env_vars.get("AUTOSTART_ODYSSEUS", "false").lower() == "true":
+        autostart.extend(["chromadb-odysseus", "odysseus"])
+
+    if autostart:
+        print(f"Autostart: starte optionale Services: {', '.join(autostart)}")
+        opt_cmd = [
+            "docker", "compose", "-p", "localai",
+            "--profile", "optional",
+            "-f", "docker-compose.yml",
+            "up", "-d",
+        ] + autostart
+        run_command(opt_cmd, env=compose_env)
 
 def generate_searxng_secret_key():
     """Generate a secret key for SearXNG based on the current platform."""
@@ -526,7 +543,7 @@ def main():
     if args.rebuild:
         rebuild_custom_services(compose_env=compose_env)
 
-    start_local_ai(args.profile, args.environment, compose_env=compose_env)
+    start_local_ai(args.profile, args.environment, compose_env=compose_env, env_vars=env_vars)
 
     print("🎉 All services started successfully!")
 

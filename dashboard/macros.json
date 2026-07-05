@@ -88,6 +88,24 @@
         {"action": "stop", "service": "hermes-dashboard"},
         {"action": "stop", "service": "hermes-gateway"}
       ]
+    },
+    {
+      "id": "odysseus-start",
+      "label": "Odysseus starten",
+      "description": "AI-Workspace starten (ChromaDB + Odysseus auf workspace.brain.local)",
+      "actions": [
+        {"action": "start", "service": "chromadb-odysseus"},
+        {"action": "start", "service": "odysseus"}
+      ]
+    },
+    {
+      "id": "odysseus-stop",
+      "label": "Odysseus stoppen",
+      "description": "Odysseus + ChromaDB stoppen",
+      "actions": [
+        {"action": "stop", "service": "odysseus"},
+        {"action": "stop", "service": "chromadb-odysseus"}
+      ]
     }
   ]
 }
