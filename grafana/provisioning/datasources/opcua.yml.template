@@ -1,0 +1,20 @@
+# OPC-UA Datasource für Grafana (Template)
+# Umbenennen zu opcua.yml und GRAFANA_OPCUA_* in .env setzen.
+# Voraussetzung: GF_INSTALL_PLUGINS=grafana-opcua-datasource (in .env)
+#
+# Dokumentation: https://grafana.com/grafana/plugins/grafana-opcua-datasource/
+
+apiVersion: 1
+
+datasources:
+  - name: OPC-UA SPS
+    type: grafana-opcua-datasource
+    access: proxy
+    url: ${GRAFANA_OPCUA_ENDPOINT:-opc.tcp://plc:4840}
+    jsonData:
+      tlsAuth: false
+      tlsAuthWithCACert: false
+      # Sicherheitsrichtlinie: None / Basic128Rsa15 / Basic256 / Basic256Sha256
+      securityPolicy: None
+      securityMode: None
+    editable: true

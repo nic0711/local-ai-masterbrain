@@ -1,0 +1,53 @@
+# mqtt2prometheus Konfiguration
+# Dokumentation: https://github.com/hikhvar/mqtt2prometheus
+
+mqtt:
+  broker: ${SPS_MQTT_BROKER:-tcp://localhost:1883}
+  client_id: mqtt2prometheus-localai
+  # Optional: Authentifizierung
+  # user: ${SPS_MQTT_USER:-}
+  # password: ${SPS_MQTT_PASSWORD:-}
+
+cache:
+  timeout: 120s
+
+json_parsing:
+  separator: /
+
+# Metriken: MQTT-Topic → Prometheus-Metrik
+# Anpassen an eigene Topic-Struktur und SPS-Signale
+metrics:
+  - prom_name: sps_temperature_celsius
+    mqtt_name: sps/temperature
+    help: "SPS Temperatur in Celsius"
+    type: gauge
+    label_configs:
+      - mqtt_name: sps/+/temperature
+        prom_name: sps_temperature_celsius
+        labels:
+          device: "$2"
+
+  - prom_name: sps_pressure_bar
+    mqtt_name: sps/pressure
+    help: "SPS Druck in Bar"
+    type: gauge
+
+  - prom_name: sps_motor_rpm
+    mqtt_name: sps/motor/rpm
+    help: "Motor Drehzahl (U/min)"
+    type: gauge
+
+  - prom_name: sps_energy_kwh_total
+    mqtt_name: sps/energy/kwh
+    help: "Energieverbrauch kWh (kumuliert)"
+    type: counter
+
+  - prom_name: sps_digital_output
+    mqtt_name: sps/digital/+
+    help: "Digitaler Ausgang (0/1)"
+    type: gauge
+
+  - prom_name: sps_alarm_active
+    mqtt_name: sps/alarm/+
+    help: "Alarm aktiv (0/1)"
+    type: gauge
