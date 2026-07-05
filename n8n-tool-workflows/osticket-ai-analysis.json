@@ -1,0 +1,172 @@
+{
+  "name": "osTicket – KI Lösungsvorschlag",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Alle 10 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 10 }]
+        }
+      }
+    },
+    {
+      "id": "query-open-tickets",
+      "name": "Offene Tickets holen",
+      "type": "n8n-nodes-base.mysql",
+      "typeVersion": 2.4,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  t.id,\n  t.number,\n  t.created,\n  COALESCE(d.subject, '') AS subject,\n  SUBSTRING(te.body, 1, 3000) AS message\nFROM ost_ticket t\nJOIN ost_ticket__cdata d ON d.ticket_id = t.id\nJOIN ost_thread_entry te ON te.thread_id = t.thread_id\nWHERE\n  t.status_id = 1\n  AND t.created > NOW() - INTERVAL 24 HOUR\n  AND t.id NOT IN (\n    SELECT DISTINCT ticket_id\n    FROM ost_thread_entry\n    WHERE body LIKE '%[KI-Analyse]%'\n    AND type = 'N'\n  )\nORDER BY t.created DESC\nLIMIT 20",
+        "options": {}
+      },
+      "credentials": {
+        "mysql": { "id": "osticket-db", "name": "osTicket DB" }
+      }
+    },
+    {
+      "id": "loop-tickets",
+      "name": "Tickets iterieren",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "qdrant-search",
+      "name": "Ähnliche Lösungen suchen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/osticket_solutions/points/search",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"vector\": {{ JSON.stringify($json._embedding || []) }},\n  \"limit\": 3,\n  \"with_payload\": true,\n  \"score_threshold\": 0.75\n}",
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "embed-query",
+      "name": "Embedding erstellen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": {{ JSON.stringify(($json.subject + ' ' + $json.message).slice(0, 2000)) }}\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "build-llm-context",
+      "name": "LLM-Kontext bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "jsCode": "const ticket = $('Tickets iterieren').first().json;\nconst embedding = $('Embedding erstellen').first().json.embedding || [];\nconst similar = $('Ähnliche Lösungen suchen').first().json.result || [];\n\nlet context = '';\nif (similar.length > 0) {\n  context = '\\n\\nÄhnliche gelöste Tickets aus der Wissensdatenbank:\\n' +\n    similar.map((s, i) => {\n      const p = s.payload || {};\n      return `${i + 1}. Ticket #${p.number || '?'}: ${p.subject || ''}\\n   Lösung: ${(p.solution || '').slice(0, 300)}`;\n    }).join('\\n');\n}\n\nreturn [{\n  json: {\n    ticketId: ticket.id,\n    ticketNumber: ticket.number,\n    subject: ticket.subject,\n    message: ticket.message,\n    embedding: embedding,\n    prompt: `Ticket-Betreff: ${ticket.subject}\\n\\nTicket-Inhalt:\\n${ticket.message.slice(0, 2000)}${context}\\n\\nBitte erstelle einen präzisen Lösungsvorschlag auf Deutsch. Gib konkrete Schritte an, wenn möglich. Halte die Antwort unter 500 Wörtern.`\n  }\n}];"
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "name": "Ollama Analyse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Du bist ein IT-Support-Experte. Analysiere Support-Tickets und erstelle präzise Lösungsvorschläge auf Deutsch. Basiere deine Antwort auf den Ticket-Details und ähnlichen gelösten Tickets aus der Wissensdatenbank.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.prompt) }}\n    }\n  ]\n}",
+        "options": { "timeout": 90000 }
+      }
+    },
+    {
+      "id": "post-note",
+      "name": "Interne Notiz posten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://{{ $vars.OSTICKET_HOST }}/api/tickets/{{ $('LLM-Kontext bauen').first().json.ticketId }}.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-API-Key", "value": "={{ $vars.OSTICKET_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"message\": \"[KI-Analyse]\\n\\n{{ $('Ollama Analyse').first().json.message?.content || '(keine Analyse)' }}\\n\\n---\\nDieser Vorschlag wurde automatisch generiert.\",\n  \"internal\": 1\n}",
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "loop-back",
+      "name": "Nächstes Ticket",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Alle 10 Minuten": {
+      "main": [[{ "node": "Offene Tickets holen", "type": "main", "index": 0 }]]
+    },
+    "Offene Tickets holen": {
+      "main": [[{ "node": "Tickets iterieren", "type": "main", "index": 0 }]]
+    },
+    "Tickets iterieren": {
+      "main": [
+        [
+          { "node": "Embedding erstellen", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "Embedding erstellen": {
+      "main": [[{ "node": "Ähnliche Lösungen suchen", "type": "main", "index": 0 }]]
+    },
+    "Ähnliche Lösungen suchen": {
+      "main": [[{ "node": "LLM-Kontext bauen", "type": "main", "index": 0 }]]
+    },
+    "LLM-Kontext bauen": {
+      "main": [[{ "node": "Ollama Analyse", "type": "main", "index": 0 }]]
+    },
+    "Ollama Analyse": {
+      "main": [[{ "node": "Interne Notiz posten", "type": "main", "index": 0 }]]
+    },
+    "Interne Notiz posten": {
+      "main": [[{ "node": "Nächstes Ticket", "type": "main", "index": 0 }]]
+    },
+    "Nächstes Ticket": {
+      "main": [[{ "node": "Tickets iterieren", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Liest offene Tickets der letzten 24h direkt aus der osTicket-MySQL-DB. Pro Ticket: Embedding → Qdrant-Ähnlichkeitssuche → Ollama-Analyse → interne Notiz via osTicket-API. Tickets mit vorhandener KI-Notiz werden übersprungen. Benötigt: MySQL-Credential 'osTicket DB', n8n-Variablen OSTICKET_HOST + OSTICKET_API_KEY, Qdrant-Collection 'osticket_solutions'."
+  }
+}
