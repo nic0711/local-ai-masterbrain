@@ -1,0 +1,154 @@
+{
+  "name": "KB – Web Research indexieren",
+  "nodes": [
+    {
+      "id": "webhook-research",
+      "name": "Research-Ergebnis Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "kb-ingest-research",
+        "responseMode": "onReceived",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "webhookId": "kb-web-research"
+    },
+    {
+      "id": "validate",
+      "name": "Validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const headers = $input.first().json.headers || {};\nconst apiKey = headers['x-kb-api-key'] || '';\nif (!$vars.KB_INGEST_API_KEY || apiKey !== $vars.KB_INGEST_API_KEY) {\n  throw new Error('Unauthorized');\n}\n\nconst body = $input.first().json.body || {};\nconst title = (body.title || 'Research ohne Titel').slice(0, 256);\nconst content = (body.content || '').slice(0, 50000);\nconst sourceUrl = (body.source_url || '').slice(0, 512);\nconst tags = (body.tags || []).map(t => String(t).replace(/[^\\w-]/g, '').slice(0, 32)).slice(0, 10);\nconst docId = 'research_' + Date.now();\n\nif (!content) throw new Error('content fehlt');\n\nreturn [{ json: { docId, title, content, sourceUrl, tags } }];"
+      }
+    },
+    {
+      "id": "nlp-analyze",
+      "name": "NLP Analyse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/document/analyze",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ text: $json.content.slice(0, 10000), lang: 'de' }) }}",
+        "options": { "timeout": 60000 }
+      }
+    },
+    {
+      "id": "summarize",
+      "name": "Zusammenfassung (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 460],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Erstelle eine kompakte Zusammenfassung (max. 200 Wörter) des folgenden Textes auf Deutsch. Nur Fakten, keine Wertung.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Validieren').first().json.content.slice(0, 8000)) }}\n    }\n  ]\n}",
+        "options": { "timeout": 60000 }
+      }
+    },
+    {
+      "id": "create-embedding",
+      "name": "Embedding erstellen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": {{ JSON.stringify(($('Validieren').first().json.title + '\\n' + $('Validieren').first().json.content).slice(0, 4000)) }}\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "build-payload",
+      "name": "Payload bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "parameters": {
+        "jsCode": "const validated = $('Validieren').first().json;\nconst entities = $('NLP Analyse').first().json.entities || [];\nconst summary = $('Zusammenfassung (Ollama)').first().json.message?.content || '';\nconst embedding = $('Embedding erstellen').first().json.embedding || [];\n\nreturn [{\n  json: {\n    docId: validated.docId,\n    title: validated.title,\n    content: validated.content,\n    summary: summary.slice(0, 1000),\n    sourceUrl: validated.sourceUrl,\n    tags: validated.tags,\n    entities: entities,\n    embedding: embedding\n  }\n}];"
+      }
+    },
+    {
+      "id": "qdrant-upsert",
+      "name": "Qdrant upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 220],
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/knowledge_base/points",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({\n  points: [{\n    id: Math.abs($json.docId.split('').reduce((a, c) => (a << 5) - a + c.charCodeAt(0), 0)) % 2147483647,\n    vector: $json.embedding,\n    payload: {\n      doc_id: $json.docId,\n      title: $json.title,\n      summary: $json.summary,\n      source_url: $json.sourceUrl,\n      tags: $json.tags,\n      indexed_at: new Date().toISOString()\n    }\n  }]\n}) }}",
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "neo4j-index",
+      "name": "Neo4j indexieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/graph/index",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({\n  document_id: $json.docId,\n  document_type: 'web_research',\n  title: $json.title,\n  content: $json.summary || $json.content.slice(0, 3000),\n  entities: $json.entities,\n  metadata: {\n    source_url: $json.sourceUrl,\n    tags: $json.tags,\n    indexed_at: new Date().toISOString()\n  }\n}) }}",
+        "options": { "timeout": 30000 }
+      }
+    }
+  ],
+  "connections": {
+    "Research-Ergebnis Webhook": {
+      "main": [[{ "node": "Validieren", "type": "main", "index": 0 }]]
+    },
+    "Validieren": {
+      "main": [
+        [
+          { "node": "NLP Analyse", "type": "main", "index": 0 },
+          { "node": "Zusammenfassung (Ollama)", "type": "main", "index": 0 },
+          { "node": "Embedding erstellen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "NLP Analyse": {
+      "main": [[{ "node": "Payload bauen", "type": "main", "index": 0 }]]
+    },
+    "Zusammenfassung (Ollama)": {
+      "main": [[{ "node": "Payload bauen", "type": "main", "index": 0 }]]
+    },
+    "Embedding erstellen": {
+      "main": [[{ "node": "Payload bauen", "type": "main", "index": 0 }]]
+    },
+    "Payload bauen": {
+      "main": [
+        [
+          { "node": "Qdrant upsert", "type": "main", "index": 0 },
+          { "node": "Neo4j indexieren", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Nimmt Web-Research-Ergebnisse (z.B. aus Odysseus) via Webhook entgegen. Verarbeitung: Auth → NLP + Zusammenfassung + Embedding parallel → Qdrant + Neo4j. Webhook-URL für Odysseus: https://n8n.brain.local/webhook/kb-ingest-research. Benötigt: n8n-Variable KB_INGEST_API_KEY."
+  }
+}

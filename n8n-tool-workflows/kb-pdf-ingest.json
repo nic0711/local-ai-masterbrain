@@ -1,0 +1,189 @@
+{
+  "name": "KB – PDF/Dokument indexieren",
+  "nodes": [
+    {
+      "id": "webhook-upload",
+      "name": "Dokument-Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "kb-ingest-pdf",
+        "responseMode": "onReceived",
+        "httpMethod": "POST",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "kb-pdf-ingest"
+    },
+    {
+      "id": "validate-request",
+      "name": "Request validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// Auth: einfacher Header-Key-Check\nconst headers = $input.first().json.headers || {};\nconst apiKey = headers['x-kb-api-key'] || headers['x-kb-api-key'.toLowerCase()] || '';\nconst expectedKey = $vars.KB_INGEST_API_KEY || '';\n\nif (!expectedKey || apiKey !== expectedKey) {\n  throw new Error('Unauthorized: x-kb-api-key fehlt oder falsch');\n}\n\nconst body = $input.first().json.body || {};\nconst docId = (body.doc_id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);\nconst title = (body.title || 'Unbekanntes Dokument').slice(0, 256);\nconst source = (body.source || 'manual').slice(0, 64);\n// file_url: nur interne Hosts erlaubt (SSRF-Schutz)\nconst fileUrl = body.file_url || '';\nconst ALLOWED_HOSTS = ['python-nlp-service', 'minio', 'host.docker.internal'];\nif (fileUrl) {\n  const urlHost = new URL(fileUrl).hostname;\n  if (!ALLOWED_HOSTS.includes(urlHost)) {\n    throw new Error(`Ungültige file_url: Host '${urlHost}' nicht erlaubt`);\n  }\n}\n\nif (!docId) throw new Error('doc_id fehlt oder ungültig');\n\nreturn [{ json: { docId, title, source, fileUrl, text: (body.text || '').slice(0, 50000) } }];"
+      }
+    },
+    {
+      "id": "extract-pdf",
+      "name": "PDF extrahieren (falls URL)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "has-url",
+              "leftValue": "={{ $json.fileUrl }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "nlp-extract",
+      "name": "NLP PDF-Extraktion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/pdf/extract",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ url: $json.fileUrl }) }}",
+        "options": { "timeout": 120000 }
+      }
+    },
+    {
+      "id": "merge-text",
+      "name": "Text zusammenführen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "parameters": {
+        "jsCode": "// Entweder extrahierter PDF-Text oder direkt übermittelter Text\nlet text = '';\nlet meta = {};\ntry {\n  const extracted = $('NLP PDF-Extraktion').first().json;\n  text = (extracted.text || '').slice(0, 50000);\n  meta = extracted.metadata || {};\n} catch {\n  // Kein URL-Pfad → Text direkt aus Request\n  text = $('Request validieren').first().json.text || '';\n}\n\nconst req = $('Request validieren').first().json;\nreturn [{\n  json: {\n    docId: req.docId,\n    title: req.title,\n    source: req.source,\n    text: text,\n    metadata: meta\n  }\n}];"
+      }
+    },
+    {
+      "id": "nlp-analyze",
+      "name": "NLP Analyse (Entitäten)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/document/analyze",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ text: $json.text.slice(0, 10000), lang: 'de' }) }}",
+        "options": { "timeout": 60000 }
+      }
+    },
+    {
+      "id": "create-embedding",
+      "name": "Embedding erstellen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1500, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"nomic-embed-text\",\n  \"prompt\": {{ JSON.stringify(($('Text zusammenführen').first().json.title + '\\n' + $('Text zusammenführen').first().json.text).slice(0, 4000)) }}\n}",
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "index-parallel",
+      "name": "Parallel indexieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 300],
+      "parameters": {
+        "jsCode": "const merged = $('Text zusammenführen').first().json;\nconst entities = $('NLP Analyse (Entitäten)').first().json.entities || [];\nconst embedding = $('Embedding erstellen').first().json.embedding || [];\n\nreturn [{\n  json: {\n    docId: merged.docId,\n    title: merged.title,\n    source: merged.source,\n    text: merged.text,\n    entities: entities,\n    embedding: embedding\n  }\n}];"
+      }
+    },
+    {
+      "id": "qdrant-upsert",
+      "name": "Qdrant upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1900, 220],
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/knowledge_base/points",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({\n  points: [{\n    id: Math.abs($json.docId.split('').reduce((a, c) => (a << 5) - a + c.charCodeAt(0), 0)) % 2147483647,\n    vector: $json.embedding,\n    payload: {\n      doc_id: $json.docId,\n      title: $json.title,\n      source: $json.source,\n      text_preview: $json.text.slice(0, 500),\n      indexed_at: new Date().toISOString()\n    }\n  }]\n}) }}",
+        "options": { "timeout": 15000 }
+      }
+    },
+    {
+      "id": "neo4j-index",
+      "name": "Neo4j indexieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1900, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://python-nlp-service:5000/graph/index",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({\n  document_id: $json.docId,\n  document_type: $json.source,\n  title: $json.title,\n  content: $json.text.slice(0, 5000),\n  entities: $json.entities,\n  metadata: { source: $json.source, indexed_at: new Date().toISOString() }\n}) }}",
+        "options": { "timeout": 30000 }
+      }
+    }
+  ],
+  "connections": {
+    "Dokument-Upload Webhook": {
+      "main": [[{ "node": "Request validieren", "type": "main", "index": 0 }]]
+    },
+    "Request validieren": {
+      "main": [[{ "node": "PDF extrahieren (falls URL)", "type": "main", "index": 0 }]]
+    },
+    "PDF extrahieren (falls URL)": {
+      "main": [
+        [{ "node": "NLP PDF-Extraktion", "type": "main", "index": 0 }],
+        [{ "node": "Text zusammenführen", "type": "main", "index": 0 }]
+      ]
+    },
+    "NLP PDF-Extraktion": {
+      "main": [[{ "node": "Text zusammenführen", "type": "main", "index": 0 }]]
+    },
+    "Text zusammenführen": {
+      "main": [[{ "node": "NLP Analyse (Entitäten)", "type": "main", "index": 0 }]]
+    },
+    "NLP Analyse (Entitäten)": {
+      "main": [[{ "node": "Embedding erstellen", "type": "main", "index": 0 }]]
+    },
+    "Embedding erstellen": {
+      "main": [[{ "node": "Parallel indexieren", "type": "main", "index": 0 }]]
+    },
+    "Parallel indexieren": {
+      "main": [
+        [
+          { "node": "Qdrant upsert", "type": "main", "index": 0 },
+          { "node": "Neo4j indexieren", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Nimmt PDF/Dokumente via Webhook entgegen (direkt als Text oder per interner file_url). Verarbeitung: Validierung (Auth + SSRF-Schutz) → PDF-Extraktion → NLP-Analyse → Embedding → Qdrant + Neo4j parallel indexieren. Benötigt: n8n-Variable KB_INGEST_API_KEY, Qdrant-Collection 'knowledge_base'."
+  }
+}
