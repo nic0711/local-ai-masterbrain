@@ -128,6 +128,24 @@
         {"action": "stop", "service": "node-exporter"},
         {"action": "stop", "service": "prometheus"}
       ]
+    },
+    {
+      "id": "sps-start",
+      "label": "SPS-Monitoring starten",
+      "description": "MQTT + Modbus Exporter starten (Prometheus muss laufen)",
+      "actions": [
+        {"action": "start", "service": "mqtt2prometheus"},
+        {"action": "start", "service": "modbus-exporter"}
+      ]
+    },
+    {
+      "id": "sps-stop",
+      "label": "SPS-Monitoring stoppen",
+      "description": "MQTT + Modbus Exporter stoppen",
+      "actions": [
+        {"action": "stop", "service": "mqtt2prometheus"},
+        {"action": "stop", "service": "modbus-exporter"}
+      ]
     }
   ]
 }

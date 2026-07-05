@@ -1,0 +1,58 @@
+# modbus_exporter Konfiguration
+# Dokumentation: https://github.com/nmaarse/modbus_exporter
+
+# Beispiel: SPS-Anlage per Modbus TCP
+# Adresse, Port und Register an eigene Anlage anpassen
+
+modules:
+  plc_main:
+    protocol: tcp
+    address: "${SPS_MODBUS_HOST:-192.168.1.100}:${SPS_MODBUS_PORT:-502}"
+    timeout: 5s
+    unit_id: 1
+    registers:
+      # Holding Registers (FC3) – Analogwerte
+      - name: temperature_raw
+        address: 0x0001
+        register_type: holding
+        data_type: int16
+        factor: 0.1
+        help: "Temperatur (roher Wert × 0.1 = °C)"
+
+      - name: pressure_raw
+        address: 0x0002
+        register_type: holding
+        data_type: int16
+        factor: 0.01
+        help: "Druck (roher Wert × 0.01 = Bar)"
+
+      - name: motor_rpm
+        address: 0x0010
+        register_type: holding
+        data_type: uint16
+        help: "Motor Drehzahl (U/min)"
+
+      - name: energy_kwh
+        address: 0x0020
+        register_type: holding
+        data_type: uint32
+        help: "Energieverbrauch (kWh, kumuliert)"
+
+      # Coils (FC1) – Digitale Ausgänge
+      - name: motor_run
+        address: 0x0001
+        register_type: coil
+        data_type: bool
+        help: "Motor läuft (0/1)"
+
+      - name: alarm_active
+        address: 0x0002
+        register_type: coil
+        data_type: bool
+        help: "Alarm aktiv (0/1)"
+
+  # Weiteres Gerät (z.B. Frequenzumrichter)
+  # plc_secondary:
+  #   protocol: tcp
+  #   address: "192.168.1.101:502"
+  #   ...

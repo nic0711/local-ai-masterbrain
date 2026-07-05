@@ -643,6 +643,8 @@ _CONTROLLABLE = {
     'node-exporter':      'node-exporter',
     'cadvisor':           'cadvisor',
     'pushgateway':        'pushgateway',
+    'mqtt2prometheus':    'mqtt2prometheus',
+    'modbus-exporter':    'modbus-exporter',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
@@ -665,10 +667,12 @@ _OPTIONAL_COMPOSE_SERVICES = {
 
 # Services die per `profiles: [monitoring]` laufen.
 _MONITORING_COMPOSE_SERVICES = {
-    'prometheus':    'prometheus',
-    'node-exporter': 'node-exporter',
-    'cadvisor':      'cadvisor',
-    'pushgateway':   'pushgateway',
+    'prometheus':     'prometheus',
+    'node-exporter':  'node-exporter',
+    'cadvisor':       'cadvisor',
+    'pushgateway':    'pushgateway',
+    'mqtt2prometheus': 'mqtt2prometheus',
+    'modbus-exporter': 'modbus-exporter',
 }
 
 
