@@ -1,0 +1,60 @@
+{
+  "name": "Grafana Alerts → Teams",
+  "nodes": [
+    {
+      "id": "webhook-grafana",
+      "name": "Grafana Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "grafana-alert",
+        "responseMode": "onReceived",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "webhookId": "grafana-alert-incoming"
+    },
+    {
+      "id": "format-alert",
+      "name": "Alert formatieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\n// Grafana Unified Alerting Format\nconst alerts = body.alerts || [];\nconst status = body.status || 'unknown';\nconst title = body.title || 'Grafana Alert';\nconst message = body.message || '';\n\nlet color = status === 'firing' ? 'FF0000' : '00AA00';\nlet icon = status === 'firing' ? '🔴' : '✅';\n\nconst alertDetails = alerts.map(a => {\n  const labels = Object.entries(a.labels || {}).map(([k, v]) => `${k}=${v}`).join(', ');\n  const val = a.values ? Object.entries(a.values).map(([k, v]) => `${k}: ${v}`).join(', ') : '';\n  return `**${a.labels?.alertname || 'Alert'}** (${a.status})\\n${labels}${val ? '\\n' + val : ''}`;\n}).join('\\n\\n');\n\nreturn [{\n  json: {\n    type: 'message',\n    attachments: [{\n      contentType: 'application/vnd.microsoft.card.adaptive',\n      content: {\n        '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',\n        type: 'AdaptiveCard',\n        version: '1.4',\n        body: [\n          {\n            type: 'TextBlock',\n            text: `${icon} ${title}`,\n            weight: 'Bolder',\n            size: 'Medium',\n            color: status === 'firing' ? 'Attention' : 'Good'\n          },\n          {\n            type: 'TextBlock',\n            text: message || alertDetails || 'Keine Details verfügbar.',\n            wrap: true\n          },\n          {\n            type: 'TextBlock',\n            text: `Status: **${status.toUpperCase()}** · ${new Date().toLocaleString('de-DE')}`,\n            isSubtle: true,\n            size: 'Small'\n          }\n        ]\n      }\n    }]\n  }\n}];"
+      }
+    },
+    {
+      "id": "send-teams",
+      "name": "Teams Webhook senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.TEAMS_ALERT_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Grafana Alert Webhook": {
+      "main": [[{ "node": "Alert formatieren", "type": "main", "index": 0 }]]
+    },
+    "Alert formatieren": {
+      "main": [[{ "node": "Teams Webhook senden", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Empfängt Grafana Unified Alerting Webhooks und sendet formatierte Adaptive Cards an einen Teams-Kanal. Benötigt n8n-Variable TEAMS_ALERT_WEBHOOK_URL (Incoming Webhook URL des Teams-Kanals)."
+  }
+}

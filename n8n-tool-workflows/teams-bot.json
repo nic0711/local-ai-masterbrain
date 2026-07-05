@@ -1,0 +1,175 @@
+{
+  "name": "Teams Bot – LLM Antwort",
+  "nodes": [
+    {
+      "id": "webhook-teams",
+      "name": "Teams Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "teams-bot",
+        "responseMode": "lastNode",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "webhookId": "teams-bot-incoming"
+    },
+    {
+      "id": "validate-activity",
+      "name": "Activity prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "// Bot Framework Activity parsen\nconst body = $input.first().json.body;\n\n// Nur message-Aktivitäten verarbeiten\nif (body.type !== 'message' || !body.text) {\n  return [{ json: { skip: true } }];\n}\n\nconst text = body.text.trim();\n\n// Daten für spätere Nodes\nreturn [{\n  json: {\n    skip: false,\n    text: text,\n    serviceUrl: body.serviceUrl,\n    conversationId: body.conversation.id,\n    activityId: body.id,\n    fromId: body.from.id,\n    fromName: body.from.name,\n    channelId: body.channelId,\n    tenantId: body.channelData?.tenant?.id || ''\n  }\n}];"
+      }
+    },
+    {
+      "id": "skip-check",
+      "name": "Skip?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "skip-cond",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "get-bot-token",
+      "name": "Bot Token holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "={{ $vars.TEAMS_APP_ID }}" },
+            { "name": "client_secret", "value": "={{ $vars.TEAMS_APP_SECRET }}" },
+            { "name": "scope", "value": "https://api.botframework.com/.default" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "llm-request",
+      "name": "Ollama LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Du bist ein hilfreicher Team-Assistent. Antworte auf Deutsch, präzise und kurz.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($('Activity prüfen').first().json.text) }}\n    }\n  ]\n}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "build-reply",
+      "name": "Antwort bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "jsCode": "const activity = $('Activity prüfen').first().json;\nconst token = $('Bot Token holen').first().json.access_token;\nconst llmReply = $('Ollama LLM').first().json.message?.content || '(keine Antwort erhalten)';\n\nreturn [{\n  json: {\n    token: token,\n    replyUrl: `${activity.serviceUrl}v3/conversations/${encodeURIComponent(activity.conversationId)}/activities`,\n    replyBody: {\n      type: 'message',\n      text: llmReply,\n      replyToId: activity.activityId\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "send-reply",
+      "name": "Antwort senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.replyUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json.replyBody) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-202",
+      "name": "202 Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 300],
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Teams Webhook": {
+      "main": [[{ "node": "Activity prüfen", "type": "main", "index": 0 }]]
+    },
+    "Activity prüfen": {
+      "main": [[{ "node": "Skip?", "type": "main", "index": 0 }]]
+    },
+    "Skip?": {
+      "main": [
+        [
+          { "node": "Bot Token holen", "type": "main", "index": 0 },
+          { "node": "Ollama LLM", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "Bot Token holen": {
+      "main": [[{ "node": "Antwort bauen", "type": "main", "index": 0 }]]
+    },
+    "Ollama LLM": {
+      "main": [[{ "node": "Antwort bauen", "type": "main", "index": 0 }]]
+    },
+    "Antwort bauen": {
+      "main": [[{ "node": "Antwort senden", "type": "main", "index": 0 }]]
+    },
+    "Antwort senden": {
+      "main": [[{ "node": "202 Accepted", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Empfängt Teams-Nachrichten via Azure Bot Service und antwortet mit Ollama LLM. Benötigt n8n-Variablen TEAMS_APP_ID und TEAMS_APP_SECRET.",
+    "templateCredsSetupCompleted": false
+  }
+}
