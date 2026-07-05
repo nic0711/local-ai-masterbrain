@@ -126,6 +126,31 @@ Täglich um 08:00 prüft n8n alle offenen Tasks:
 
 ---
 
+## Sicherheitshinweise
+
+### Was der Workflow absichert
+
+| Schutz | Implementierung |
+|---|---|
+| SSRF-Schutz | `serviceUrl` wird gegen eine Allowlist bekannter Microsoft Bot Framework Domains geprüft – verhindert Token-Exfiltration an beliebige URLs |
+| Webhook-Auth | Bearer-Token-Format-Check im ersten Code-Knoten – blockt anonyme POST-Anfragen ohne Authorization-Header |
+| Prompt-Injection | Text auf 1000 Zeichen begrenzt; System-Prompt mit expliziter Anweisung, Rollenwechsel-Versuche zu ignorieren |
+
+### Bekannte Einschränkung: JWT-Signaturprüfung
+
+Der Workflow prüft nur das **Format** des Bot-Framework-JWT, nicht die **kryptografische Signatur**. Eine vollständige Verifikation erfordert:
+1. HTTP-Aufruf an `https://login.botframework.com/v1/.well-known/keys` (JWKS-Endpoint)
+2. Signaturprüfung mit dem passenden Public Key
+
+Für ein internes Team-Setup (keine öffentliche Exponierung) ist der Format-Check + serviceUrl-Allowlist ausreichend. Für internet-exponierte Endpunkte die vollständige JWT-Verifikation als zusätzlichen HTTP-Node implementieren.
+
+### Erreichbarkeit (Azure Bot Service → n8n)
+
+Azure Bot Service muss den n8n-Webhook-Endpunkt aus dem Internet erreichen. Optionen:
+- **Cloudflare Tunnel**: `cloudflared tunnel --url https://n8n.brain.local` → öffentliche URL in Azure Bot Service eintragen
+- **Reverse Proxy + öffentliche Domain**: Caddy auf dem Server mit Let's Encrypt + Port 443 öffentlich
+- **ngrok** (für Tests): `ngrok http https://n8n.brain.local`
+
 ## n8n Variables Übersicht
 
 | Variable | Wert | Verwendet in |
