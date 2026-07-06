@@ -1,4 +1,4 @@
-# Deutsch 🇩🇪
+# Deutsch 🇩🇪  [-> English version](#english)
 
 ## Self-hosted AI Masterbrain 🚀
 
