@@ -18,6 +18,16 @@
         { key: 'clickhouse',         label: 'Clickhouse' },
         { key: 'redis',              label: 'Redis (Valkey)' },
         { key: 'uptime-kuma',        label: 'UptimeBot' },
+        { key: 'odysseus',           label: 'Odysseus Workspace' },
+        { key: 'hermes-gateway',     label: 'Hermes Gateway' },
+        { key: 'hermes-dashboard',   label: 'Hermes Dashboard' },
+        { key: 'chromadb-odysseus',  label: 'ChromaDB (Odysseus)' },
+        { key: 'prometheus',         label: 'Prometheus' },
+        { key: 'node-exporter',      label: 'Node Exporter' },
+        { key: 'cadvisor',           label: 'cAdvisor' },
+        { key: 'pushgateway',        label: 'Pushgateway' },
+        { key: 'mqtt2prometheus',    label: 'MQTT→Prometheus' },
+        { key: 'modbus-exporter',    label: 'Modbus Exporter' },
     ];
 
     var _controlLoaded = false;

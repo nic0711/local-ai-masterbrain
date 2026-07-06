@@ -22,6 +22,9 @@
         'obsidian':   'obsidian',
         'uptimeKuma': 'uptime-kuma',
         'grafana':    'grafana',
+        'odysseus':         'odysseus',
+        'hermesGateway':    'hermes-gateway',
+        'prometheus':       'prometheus',
     };
 
     var LS_HISTORY = 'ai_health_history';

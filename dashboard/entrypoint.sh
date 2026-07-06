@@ -45,6 +45,8 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     CLICKHOUSE_URL=""
     UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
     GRAFANA_URL="${GRAFANA_HOSTNAME:+${PROTOCOL}://${GRAFANA_HOSTNAME}}"
+    ODYSSEUS_URL="${ODYSSEUS_HOSTNAME:+${PROTOCOL}://${ODYSSEUS_HOSTNAME}}"
+    HERMES_URL="${HERMES_HOSTNAME:+${PROTOCOL}://${HERMES_HOSTNAME}}"
 else
     # Private environment: Use local URLs
     N8N_URL="$N8N_LOCAL_URL"
@@ -64,6 +66,8 @@ else
     CLICKHOUSE_URL="$CLICKHOUSE_URL"
     UPTIME_KUMA_URL="http://localhost:3002"
     GRAFANA_URL="$GRAFANA_LOCAL_URL"
+    ODYSSEUS_URL=""
+    HERMES_URL=""
 fi
 
 # Cookie-Domain für alle Subdomains setzen (mit führendem Punkt)
@@ -93,6 +97,8 @@ window.APP_CONFIG = {
     clickhouseHostname: "${CLICKHOUSE_URL}",
     uptimeKumaHostname: "${UPTIME_KUMA_URL}",
     grafanaHostname: "${GRAFANA_URL}",
+    odysseusHostname: "${ODYSSEUS_URL}",
+    hermesHostname: "${HERMES_URL}",
 
     // Supabase specific config
     supabaseUrl: "${SUPABASE_FINAL_URL}",
