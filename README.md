@@ -1,4 +1,4 @@
-# Deutsch 🇩🇪  [-> English version](#english)
+# Deutsch 🇩🇪  [-> English 🇬🇧](#english)
 
 ## Self-hosted AI Masterbrain 🚀
 
@@ -68,27 +68,27 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 
 ### Was ist enthalten
 
-✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
-✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
-✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
-✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
-✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
-✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
-✅ [**Neu: Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
-✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
-✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
-✅ [**Qdrant**](https://qdrant.tech/) - Open Source, High Performance Vector Store mit einer umfassenden API. Obwohl Sie Supabase für RAG verwenden können, wurde dies beibehalten (im Gegensatz zu Postgres), da es schneller als Supabase ist und manchmal die bessere Option darstellt.
-✅ [**Neo4j**](https://neo4j.com/) - Knowledge Graph Engine, die Tools wie GraphRAG, LightRAG und Graphiti antreibt 
-✅ [**SearXNG**](https://searxng.org/) - Open Source, kostenloser Internet-Metasuchmotor, der Ergebnisse von bis zu 229 Suchdiensten aggregiert. Benutzer werden weder verfolgt noch profiliert, daher die Passform zum lokalen KI-Paket.
-✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
-✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
-✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama
-✅ **[Odysseus Workspace]** - Browser-basierter KI-Arbeitsplatz für Teams (Deep Research, Dokumente, MCP); integriert SearXNG + ChromaDB; erreichbar unter `workspace.brain.local`
-✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
-✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
-✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
-✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente per Webhook oder Odysseus-Forschung → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
-✅ [**Langfuse**](https://langfuse.com/) - Open Source LLM Engineering Plattform für Agent-Observability
+- ✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
+- ✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
+- ✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
+- ✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
+- ✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
+- ✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
+- ✅ [**Neu: Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
+- ✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
+- ✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
+- ✅ [**Qdrant**](https://qdrant.tech/) - Open Source, High Performance Vector Store mit einer umfassenden API. Obwohl Sie Supabase für RAG verwenden können, wurde dies beibehalten (im Gegensatz zu Postgres), da es schneller als Supabase ist und manchmal die bessere Option darstellt.
+- ✅ [**Neo4j**](https://neo4j.com/) - Knowledge Graph Engine, die Tools wie GraphRAG, LightRAG und Graphiti antreibt 
+- ✅ [**SearXNG**](https://searxng.org/) - Open Source, kostenloser Internet-Metasuchmotor, der Ergebnisse von bis zu 229 Suchdiensten aggregiert. Benutzer werden weder verfolgt noch profiliert, daher die Passform zum lokalen KI-Paket.
+- ✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
+- ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
+- ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama
+- ✅ **[Odysseus Workspace]** - Browser-basierter KI-Arbeitsplatz für Teams (Deep Research, Dokumente, MCP); integriert SearXNG + ChromaDB; erreichbar unter `workspace.brain.local`
+- ✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
+- ✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
+- ✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
+- ✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente per Webhook oder Odysseus-Forschung → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
+- ✅ [**Langfuse**](https://langfuse.com/) - Open Source LLM Engineering Plattform für Agent-Observability
 
 ---
 
@@ -460,7 +460,7 @@ Selektive Übernahme von 13 Upstream Commits. Unsere Ergänzungen (auth-gateway,
 📜 Lizenz: Apache 2.0 – siehe [LICENSE](LICENSE)
 
 ---
-
+<a id="english"></a>
 # English 🇬🇧
 
 ## Self-hosted AI Masterbrain 🚀
@@ -531,27 +531,27 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 
 ### What's Included
 
-✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400 integrations and advanced AI components
-✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + optional TOTP/2FA), protected by Caddy `forward_auth`
-✅ [**Supabase**](https://supabase.com/) - Open source database as a service - most widely used database for AI agents
-✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
-✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
-✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
-✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
-✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
-✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
-✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector store with comprehensive API. Even though you can use Supabase for RAG, this was kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
-✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
-✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
-✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
-✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
-✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama
-✅ **[Odysseus Workspace]** - Browser-based AI workspace for teams (Deep Research, Documents, MCP); integrates SearXNG + ChromaDB; accessible at `workspace.brain.local`
-✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
-✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
-✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
-✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents via webhook or Odysseus research → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
-✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
+- ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400 integrations and advanced AI components
+- ✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + optional TOTP/2FA), protected by Caddy `forward_auth`
+- ✅ [**Supabase**](https://supabase.com/) - Open source database as a service - most widely used database for AI agents
+- ✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
+- ✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
+- ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
+- ✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
+- ✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
+- ✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
+- ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector store with comprehensive API. Even though you can use Supabase for RAG, this was kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
+- ✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
+- ✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
+- ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
+- ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
+- ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama
+- ✅ **[Odysseus Workspace]** - Browser-based AI workspace for teams (Deep Research, Documents, MCP); integrates SearXNG + ChromaDB; accessible at `workspace.brain.local`
+- ✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
+- ✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
+- ✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
+- ✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents via webhook or Odysseus research → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
+- ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ---
 
