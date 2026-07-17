@@ -4,28 +4,13 @@
 // Speichert Verlauf und Ereignisse in localStorage für das Admin-Tab.
 
 (function () {
-    // Mapping: Link-Element-ID → Service-Name im /status-JSON
-    var SERVICE_MAP = {
-        'n8n':       'n8n',
-        'openWebui': 'open-webui',
-        'flowise':   'flowise',
-        'langfuse':  'langfuse',
-        'neo4j':     'neo4j',
-        'qdrant':    'qdrant',
-        'crawl4ai':  'crawl4ai',
-        'searxng':   'searxng',
-        'pythonNlp': 'python-nlp-service',
-        'ocr':       'ocr-service',
-        'tts':       'tts-service',
-        'supabase':  'supabase',
-        'minio':     'minio',
-        'obsidian':   'obsidian',
-        'uptimeKuma': 'uptime-kuma',
-        'grafana':    'grafana',
-        'odysseus':         'odysseus',
-        'hermesGateway':    'hermes-gateway',
-        'prometheus':       'prometheus',
-    };
+    // Mapping: Link-Element-ID → Service-Key, abgeleitet aus dem zentralen
+    // Service-Katalog (services.js). Nur Einträge mit linkId (= Karte auf
+    // dem Dienste-Tab) landen hier.
+    var SERVICE_MAP = {};
+    (window.SERVICE_CATALOG || []).forEach(function (svc) {
+        if (svc.linkId) SERVICE_MAP[svc.linkId] = svc.key;
+    });
 
     var LS_HISTORY = 'ai_health_history';
     var LS_EVENTS  = 'ai_health_events';
@@ -130,17 +115,8 @@
         var events  = loadEvents();
         var now     = Date.now();
 
-        // Iterate all known services (from SERVICE_MAP values)
-        var serviceNames = Object.keys(SERVICE_MAP).map(function (k) { return SERVICE_MAP[k]; });
-        // Deduplicate
-        var seen = {};
-        var unique = [];
-        for (var i = 0; i < serviceNames.length; i++) {
-            if (!seen[serviceNames[i]]) {
-                seen[serviceNames[i]] = true;
-                unique.push(serviceNames[i]);
-            }
-        }
+        // Iterate all known services aus dem zentralen Katalog (nicht nur die mit Karte)
+        var unique = (window.SERVICE_CATALOG || []).map(function (svc) { return svc.key; });
 
         for (var j = 0; j < unique.length; j++) {
             var name   = unique[j];
@@ -174,25 +150,43 @@
 
     // ── Fetch ────────────────────────────────────────────────────────────────
 
+    // Manche Services (z.B. hermes-gateway, redis, node-exporter) haben keinen
+    // HTTP-Health-Endpoint und werden daher nicht von /_status gepingt. Für
+    // diese liefert /_control/services/status (Docker-Container-Zustand) den
+    // Fallback-Status, damit trotzdem jeder steuerbare Service einen Status hat.
+    async function fetchDockerStatusFallback() {
+        try {
+            var res = await fetch(window.location.origin + '/_control/services/status', {
+                credentials: 'include',
+                signal: AbortSignal.timeout(5000),
+            });
+            if (!res.ok) return {};
+            return await res.json();
+        } catch (_) {
+            return {};
+        }
+    }
+
     async function fetchStatus() {
         try {
             var res = await fetch(window.location.origin + '/_status', {
                 credentials: 'include',
                 signal: AbortSignal.timeout(5000),
             });
-            if (!res.ok) {
-                markAllUnknown();
-                var recorded = recordHistory({});
-                if (typeof window.onHealthUpdate === 'function') {
-                    window.onHealthUpdate({}, recorded.history, recorded.events);
-                }
-                return;
-            }
-            var data = await res.json();
-            applyStatus(data);
-            var rec = recordHistory(data);
+            var pingData = res.ok ? await res.json() : {};
+
+            var dockerData = await fetchDockerStatusFallback();
+
+            // Ping-Status hat Vorrang (prüft echte HTTP-Erreichbarkeit),
+            // Docker-Status füllt Services ohne Health-Endpoint auf.
+            var merged = {};
+            Object.keys(dockerData).forEach(function (k) { merged[k] = dockerData[k]; });
+            Object.keys(pingData).forEach(function (k) { merged[k] = pingData[k]; });
+
+            applyStatus(merged);
+            var rec = recordHistory(merged);
             if (typeof window.onHealthUpdate === 'function') {
-                window.onHealthUpdate(data, rec.history, rec.events);
+                window.onHealthUpdate(merged, rec.history, rec.events);
             }
         } catch (_) {
             markAllUnknown();

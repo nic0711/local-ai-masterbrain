@@ -2,33 +2,13 @@
 // Handles: service start/stop/restart (Docker-based status), log viewing, macros.
 
 (function () {
-    // Services that can be controlled (must match _CONTROLLABLE in app.py)
-    var CONTROLLABLE_SERVICES = [
-        { key: 'n8n',                label: 'n8n' },
-        { key: 'open-webui',         label: 'Open WebUI' },
-        { key: 'flowise',            label: 'Flowise' },
-        { key: 'neo4j',              label: 'Neo4j' },
-        { key: 'qdrant',             label: 'Qdrant' },
-        { key: 'crawl4ai',           label: 'Crawl4AI' },
-        { key: 'searxng',            label: 'SearXNG' },
-        { key: 'python-nlp-service', label: 'Python NLP' },
-        { key: 'langfuse-web',       label: 'Langfuse Web' },
-        { key: 'langfuse-worker',    label: 'Langfuse Worker' },
-        { key: 'minio',              label: 'MinIO' },
-        { key: 'clickhouse',         label: 'Clickhouse' },
-        { key: 'redis',              label: 'Redis (Valkey)' },
-        { key: 'uptime-kuma',        label: 'UptimeBot' },
-        { key: 'odysseus',           label: 'Odysseus Workspace' },
-        { key: 'hermes-gateway',     label: 'Hermes Gateway' },
-        { key: 'hermes-dashboard',   label: 'Hermes Dashboard' },
-        { key: 'chromadb-odysseus',  label: 'ChromaDB (Odysseus)' },
-        { key: 'prometheus',         label: 'Prometheus' },
-        { key: 'node-exporter',      label: 'Node Exporter' },
-        { key: 'cadvisor',           label: 'cAdvisor' },
-        { key: 'pushgateway',        label: 'Pushgateway' },
-        { key: 'mqtt2prometheus',    label: 'MQTT→Prometheus' },
-        { key: 'modbus-exporter',    label: 'Modbus Exporter' },
-    ];
+    // Services that can be controlled (muss zu _CONTROLLABLE in app.py passen),
+    // abgeleitet aus dem zentralen Service-Katalog (services.js).
+    var CONTROLLABLE_SERVICES = (window.SERVICE_CATALOG || []).filter(function (svc) {
+        return svc.controllable;
+    }).map(function (svc) {
+        return { key: svc.key, label: svc.label };
+    });
 
     var _controlLoaded = false;
 

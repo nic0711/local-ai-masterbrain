@@ -118,7 +118,7 @@ Drei Rollen, gesteuert über `.env`:
 ```bash
 SUPERADMIN_EMAILS=owner@example.com           # Vollzugriff – auch User-Mgmt, Restore, Archiv
 ADMIN_EMAILS=team1@example.com,team2@example.com  # Operativ – Service-Start/Stop, Backup, Macros
-# alle anderen Supabase-User = "User" – nutzen Services (n8n, WebUI, Odysseus, …), keine Control-Endpoints
+# alle anderen Supabase-User = "User" – nutzen Services (n8n, WebUI, Hermes, …), keine Control-Endpoints
 ```
 
 In `docker-compose.yml` werden beide Variablen automatisch an auth-gateway übergeben.
@@ -129,7 +129,7 @@ In `docker-compose.yml` werden beide Variablen automatisch an auth-gateway über
 
 | Endpoint | Superadmin | Admin | User |
 |---|---|---|---|
-| Alle Services nutzen (n8n, WebUI, Odysseus, …) | ✅ | ✅ | ✅ |
+| Alle Services nutzen (n8n, WebUI, Hermes, …) | ✅ | ✅ | ✅ |
 | Service start/stop/restart | ✅ | ✅ | ✗ |
 | Macros ausführen | ✅ | ✅ | ✗ |
 | Backup erstellen, Status, Liste | ✅ | ✅ | ✗ |
