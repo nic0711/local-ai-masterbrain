@@ -1,4 +1,4 @@
-# Deutsch 🇩🇪  [-> English version](#english)
+# Deutsch 🇩🇪  [-> English 🇬🇧](#english)
 
 ## Self-hosted AI Masterbrain 🚀
 
@@ -51,6 +51,8 @@ Hermes läuft komplett auf dem lokalen Ollama-Modell und antwortet ohne Umweg ü
 
 **WICHTIG**: Supabase hat einige Umgebungsvariablen aktualisiert, sodass Sie möglicherweise neue Standardwerte für Ihre `.env` hinzufügen müssen (wie in meiner ` .env.example`, falls Sie dieses Projekt bereits betreiben und nur neue Änderungen ziehen). Insbesondere müssen Sie `"POOLER_DB_POOL_SIZE=5"` zu Ihrer `.env` hinzufügen. Dies ist erforderlich, wenn Sie das Paket vor dem 14. Juni laufen hatten.
 
+**WICHTIG**: `AUTOSTART_HERMES=true` ist Standard, aber Hermes verweigert den Bind auf `0.0.0.0`, solange kein Auth-Provider konfiguriert ist. Setzen Sie in Ihrer `.env` zwingend `HERMES_DASHBOARD_PASSWORD` (`openssl rand -hex 16`) und `HERMES_DASHBOARD_AUTH_SECRET` (`openssl rand -hex 32`) – ohne diese beiden Werte bleibt `hermes-dashboard` trotz Autostart unerreichbar. Details: [`docs/21_hermes_agent.md`](docs/21_hermes_agent.md).
+
 ## Wichtige Links
 
 - [Original Local AI Starter Kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) vom n8n-Team
@@ -70,7 +72,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 ✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
 ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama, startet standardmäßig automatisch mit dem Stack
 ✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
-✅ [**Neu: Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
+✅ [**Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
 ✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
 ✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
 ✅ [**Qdrant**](https://qdrant.tech/) - Open Source, High Performance Vector Store mit einer umfassenden API. Obwohl Sie Supabase für RAG verwenden können, wurde dies beibehalten (im Gegensatz zu Postgres), da es schneller als Supabase ist und manchmal die bessere Option darstellt.
@@ -78,6 +80,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 ✅ [**SearXNG**](https://searxng.org/) - Open Source, kostenloser Internet-Metasuchmotor, der Ergebnisse von bis zu 229 Suchdiensten aggregiert. Benutzer werden weder verfolgt noch profiliert, daher die Passform zum lokalen KI-Paket.
 ✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
 ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
+✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) – Self-hosted Uptime-Monitoring mit Status-Page (`status.brain.local`), Benachrichtigungen und Maintenance-Windows; eine der wenigen Ausnahmen ohne Caddy `forward_auth`
 ✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
 ✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
 ✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
@@ -148,6 +151,9 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Backup & Recovery        | [08_backup_and_recovery.md](docs/08_backup_and_recovery.md) |
 | FAQ & Tipps              | [09_faq.md](docs/09_faq.md) |
 | Python NLP/Dokumentenservice | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
+| Obsidian-Integration     | [11_obsidian_integration.md](docs/11_obsidian_integration.md) |
+| Monitoring (Uptime Kuma) | [12_monitoring.md](docs/12_monitoring.md) |
+| GraphRAG (Neo4j Knowledge Graph) | [13_graphrag.md](docs/13_graphrag.md) |
 | Links & Ressourcen       | [tips_links.md](docs/tips_links.md) |
 | OCR Service              | [14_ocr_service.md](docs/14_ocr_service.md) |
 | API Referenz             | [15_api_reference.md](docs/15_api_reference.md) |
@@ -166,6 +172,17 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 ---
 
 ## 📋 Changelog
+
+### 2026-07 – Fokus auf Hermes Agent: Odysseus entfernt, Dashboard aufgeräumt
+
+| Was | Details |
+|-----|---------|
+| **Odysseus entfernt** | AI-Workspace vollständig entfernt (Git-Submodul, Compose-Services, Caddy-Route, Dashboard-Karte, `docs/22_odysseus_workspace.md`) – Fokus liegt jetzt klar auf Hermes Agent |
+| **Hermes aufgewertet** | Eigenes Logo statt generischem Python-Icon, prominentere Dashboard-Position, `HERMES_HOSTNAME`-Env-Bug im `dashboard`-Service behoben |
+| **Hermes-Dashboard-Bugfix** | Container band nicht an `0.0.0.0` mangels Auth-Provider → `HERMES_DASHBOARD_USER/PASSWORD/AUTH_SECRET` als Pflichtfelder ergänzt (siehe Hinweis oben) |
+| **Zentraler Service-Katalog** | `dashboard/services.js` ersetzt drei divergierte Service-Listen (`health.js`/`admin.js`/`control.js`) – behebt, dass Hermes im Admin-Systemstatus fehlte |
+| **Admin-Tab restrukturiert** | 4 logische Abschnitte: Systemstatus & Steuerung, Sicherung, Protokolle & Diagnose, Benutzerverwaltung |
+| **Supabase-Submodul repariert** | Fehlender `.gitmodules`-Eintrag ergänzt, `.git/modules/supabase` via `git submodule absorbgitdirs` initialisiert, Gitlink-Pointer aktualisiert |
 
 ### 2026-07 – Teamserver: Hermes Agent, Monitoring, Teams, osTicket, Wissensdatenbank
 
@@ -452,7 +469,7 @@ Selektive Übernahme von 13 Upstream Commits. Unsere Ergänzungen (auth-gateway,
 📜 Lizenz: Apache 2.0 – siehe [LICENSE](LICENSE)
 
 ---
-
+<a id="english"></a>
 # English 🇬🇧
 
 ## Self-hosted AI Masterbrain 🚀
@@ -506,6 +523,8 @@ Hermes runs entirely on the local Ollama model and answers without a separate we
 
 **IMPORTANT**: Supabase has updated several environment variables so you may have to add some new default values in your `.env` that I have in my `.env.example` if you already had this project running and are just pulling new changes. Specifically, you need to add `"POOLER_DB_POOL_SIZE=5"` to your `.env`. This is required if you had the package running before June 14th.
 
+**IMPORTANT**: `AUTOSTART_HERMES=true` is the default, but Hermes refuses to bind to `0.0.0.0` until an auth provider is configured. You must set `HERMES_DASHBOARD_PASSWORD` (`openssl rand -hex 16`) and `HERMES_DASHBOARD_AUTH_SECRET` (`openssl rand -hex 32`) in your `.env` – without these two values, `hermes-dashboard` stays unreachable despite autostart. Details: [`docs/21_hermes_agent.md`](docs/21_hermes_agent.md).
+
 ## Important Links
 
 - [Original Local AI Starter Kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) by the n8n team
@@ -525,7 +544,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 ✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
 ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama, starts automatically with the stack by default
 ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
-✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
+✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
 ✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
 ✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
 ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector store with comprehensive API. Even though you can use Supabase for RAG, this was kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
@@ -533,6 +552,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 ✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
 ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
 ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
+✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) - Self-hosted uptime monitoring with status page (`status.brain.local`), notifications and maintenance windows; one of the few exceptions without Caddy `forward_auth`
 ✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
 ✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
 ✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
@@ -603,6 +623,9 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | Backup & recovery        | [08_backup_and_recovery.md](docs/08_backup_and_recovery.md) |
 | FAQ & tips               | [09_faq.md](docs/09_faq.md) |
 | Python NLP/Document Service | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
+| Obsidian Integration     | [11_obsidian_integration.md](docs/11_obsidian_integration.md) |
+| Monitoring (Uptime Kuma) | [12_monitoring.md](docs/12_monitoring.md) |
+| GraphRAG (Neo4j Knowledge Graph) | [13_graphrag.md](docs/13_graphrag.md) |
 | Links & resources        | [tips_links.md](docs/tips_links.md) |
 | OCR Service              | [14_ocr_service.md](docs/14_ocr_service.md) |
 | API Reference            | [15_api_reference.md](docs/15_api_reference.md) |
@@ -621,6 +644,17 @@ python3 start_services.py         # Default: Ollama runs natively on host
 ---
 
 ## 📋 Changelog
+
+### 2026-07 – Focus on Hermes Agent: Odysseus Removed, Dashboard Cleanup
+
+| What | Details |
+|-----|---------|
+| **Odysseus removed** | AI workspace fully removed (Git submodule, Compose services, Caddy route, dashboard card, `docs/22_odysseus_workspace.md`) – focus is now clearly on Hermes Agent |
+| **Hermes upgraded** | Own logo instead of generic Python icon, more prominent dashboard position, `HERMES_HOSTNAME` env bug fixed in the `dashboard` service |
+| **Hermes dashboard bugfix** | Container refused to bind to `0.0.0.0` without an auth provider → `HERMES_DASHBOARD_USER/PASSWORD/AUTH_SECRET` added as required fields (see note above) |
+| **Central service catalog** | `dashboard/services.js` replaces three diverged service lists (`health.js`/`admin.js`/`control.js`) – fixes Hermes missing from the admin system status |
+| **Admin tab restructured** | 4 logical sections: System Status & Control, Backup, Logs & Diagnostics, User Management |
+| **Supabase submodule fixed** | Missing `.gitmodules` entry added, `.git/modules/supabase` initialized via `git submodule absorbgitdirs`, gitlink pointer updated |
 
 ### 2026-07 – Team Server: Hermes Agent, Monitoring, Teams, osTicket, Knowledge Base
 

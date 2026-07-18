@@ -57,7 +57,16 @@ docker compose stop hermes-dashboard hermes-gateway
 HERMES_HOSTNAME=agent.brain.local
 HERMES_UID=1000          # id -u
 HERMES_GID=1000          # id -g
+
+# Basic-Auth für hermes-dashboard – ohne eigenen Auth-Provider verweigert Hermes
+# den Bind auf 0.0.0.0 (Sicherheitscheck). Caddy forward_auth bleibt die eigentliche
+# Zugriffskontrolle, dieser Layer erfüllt nur Hermes' interne Vorbedingung.
+HERMES_DASHBOARD_USER=admin
+HERMES_DASHBOARD_PASSWORD=       # openssl rand -hex 16
+HERMES_DASHBOARD_AUTH_SECRET=    # openssl rand -hex 32
 ```
+
+Ohne gesetztes `HERMES_DASHBOARD_PASSWORD` registriert Hermes keinen Auth-Provider und der `hermes-dashboard`-Container bleibt trotz `AUTOSTART_HERMES=true` unerreichbar (`docker logs hermes-dashboard` zeigt dann „Refusing to bind dashboard to 0.0.0.0"). Login erfolgt unter `https://agent.brain.local/login` mit `HERMES_DASHBOARD_USER`/`HERMES_DASHBOARD_PASSWORD` – unabhängig vom eigentlichen Masterbrain-Login (Caddy `forward_auth`/Supabase), das man ohnehin schon passiert haben muss, um `agent.brain.local` zu erreichen.
 
 ### `/etc/hosts` (lokal)
 
