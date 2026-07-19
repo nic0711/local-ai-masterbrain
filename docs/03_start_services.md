@@ -138,11 +138,11 @@ docker exec auth-gateway pip list --outdated
 
 Bestimmte ressourcenintensive Services starten **nicht automatisch** (`profiles: [optional]` oder `profiles: [monitoring]`):
 
-**optional:** `neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard` · `odysseus` · `chromadb-odysseus`
+**optional:** `neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard`
 
 **monitoring:** `prometheus` · `node-exporter` · `cadvisor` · `pushgateway` · `mqtt2prometheus` · `modbus-exporter`
 
-Autostart für Odysseus und Hermes: `AUTOSTART_ODYSSEUS=true` / `AUTOSTART_HERMES=true` in `.env`.
+Autostart für Hermes: `AUTOSTART_HERMES=true` in `.env` (Standard: aktiviert).
 
 `start_services.py` übergibt beim **Down** automatisch `--profile optional`, damit diese Services beim Neustart ebenfalls sauber gestoppt werden.
 

@@ -637,8 +637,6 @@ _CONTROLLABLE = {
     'uptime-kuma':        'uptime-kuma',
     'hermes-gateway':     'hermes-gateway',
     'hermes-dashboard':   'hermes-dashboard',
-    'odysseus':           'odysseus',
-    'chromadb-odysseus':  'chromadb-odysseus',
     'prometheus':         'prometheus',
     'node-exporter':      'node-exporter',
     'cadvisor':           'cadvisor',
@@ -661,8 +659,6 @@ _OPTIONAL_COMPOSE_SERVICES = {
     'crawl4ai':          'crawl4ai',
     'hermes-gateway':    'hermes-gateway',
     'hermes-dashboard':  'hermes-dashboard',
-    'odysseus':          'odysseus',
-    'chromadb-odysseus': 'chromadb-odysseus',
 }
 
 # Services die per `profiles: [monitoring]` laufen.

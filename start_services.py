@@ -280,12 +280,10 @@ def start_local_ai(profile=None, environment=None, compose_env=None, env_vars=No
 
     run_command(cmd, env=compose_env)
 
-    # Autostart optionale Services (AUTOSTART_HERMES / AUTOSTART_ODYSSEUS in .env)
+    # Autostart optionale Services (AUTOSTART_HERMES in .env)
     autostart = []
     if env_vars and env_vars.get("AUTOSTART_HERMES", "false").lower() == "true":
         autostart.extend(["hermes-gateway", "hermes-dashboard"])
-    if env_vars and env_vars.get("AUTOSTART_ODYSSEUS", "false").lower() == "true":
-        autostart.extend(["chromadb-odysseus", "odysseus"])
 
     if autostart:
         print(f"Autostart: starte optionale Services: {', '.join(autostart)}")

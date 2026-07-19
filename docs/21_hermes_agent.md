@@ -45,6 +45,10 @@ docker compose --profile optional up -d hermes-gateway hermes-dashboard
 docker compose stop hermes-dashboard hermes-gateway
 ```
 
+### Autostart
+
+`AUTOSTART_HERMES=true` (Standard in `.env.example`) startet `hermes-gateway` und `hermes-dashboard` automatisch mit dem Stack (`start_services.py`). Auf `false` setzen, um Hermes weiterhin manuell/über das Dashboard-Macro zu starten.
+
 ## Konfiguration
 
 ### `.env` – Pflichtfelder
@@ -53,7 +57,16 @@ docker compose stop hermes-dashboard hermes-gateway
 HERMES_HOSTNAME=agent.brain.local
 HERMES_UID=1000          # id -u
 HERMES_GID=1000          # id -g
+
+# Basic-Auth für hermes-dashboard – ohne eigenen Auth-Provider verweigert Hermes
+# den Bind auf 0.0.0.0 (Sicherheitscheck). Caddy forward_auth bleibt die eigentliche
+# Zugriffskontrolle, dieser Layer erfüllt nur Hermes' interne Vorbedingung.
+HERMES_DASHBOARD_USER=admin
+HERMES_DASHBOARD_PASSWORD=       # openssl rand -hex 16
+HERMES_DASHBOARD_AUTH_SECRET=    # openssl rand -hex 32
 ```
+
+Ohne gesetztes `HERMES_DASHBOARD_PASSWORD` registriert Hermes keinen Auth-Provider und der `hermes-dashboard`-Container bleibt trotz `AUTOSTART_HERMES=true` unerreichbar (`docker logs hermes-dashboard` zeigt dann „Refusing to bind dashboard to 0.0.0.0"). Login erfolgt unter `https://agent.brain.local/login` mit `HERMES_DASHBOARD_USER`/`HERMES_DASHBOARD_PASSWORD` – unabhängig vom eigentlichen Masterbrain-Login (Caddy `forward_auth`/Supabase), das man ohnehin schon passiert haben muss, um `agent.brain.local` zu erreichen.
 
 ### `/etc/hosts` (lokal)
 
@@ -124,6 +137,19 @@ Den Tunnel-URL als Messaging Endpoint im Azure Bot Service eintragen.
 ## Web-Dashboard ohne Teams
 
 Das Web-Dashboard auf `https://agent.brain.local` funktioniert auch ohne Teams-Konfiguration. Leere `TEAMS_*`-Variablen deaktivieren den Teams-Gateway automatisch.
+
+## Erreichbarkeit anderer Stack-Services
+
+`hermes-gateway` läuft im selben Docker-Compose-Default-Netzwerk wie alle anderen Stack-Services und kann sie direkt über den Container-Namen erreichen, z. B.:
+
+```
+http://n8n:5678
+http://qdrant:6333
+http://neo4j:7474
+http://searxng:8080
+```
+
+Für eine echte Tool-Anbindung (z. B. Hermes soll Qdrant/Neo4j abfragen oder Ergebnisse über den n8n-Webhook `kb-ingest-research` in die Wissensdatenbank schreiben, siehe [`docs/27_knowledge_base.md`](27_knowledge_base.md)) reicht Netzwerk-Erreichbarkeit allein nicht aus – Hermes bräuchte dafür einen MCP-Server, der diese Endpunkte als Tools bereitstellt (`mcp_servers:` in `hermes-config/cli-config.yaml`, siehe `hermes-agent/cli-config.yaml.example`). Ein solcher MCP-Server existiert im Stack aktuell nicht und ist bewusst nicht Teil dieser Integration – möglicher Folgeschritt.
 
 ## Submodul aktualisieren
 

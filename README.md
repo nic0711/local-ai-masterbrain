@@ -33,28 +33,25 @@ Der Support-Mitarbeiter findet bereits beim Öffnen des Tickets einen konkreten 
 
 ---
 
-### Beispiel 2 – Deep Research landet in der Wissensdatenbank
+### Beispiel 2 – Hermes Agent beantwortet Team-Anfragen direkt in Teams
 
-Ein Teammitglied recherchiert auf **workspace.brain.local** (Odysseus) das Thema *„Kubernetes Netzwerkmodell"* und löst einen Deep-Research-Job aus.
+Ein Teammitglied erwähnt **@Hermes** in einem Microsoft-Teams-Kanal: *„Fasse die aktuellen Neuerungen im Kubernetes-Netzwerkmodell zusammen."*
 
 ```
-Odysseus (workspace.brain.local)
-  → SearXNG (search.brain.local): Web-Suche (kein Tracking)
-  → Crawl4AI (crawl.brain.local): Relevante Seiten vollständig scrapen
-  → Ollama (lokal): Inhalte zusammenfassen + strukturieren
-  → n8n Webhook (kb-ingest-research):
-      Research-Ergebnis + Quell-URL übergeben
-        → Ollama: Embedding (nomic-embed-text)
-        → python-nlp-service: NER-Entitäten extrahieren
-        → Qdrant (knowledge_base): Vektorindex upsert
-        → Neo4j: Wissensgraph-Eintrag mit Entitäten anlegen
+Microsoft Teams (@Hermes erwähnt)
+  → hermes-gateway (Teams-Gateway, Azure Bot Service)
+  → Ollama (host.docker.internal:11434, qwen2.5:7b)
+  → Web-Tool (web_search / web_extract): recherchiert externe Quellen
+  → Antwort direkt im Teams-Thread
 ```
 
-Beim nächsten Ticket zu Kubernetes findet der osTicket-Workflow dieses Research-Ergebnis in Qdrant und zieht es als Kontext in den Lösungsvorschlag ein. Das Team baut so eine selbstverstärkende Wissensbasis auf – vollständig lokal, ohne Cloud-Abhängigkeit.
+Hermes läuft komplett auf dem lokalen Ollama-Modell und antwortet ohne Umweg über einen separaten Web-Client. Für die dauerhafte Ablage von Rechercheergebnissen in die zentrale Wissensdatenbank (Qdrant + Neo4j) sind weiterhin die dedizierten n8n-KB-Workflows zuständig, siehe [`docs/27_knowledge_base.md`](docs/27_knowledge_base.md).
 
 ---
 
 **WICHTIG**: Supabase hat einige Umgebungsvariablen aktualisiert, sodass Sie möglicherweise neue Standardwerte für Ihre `.env` hinzufügen müssen (wie in meiner ` .env.example`, falls Sie dieses Projekt bereits betreiben und nur neue Änderungen ziehen). Insbesondere müssen Sie `"POOLER_DB_POOL_SIZE=5"` zu Ihrer `.env` hinzufügen. Dies ist erforderlich, wenn Sie das Paket vor dem 14. Juni laufen hatten.
+
+**WICHTIG**: `AUTOSTART_HERMES=true` ist Standard, aber Hermes verweigert den Bind auf `0.0.0.0`, solange kein Auth-Provider konfiguriert ist. Setzen Sie in Ihrer `.env` zwingend `HERMES_DASHBOARD_PASSWORD` (`openssl rand -hex 16`) und `HERMES_DASHBOARD_AUTH_SECRET` (`openssl rand -hex 32`) – ohne diese beiden Werte bleibt `hermes-dashboard` trotz Autostart unerreichbar. Details: [`docs/21_hermes_agent.md`](docs/21_hermes_agent.md).
 
 ## Wichtige Links
 
@@ -68,33 +65,34 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 
 ### Was ist enthalten
 
-- ✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
-- ✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
-- ✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
-- ✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
-- ✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
-- ✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
-- ✅ [**Neu: Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
-- ✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
-- ✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
-- ✅ [**Qdrant**](https://qdrant.tech/) - Open Source, High Performance Vector Store mit einer umfassenden API. Obwohl Sie Supabase für RAG verwenden können, wurde dies beibehalten (im Gegensatz zu Postgres), da es schneller als Supabase ist und manchmal die bessere Option darstellt.
-- ✅ [**Neo4j**](https://neo4j.com/) - Knowledge Graph Engine, die Tools wie GraphRAG, LightRAG und Graphiti antreibt 
-- ✅ [**SearXNG**](https://searxng.org/) - Open Source, kostenloser Internet-Metasuchmotor, der Ergebnisse von bis zu 229 Suchdiensten aggregiert. Benutzer werden weder verfolgt noch profiliert, daher die Passform zum lokalen KI-Paket.
-- ✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
-- ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
-- ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama
-- ✅ **[Odysseus Workspace]** - Browser-basierter KI-Arbeitsplatz für Teams (Deep Research, Dokumente, MCP); integriert SearXNG + ChromaDB; erreichbar unter `workspace.brain.local`
-- ✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
-- ✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
-- ✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
-- ✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente per Webhook oder Odysseus-Forschung → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
-- ✅ [**Langfuse**](https://langfuse.com/) - Open Source LLM Engineering Plattform für Agent-Observability
+✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
+✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
+✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
+✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
+✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
+✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama, startet standardmäßig automatisch mit dem Stack
+✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
+✅ [**Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
+✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
+✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
+✅ [**Qdrant**](https://qdrant.tech/) - Open Source, High Performance Vector Store mit einer umfassenden API. Obwohl Sie Supabase für RAG verwenden können, wurde dies beibehalten (im Gegensatz zu Postgres), da es schneller als Supabase ist und manchmal die bessere Option darstellt.
+✅ [**Neo4j**](https://neo4j.com/) - Knowledge Graph Engine, die Tools wie GraphRAG, LightRAG und Graphiti antreibt 
+✅ [**SearXNG**](https://searxng.org/) - Open Source, kostenloser Internet-Metasuchmotor, der Ergebnisse von bis zu 229 Suchdiensten aggregiert. Benutzer werden weder verfolgt noch profiliert, daher die Passform zum lokalen KI-Paket.
+✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
+✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
+✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) – Self-hosted Uptime-Monitoring mit Status-Page (`status.brain.local`), Benachrichtigungen und Maintenance-Windows; eine der wenigen Ausnahmen ohne Caddy `forward_auth`
+✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
+✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
+✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
+✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente oder Web-Research per Webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
+✅ [**Langfuse**](https://langfuse.com/) - Open Source LLM Engineering Plattform für Agent-Observability
 
 ---
 
 ## 🌟 Features
 
 - ✅ Lokaler oder servergehosteter Ollama und/oder öffentliche LLMs
+- ✅ Hermes Agent: autonomer KI-Agent mit Teams-Gateway, Web-Dashboard, Autostart mit dem Stack, steuerbar per Dashboard-Macro
 - ✅ JWT-Authentifizierung via Caddy `forward_auth` – alle Services geschützt
 - ✅ TOTP/2FA über Supabase GoTrue (kein extra Container)
 - ✅ Supabase mit Vector Store & Authentifizierung
@@ -103,12 +101,10 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ Grafana Monitoring mit Caddy-Routing + Auth-Proxy-Header
 - ✅ On-Demand Service Control: Dashboard Admin-Tab, REST API, n8n Toolcall
 - ✅ Ollama standardmäßig nativ auf dem Host – kein Ollama Container beim normalen Start
-- ✅ Hermes Agent: autonomer KI-Agent mit Teams-Gateway, Web-Dashboard, steuerbar per Dashboard-Macro
-- ✅ Odysseus Workspace: Browser-KI-Arbeitsplatz für Teams, Deep Research, SearXNG-integriert
 - ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, SPS Exporter (MQTT/Modbus/OPC-UA)
 - ✅ Teams-Bot + Asana: n8n-Arbeitsabläufe für Chat, Grafana-Alerts, Task-Berichte
 - ✅ osTicket KI: direkter MySQL-Zugriff, Lösungsvorschläge via Qdrant + Ollama, auto KB-Sync
-- ✅ Wissensdatenbank: PDF/Forschung → Qdrant + Neo4j; Tickets fließen automatisch ein
+- ✅ Wissensdatenbank: PDF/Web-Research → Qdrant + Neo4j; Tickets fließen automatisch ein
 - ✅ Superadmin/Admin/User Rollenhierarchie mit Rate-Limiting auf allen Control Endpoints
 - ✅ Automatisierter Start & Cleanup via `start_services.py`
 
@@ -155,6 +151,9 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Backup & Recovery        | [08_backup_and_recovery.md](docs/08_backup_and_recovery.md) |
 | FAQ & Tipps              | [09_faq.md](docs/09_faq.md) |
 | Python NLP/Dokumentenservice | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
+| Obsidian-Integration     | [11_obsidian_integration.md](docs/11_obsidian_integration.md) |
+| Monitoring (Uptime Kuma) | [12_monitoring.md](docs/12_monitoring.md) |
+| GraphRAG (Neo4j Knowledge Graph) | [13_graphrag.md](docs/13_graphrag.md) |
 | Links & Ressourcen       | [tips_links.md](docs/tips_links.md) |
 | OCR Service              | [14_ocr_service.md](docs/14_ocr_service.md) |
 | API Referenz             | [15_api_reference.md](docs/15_api_reference.md) |
@@ -164,7 +163,6 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | On-Demand Services (Service Control) | [19_on_demand_services.md](docs/19_on_demand_services.md) |
 | Ressourcen-Optimierung (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
 | Hermes Agent (KI-Agent, Teams, Web-UI) | [21_hermes_agent.md](docs/21_hermes_agent.md) |
-| Odysseus Workspace (Deep Research, MCP) | [22_odysseus_workspace.md](docs/22_odysseus_workspace.md) |
 | Monitoring (Prometheus, cAdvisor, Pushgateway) | [23_monitoring.md](docs/23_monitoring.md) |
 | SPS-Monitoring (OPC-UA, MQTT, Modbus) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
 | Teams Bot + Asana-Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
@@ -175,12 +173,23 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 
 ## 📋 Changelog
 
-### 2026-07 – Teamserver: Odysseus, Monitoring, Teams, osTicket, Wissensdatenbank
+### 2026-07 – Fokus auf Hermes Agent: Odysseus entfernt, Dashboard aufgeräumt
+
+| Was | Details |
+|-----|---------|
+| **Odysseus entfernt** | AI-Workspace vollständig entfernt (Git-Submodul, Compose-Services, Caddy-Route, Dashboard-Karte, `docs/22_odysseus_workspace.md`) – Fokus liegt jetzt klar auf Hermes Agent |
+| **Hermes aufgewertet** | Eigenes Logo statt generischem Python-Icon, prominentere Dashboard-Position, `HERMES_HOSTNAME`-Env-Bug im `dashboard`-Service behoben |
+| **Hermes-Dashboard-Bugfix** | Container band nicht an `0.0.0.0` mangels Auth-Provider → `HERMES_DASHBOARD_USER/PASSWORD/AUTH_SECRET` als Pflichtfelder ergänzt (siehe Hinweis oben) |
+| **Zentraler Service-Katalog** | `dashboard/services.js` ersetzt drei divergierte Service-Listen (`health.js`/`admin.js`/`control.js`) – behebt, dass Hermes im Admin-Systemstatus fehlte |
+| **Admin-Tab restrukturiert** | 4 logische Abschnitte: Systemstatus & Steuerung, Sicherung, Protokolle & Diagnose, Benutzerverwaltung |
+| **Supabase-Submodul repariert** | Fehlender `.gitmodules`-Eintrag ergänzt, `.git/modules/supabase` via `git submodule absorbgitdirs` initialisiert, Gitlink-Pointer aktualisiert |
+
+### 2026-07 – Teamserver: Hermes Agent, Monitoring, Teams, osTicket, Wissensdatenbank
 
 | Was | Details |
 |-----|---------|
 | **Rollenhierarchie** | Superadmin / Admin / User via `SUPERADMIN_EMAILS` / `ADMIN_EMAILS`; Rate-Limiting auf allen Control Endpoints |
-| **Odysseus Workspace** | `workspace.brain.local` – Browser-KI-Arbeitsplatz (Deep Research, MCP, Multi-User); Git Submodul, baut lokal; ChromaDB als interner Vektorstore; `AUTOSTART_ODYSSEUS` in `.env` |
+| **Hermes Agent** | `agent.brain.local` – autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard + Microsoft-Teams-Gateway; Git Submodul, baut lokal; läuft auf lokalem Ollama; `AUTOSTART_HERMES=true` per Default |
 | **Prometheus Monitoring** | Profil `monitoring`: Prometheus, node-exporter, cAdvisor, Pushgateway; Grafana-Datasource auto-provisioniert; Dashboard-Macros zum Starten/Stoppen |
 | **SPS Monitoring** | mqtt2prometheus + modbus-exporter (Profil `monitoring`); OPC-UA als Grafana-Plugin; Konfigurationsvorlagen in `sps-monitoring/` |
 | **Teams Bot** | n8n-Arbeitsablauf: Azure Bot Service → Ollama LLM; SSRF-Schutz, JWT Format Check, Prompt-Injection-Mitigation |
@@ -188,7 +197,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | **Asana Sync** | n8n-Arbeitsablauf: täglich überfällige + bald fällige Tasks als Teams-Nachricht |
 | **osTicket KI** | Direkter MySQL-Zugriff: Lösungsvorschläge via Qdrant + Ollama, interne Notiz in Ticket; gelöste Tickets → KB |
 | **KB-Arbeitsabläufe** | PDF/Dokument-Ingest + Web-Research-Webhook → Embedding → Qdrant `knowledge_base` + Neo4j (parallel) |
-| **Neue Docs** | 22–27: Odysseus, Monitoring, SPS, Teams, osTicket, Wissensdatenbank |
+| **Neue Docs** | 21, 23–27: Hermes Agent, Monitoring, SPS, Teams, osTicket, Wissensdatenbank |
 
 ### 2026-07 – Ollama: Host-First als Standard
 
@@ -496,28 +505,25 @@ The support agent finds a concrete step-by-step solution suggestion already when
 
 ---
 
-### Example 2 – Deep Research Lands in Knowledge Base
+### Example 2 – Hermes Agent Answers Team Requests Directly in Teams
 
-A team member researches *"Kubernetes Network Model"* on **workspace.brain.local** (Odysseus) and triggers a deep-research job.
+A team member mentions **@Hermes** in a Microsoft Teams channel: *"Summarize the latest changes to the Kubernetes network model."*
 
 ```
-Odysseus (workspace.brain.local)
-  → SearXNG (search.brain.local): Web search (no tracking)
-  → Crawl4AI (crawl.brain.local): Fully scrape relevant pages
-  → Ollama (local): Summarize + structure content
-  → n8n Webhook (kb-ingest-research):
-      Pass research result + source URL
-        → Ollama: Embedding (nomic-embed-text)
-        → python-nlp-service: Extract NER entities
-        → Qdrant (knowledge_base): Upsert vector index
-        → Neo4j: Create knowledge graph entry with entities
+Microsoft Teams (@Hermes mentioned)
+  → hermes-gateway (Teams gateway, Azure Bot Service)
+  → Ollama (host.docker.internal:11434, qwen2.5:7b)
+  → Web tool (web_search / web_extract): researches external sources
+  → Reply posted directly in the Teams thread
 ```
 
-When the next Kubernetes ticket arrives, the osTicket workflow finds this research result in Qdrant and includes it as context in the solution suggestion. The team builds a self-reinforcing knowledge base – fully local, without cloud dependency.
+Hermes runs entirely on the local Ollama model and answers without a separate web client. Persisting research results into the central knowledge base (Qdrant + Neo4j) is still handled by the dedicated n8n KB workflows, see [`docs/27_knowledge_base.md`](docs/27_knowledge_base.md).
 
 ---
 
 **IMPORTANT**: Supabase has updated several environment variables so you may have to add some new default values in your `.env` that I have in my `.env.example` if you already had this project running and are just pulling new changes. Specifically, you need to add `"POOLER_DB_POOL_SIZE=5"` to your `.env`. This is required if you had the package running before June 14th.
+
+**IMPORTANT**: `AUTOSTART_HERMES=true` is the default, but Hermes refuses to bind to `0.0.0.0` until an auth provider is configured. You must set `HERMES_DASHBOARD_PASSWORD` (`openssl rand -hex 16`) and `HERMES_DASHBOARD_AUTH_SECRET` (`openssl rand -hex 32`) in your `.env` – without these two values, `hermes-dashboard` stays unreachable despite autostart. Details: [`docs/21_hermes_agent.md`](docs/21_hermes_agent.md).
 
 ## Important Links
 
@@ -531,33 +537,34 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 
 ### What's Included
 
-- ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400 integrations and advanced AI components
-- ✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + optional TOTP/2FA), protected by Caddy `forward_auth`
-- ✅ [**Supabase**](https://supabase.com/) - Open source database as a service - most widely used database for AI agents
-- ✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
-- ✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
-- ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
-- ✅ [**New: Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
-- ✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
-- ✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
-- ✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector store with comprehensive API. Even though you can use Supabase for RAG, this was kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
-- ✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
-- ✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
-- ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
-- ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
-- ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama
-- ✅ **[Odysseus Workspace]** - Browser-based AI workspace for teams (Deep Research, Documents, MCP); integrates SearXNG + ChromaDB; accessible at `workspace.brain.local`
-- ✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
-- ✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
-- ✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
-- ✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents via webhook or Odysseus research → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
-- ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
+✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400 integrations and advanced AI components
+✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + optional TOTP/2FA), protected by Caddy `forward_auth`
+✅ [**Supabase**](https://supabase.com/) - Open source database as a service - most widely used database for AI agents
+✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
+✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
+✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama, starts automatically with the stack by default
+✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
+✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc. 
+✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
+✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
+✅ [**Qdrant**](https://qdrant.tech/) - Open source, high performance vector store with comprehensive API. Even though you can use Supabase for RAG, this was kept unlike Postgres since it's faster than Supabase so sometimes is the better option.
+✅ [**Neo4j**](https://neo4j.com/) - Knowledge graph engine that powers tools like GraphRAG, LightRAG, and Graphiti 
+✅ [**SearXNG**](https://searxng.org/) - Open source, free internet metasearch engine which aggregates results from up to 229 search services. Users are neither tracked nor profiled, hence the fit with the local AI package.
+✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
+✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
+✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) - Self-hosted uptime monitoring with status page (`status.brain.local`), notifications and maintenance windows; one of the few exceptions without Caddy `forward_auth`
+✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
+✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
+✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
+✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents or web research via webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
+✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ---
 
 ## 🌟 Features
 
 - ✅ Local or server hosted Ollama and/or public LLMs
+- ✅ Hermes Agent: autonomous AI agent with Teams gateway, web dashboard, autostart with the stack, controllable via dashboard macro
 - ✅ JWT Auth via Caddy `forward_auth` – all services protected
 - ✅ TOTP/2FA via Supabase GoTrue (no extra container)
 - ✅ Supabase with Vector Store & Authentication
@@ -566,12 +573,10 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ Grafana Monitoring with Caddy Routing + Auth Proxy Header
 - ✅ On-Demand Service Control: Dashboard Admin Tab, REST API, n8n Toolcall
 - ✅ Ollama defaults to native on host – no Ollama container during normal start
-- ✅ Hermes Agent: autonomous AI agent with Teams gateway, web dashboard, controllable via dashboard macro
-- ✅ Odysseus Workspace: browser-based AI workspace for teams, deep research, SearXNG integrated
 - ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, PLC exporter (MQTT/Modbus/OPC-UA)
 - ✅ Teams-Bot + Asana: n8n workflows for chat, Grafana alerts, task reports
 - ✅ osTicket AI: direct MySQL access, solution suggestions via Qdrant + Ollama, auto KB sync
-- ✅ Knowledge Base: PDF/research → Qdrant + Neo4j; tickets automatically flow in
+- ✅ Knowledge Base: PDF/web research → Qdrant + Neo4j; tickets automatically flow in
 - ✅ Superadmin/Admin/User role hierarchy with rate-limiting on all control endpoints
 - ✅ Automated startup & cleanup via `start_services.py`
 
@@ -618,6 +623,9 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | Backup & recovery        | [08_backup_and_recovery.md](docs/08_backup_and_recovery.md) |
 | FAQ & tips               | [09_faq.md](docs/09_faq.md) |
 | Python NLP/Document Service | [10_python_nlp_service.md](docs/10_python_nlp_service.md) |
+| Obsidian Integration     | [11_obsidian_integration.md](docs/11_obsidian_integration.md) |
+| Monitoring (Uptime Kuma) | [12_monitoring.md](docs/12_monitoring.md) |
+| GraphRAG (Neo4j Knowledge Graph) | [13_graphrag.md](docs/13_graphrag.md) |
 | Links & resources        | [tips_links.md](docs/tips_links.md) |
 | OCR Service              | [14_ocr_service.md](docs/14_ocr_service.md) |
 | API Reference            | [15_api_reference.md](docs/15_api_reference.md) |
@@ -627,7 +635,6 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | On-Demand Services (Service Control) | [19_on_demand_services.md](docs/19_on_demand_services.md) |
 | Resource Optimization (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
 | Hermes Agent (AI Agent, Teams, Web-UI) | [21_hermes_agent.md](docs/21_hermes_agent.md) |
-| Odysseus Workspace (Deep Research, MCP) | [22_odysseus_workspace.md](docs/22_odysseus_workspace.md) |
 | Monitoring (Prometheus, cAdvisor, Pushgateway) | [23_monitoring.md](docs/23_monitoring.md) |
 | PLC Monitoring (OPC-UA, MQTT, Modbus) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
 | Teams Bot + Asana Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
@@ -638,12 +645,23 @@ python3 start_services.py         # Default: Ollama runs natively on host
 
 ## 📋 Changelog
 
-### 2026-07 – Team Server: Odysseus, Monitoring, Teams, osTicket, Knowledge Base
+### 2026-07 – Focus on Hermes Agent: Odysseus Removed, Dashboard Cleanup
+
+| What | Details |
+|-----|---------|
+| **Odysseus removed** | AI workspace fully removed (Git submodule, Compose services, Caddy route, dashboard card, `docs/22_odysseus_workspace.md`) – focus is now clearly on Hermes Agent |
+| **Hermes upgraded** | Own logo instead of generic Python icon, more prominent dashboard position, `HERMES_HOSTNAME` env bug fixed in the `dashboard` service |
+| **Hermes dashboard bugfix** | Container refused to bind to `0.0.0.0` without an auth provider → `HERMES_DASHBOARD_USER/PASSWORD/AUTH_SECRET` added as required fields (see note above) |
+| **Central service catalog** | `dashboard/services.js` replaces three diverged service lists (`health.js`/`admin.js`/`control.js`) – fixes Hermes missing from the admin system status |
+| **Admin tab restructured** | 4 logical sections: System Status & Control, Backup, Logs & Diagnostics, User Management |
+| **Supabase submodule fixed** | Missing `.gitmodules` entry added, `.git/modules/supabase` initialized via `git submodule absorbgitdirs`, gitlink pointer updated |
+
+### 2026-07 – Team Server: Hermes Agent, Monitoring, Teams, osTicket, Knowledge Base
 
 | What | Details |
 |-----|---------|
 | **Role Hierarchy** | Superadmin / Admin / User via `SUPERADMIN_EMAILS` / `ADMIN_EMAILS`; Rate-limiting on all control endpoints |
-| **Odysseus Workspace** | `workspace.brain.local` – Browser-based AI workspace (Deep Research, MCP, Multi-User); Git submodule, builds locally; ChromaDB as internal vector store; `AUTOSTART_ODYSSEUS` in `.env` |
+| **Hermes Agent** | `agent.brain.local` – autonomous AI agent (NousResearch, MIT) with web dashboard + Microsoft Teams gateway; Git submodule, builds locally; runs on local Ollama; `AUTOSTART_HERMES=true` by default |
 | **Prometheus Monitoring** | Profile `monitoring`: Prometheus, node-exporter, cAdvisor, Pushgateway; Grafana datasource auto-provisioned; Dashboard macros for start/stop |
 | **PLC Monitoring** | mqtt2prometheus + modbus-exporter (profile `monitoring`); OPC-UA as Grafana plugin; configuration templates in `sps-monitoring/` |
 | **Teams Bot** | n8n workflow: Azure Bot Service → Ollama LLM; SSRF protection, JWT format check, prompt injection mitigation |
@@ -651,7 +669,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | **Asana Sync** | n8n workflow: overdue + soon-due tasks as Teams message daily |
 | **osTicket AI** | Direct MySQL access: solution suggestions via Qdrant + Ollama, internal note in ticket; resolved tickets → KB |
 | **KB Workflows** | PDF/document ingest + web research webhook → embedding → Qdrant `knowledge_base` + Neo4j (parallel) |
-| **New Docs** | 22–27: Odysseus, Monitoring, PLC, Teams, osTicket, Knowledge Base |
+| **New Docs** | 21, 23–27: Hermes Agent, Monitoring, PLC, Teams, osTicket, Knowledge Base |
 
 ### 2026-07 – Ollama: Host-First as Default
 

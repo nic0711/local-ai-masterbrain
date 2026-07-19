@@ -2,24 +2,13 @@
 // Handles: tab switching, status table, event log, backup panel.
 
 (function () {
-    // ── Service info map: /status JSON key → human-readable label ──────────
-    var SERVICE_INFO = {
-        'n8n':                'n8n',
-        'open-webui':         'Open WebUI',
-        'flowise':            'Flowise',
-        'langfuse':           'Langfuse',
-        'neo4j':              'Neo4j',
-        'qdrant':             'Qdrant',
-        'crawl4ai':           'Crawl4AI',
-        'searxng':            'SearXNG',
-        'python-nlp-service': 'Python NLP',
-        'ocr-service':        'OCR Service',
-        'supabase':           'Supabase',
-        'minio':              'MinIO',
-        'clickhouse':         'Clickhouse',
-        'obsidian':           'Obsidian',
-        'uptime-kuma':        'UptimeBot',
-    };
+    // ── Service info map: Service-Key → Anzeigename, abgeleitet aus dem
+    // zentralen Service-Katalog (services.js). Enthält ALLE bekannten
+    // Services, nicht nur die mit HTTP-Health-Endpoint.
+    var SERVICE_INFO = {};
+    (window.SERVICE_CATALOG || []).forEach(function (svc) {
+        SERVICE_INFO[svc.key] = svc.label;
+    });
 
     // ── DOM helpers (XSS-safe) ───────────────────────────────────────────────
 

@@ -7,7 +7,7 @@ Drei Ingest-Workflows befüllen Neo4j und Qdrant aus verschiedenen Quellen:
 | Workflow | Datei | Quelle | Trigger |
 |---|---|---|---|
 | PDF-Ingest | `kb-pdf-ingest.json` | PDF/Dokument (URL oder Text) | Webhook POST |
-| Web-Research | `kb-web-research.json` | Odysseus Deep Research, Crawl4AI | Webhook POST |
+| Web-Research | `kb-web-research.json` | Crawl4AI, beliebiger Webhook-Sender | Webhook POST |
 | osTicket KB | `osticket-to-knowledge-base.json` | Gelöste Tickets | täglich 02:00 |
 
 Alle Workflows schreiben in:
@@ -135,14 +135,6 @@ Webhook → Validierung
   → Payload bauen
   → Qdrant upsert + Neo4j indexieren (parallel)
 ```
-
-### Integration mit Odysseus
-
-In Odysseus Deep Research → Webhook-Integration konfigurieren:
-- Endpoint: `https://n8n.brain.local/webhook/kb-ingest-research`
-- Header: `x-kb-api-key: <KB_INGEST_API_KEY>`
-
-Nach Abschluss eines Research-Projekts → "Export to Webhook" → automatisch in KB indexiert.
 
 ---
 

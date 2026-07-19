@@ -379,6 +379,20 @@ main {
 /* ═══════════════════════════════════════════
    Admin Layout
    ═══════════════════════════════════════════ */
+.admin-section {
+    margin-bottom: 2.75rem;
+}
+
+.admin-section-title {
+    font-size: 1.15rem;
+    color: #ccc;
+    text-align: left;
+    margin: 0 0 1.1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #333;
+    font-weight: 600;
+}
+
 .admin-panel {
     background: #1a1a1a;
     border: 1px solid #252525;

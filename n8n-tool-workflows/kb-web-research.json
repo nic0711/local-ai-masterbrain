@@ -149,6 +149,6 @@
   },
   "pinData": {},
   "meta": {
-    "description": "Nimmt Web-Research-Ergebnisse (z.B. aus Odysseus) via Webhook entgegen. Verarbeitung: Auth → NLP + Zusammenfassung + Embedding parallel → Qdrant + Neo4j. Webhook-URL für Odysseus: https://n8n.brain.local/webhook/kb-ingest-research. Benötigt: n8n-Variable KB_INGEST_API_KEY."
+    "description": "Nimmt Web-Research-Ergebnisse via Webhook entgegen. Verarbeitung: Auth → NLP + Zusammenfassung + Embedding parallel → Qdrant + Neo4j. Webhook-URL: https://n8n.brain.local/webhook/kb-ingest-research. Benötigt: n8n-Variable KB_INGEST_API_KEY."
   }
 }

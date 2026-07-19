@@ -60,6 +60,13 @@
                             </div>
                             <img src="assets/logos/openwebui.png" alt="Open WebUI Logo" class="card-logo invert">
                         </a>
+                        <a id="link-hermesGateway" href="#" target="_blank" class="card">
+                            <div class="card-content">
+                                <h2>Hermes Agent</h2>
+                                <p>Autonomer KI-Agent · Teams</p>
+                            </div>
+                            <img src="assets/logos/hermes.png" alt="Hermes Logo" class="card-logo">
+                        </a>
                         <a id="link-searxng" href="#" target="_blank" class="card">
                             <div class="card-content">
                                 <h2>SearXNG</h2>
@@ -147,6 +154,22 @@
                 </section>
 
                 <section class="grid-section">
+                    <h2>Monitoring</h2>
+                    <p class="section-desc">Nur intern erreichbar – Steuerung über Admin-Tab</p>
+                    <div class="api-grid">
+                        <div id="link-prometheus" class="api-card">
+                            <img src="assets/logos/grafana.svg" alt="Prometheus" class="api-card-icon">
+                            <div class="api-card-info">
+                                <span class="api-card-name">Prometheus</span>
+                                <span class="api-card-desc">Metriken-Scraping · Zeitreihen</span>
+                                <code class="api-card-endpoint">:9090/api/v1/query</code>
+                            </div>
+                            <span class="api-badge">API</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="grid-section">
                     <h2>API Services</h2>
                     <p class="section-desc">Nur per API erreichbar – keine Browser-Oberfläche</p>
                     <div class="api-grid">
@@ -182,44 +205,48 @@
             </div>
 
             <div id="tab-admin" class="tab-panel">
-                <!-- Row 1: Status Table (full width) -->
-                <div class="admin-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Systemstatus</h3>
-                        <div style="display:flex;align-items:center;gap:1rem">
-                            <span id="last-check-label" class="panel-meta">–</span>
-                            <button id="control-refresh-btn" class="btn-ghost">Aktualisieren</button>
-                        </div>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="status-table">
-                            <thead>
-                                <tr>
-                                    <th>Dienst</th>
-                                    <th>Status</th>
-                                    <th>Verfügbarkeit</th>
-                                    <th>Verlauf (letzte 12 Checks)</th>
-                                    <th>Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="status-tbody">
-                                <tr><td colspan="5" class="no-data">Lade Statusdaten…</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
-                <!-- Row 2: Events + Backup -->
-                <div class="admin-row">
+                <!-- Gruppe: Systemstatus & Steuerung -->
+                <section class="admin-section">
+                    <h2 class="admin-section-title">Systemstatus &amp; Steuerung</h2>
+
                     <div class="admin-panel">
                         <div class="panel-header">
-                            <h3 class="panel-title">Ereignisprotokoll</h3>
-                            <button id="clear-events-btn" class="btn-ghost">Leeren</button>
+                            <h3 class="panel-title">Systemstatus</h3>
+                            <div style="display:flex;align-items:center;gap:1rem">
+                                <span id="last-check-label" class="panel-meta">–</span>
+                                <button id="control-refresh-btn" class="btn-ghost">Aktualisieren</button>
+                            </div>
                         </div>
-                        <div id="event-log" class="event-log">
-                            <p class="no-data">Noch keine Ereignisse aufgezeichnet.</p>
+                        <div class="table-wrap">
+                            <table class="status-table">
+                                <thead>
+                                    <tr>
+                                        <th>Dienst</th>
+                                        <th>Status</th>
+                                        <th>Verfügbarkeit</th>
+                                        <th>Verlauf (letzte 12 Checks)</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="status-tbody">
+                                    <tr><td colspan="5" class="no-data">Lade Statusdaten…</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+
+                    <div class="admin-panel">
+                        <h3 class="panel-title">Macros</h3>
+                        <div id="macro-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem">
+                            <span class="no-data">Lade Macros…</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Gruppe: Sicherung -->
+                <section class="admin-section">
+                    <h2 class="admin-section-title">Sicherung</h2>
 
                     <div class="admin-panel">
                         <h3 class="panel-title">Backup</h3>
@@ -236,96 +263,107 @@
                         <button id="backup-btn" class="btn-primary btn-full">Backup jetzt starten</button>
                         <p class="panel-meta" style="margin-top:0.85rem;text-align:center">Geplant: alle 24 h · Ablage: /opt/backups</p>
                     </div>
-                </div>
 
-                <!-- Benutzer-Verwaltung -->
-                <div class="admin-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Benutzer</h3>
-                        <button id="refresh-users-btn" class="btn-ghost">Aktualisieren</button>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="status-table">
-                            <thead>
-                                <tr>
-                                    <th>E-Mail</th>
-                                    <th>Erstellt</th>
-                                    <th>Letzter Login</th>
-                                    <th>Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="users-tbody">
-                                <tr><td colspan="4" class="no-data">Lade Benutzer…</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #333">
-                        <p class="panel-meta" style="margin-bottom:0.75rem">Neuen Benutzer anlegen</p>
-                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                            <input type="email" id="invite-email" placeholder="E-Mail" autocomplete="off" style="flex:2;min-width:180px">
-                            <input type="password" id="invite-password" placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" style="flex:2;min-width:180px">
-                            <button id="invite-user-btn" class="btn-primary" style="flex:0 0 auto">Anlegen</button>
+                    <div class="admin-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Verfügbare Backups</h3>
+                            <button id="refresh-backup-list-btn" class="btn-ghost">Aktualisieren</button>
                         </div>
-                        <p id="invite-msg" class="panel-meta" style="margin-top:0.5rem;min-height:1.2em"></p>
+                        <div class="table-wrap">
+                            <table class="backup-table">
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Größe</th>
+                                        <th>Dateien</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="backup-list-tbody">
+                                    <tr><td colspan="4" class="no-data">Lade Backup-Liste…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- Backup-Liste -->
-                <div class="admin-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Verfügbare Backups</h3>
-                        <button id="refresh-backup-list-btn" class="btn-ghost">Aktualisieren</button>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="backup-table">
-                            <thead>
-                                <tr>
-                                    <th>Datum</th>
-                                    <th>Größe</th>
-                                    <th>Dateien</th>
-                                    <th>Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="backup-list-tbody">
-                                <tr><td colspan="4" class="no-data">Lade Backup-Liste…</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- Macros -->
-                <div class="admin-panel">
-                    <h3 class="panel-title">Macros</h3>
-                    <div id="macro-buttons" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem">
-                        <span class="no-data">Lade Macros…</span>
-                    </div>
-                </div>
+                <!-- Gruppe: Protokolle & Diagnose -->
+                <section class="admin-section">
+                    <h2 class="admin-section-title">Protokolle &amp; Diagnose</h2>
 
-                <!-- Log-Viewer -->
-                <div class="admin-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Log-Viewer</h3>
-                        <button id="control-clear-log-btn" class="btn-ghost">Leeren</button>
-                    </div>
-                    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap">
-                        <select id="log-service-select" style="flex:2;min-width:160px">
-                            <option value="">Dienst wählen…</option>
-                        </select>
-                        <input type="number" id="log-lines-input" value="50" min="1" max="500" style="width:72px;text-align:center" title="Anzahl Zeilen (1–500)">
-                        <button id="log-fetch-btn" class="btn-primary">Logs laden</button>
-                    </div>
-                    <pre id="log-output" style="background:#111;border:1px solid #333;border-radius:6px;padding:0.75rem;font-size:0.78rem;line-height:1.5;max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#ccc;margin:0">Dienst wählen und „Logs laden" klicken.</pre>
-                </div>
+                    <div class="admin-row">
+                        <div class="admin-panel">
+                            <div class="panel-header">
+                                <h3 class="panel-title">Ereignisprotokoll</h3>
+                                <button id="clear-events-btn" class="btn-ghost">Leeren</button>
+                            </div>
+                            <div id="event-log" class="event-log">
+                                <p class="no-data">Noch keine Ereignisse aufgezeichnet.</p>
+                            </div>
+                        </div>
 
-                <!-- Aktions-Log -->
-                <div class="admin-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Aktions-Log</h3>
-                        <button id="control-clear-events-btn" class="btn-ghost">Leeren</button>
+                        <div class="admin-panel">
+                            <div class="panel-header">
+                                <h3 class="panel-title">Aktions-Log</h3>
+                                <button id="control-clear-events-btn" class="btn-ghost">Leeren</button>
+                            </div>
+                            <div id="control-event-log" class="event-log">
+                                <p class="no-data">Noch keine Aktionen ausgeführt.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div id="control-event-log" class="event-log">
-                        <p class="no-data">Noch keine Aktionen ausgeführt.</p>
+
+                    <div class="admin-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Log-Viewer</h3>
+                            <button id="control-clear-log-btn" class="btn-ghost">Leeren</button>
+                        </div>
+                        <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap">
+                            <select id="log-service-select" style="flex:2;min-width:160px">
+                                <option value="">Dienst wählen…</option>
+                            </select>
+                            <input type="number" id="log-lines-input" value="50" min="1" max="500" style="width:72px;text-align:center" title="Anzahl Zeilen (1–500)">
+                            <button id="log-fetch-btn" class="btn-primary">Logs laden</button>
+                        </div>
+                        <pre id="log-output" style="background:#111;border:1px solid #333;border-radius:6px;padding:0.75rem;font-size:0.78rem;line-height:1.5;max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#ccc;margin:0">Dienst wählen und „Logs laden" klicken.</pre>
                     </div>
-                </div>
+                </section>
+
+                <!-- Gruppe: Benutzerverwaltung -->
+                <section class="admin-section">
+                    <h2 class="admin-section-title">Benutzerverwaltung</h2>
+
+                    <div class="admin-panel">
+                        <div class="panel-header">
+                            <h3 class="panel-title">Benutzer</h3>
+                            <button id="refresh-users-btn" class="btn-ghost">Aktualisieren</button>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="status-table">
+                                <thead>
+                                    <tr>
+                                        <th>E-Mail</th>
+                                        <th>Erstellt</th>
+                                        <th>Letzter Login</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-tbody">
+                                    <tr><td colspan="4" class="no-data">Lade Benutzer…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #333">
+                            <p class="panel-meta" style="margin-bottom:0.75rem">Neuen Benutzer anlegen</p>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                                <input type="email" id="invite-email" placeholder="E-Mail" autocomplete="off" style="flex:2;min-width:180px">
+                                <input type="password" id="invite-password" placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" style="flex:2;min-width:180px">
+                                <button id="invite-user-btn" class="btn-primary" style="flex:0 0 auto">Anlegen</button>
+                            </div>
+                            <p id="invite-msg" class="panel-meta" style="margin-top:0.5rem;min-height:1.2em"></p>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <!-- Diff-Modal -->
@@ -468,6 +506,7 @@
             integrity="sha384-qRSFs/sWgpA39YnhiB3MWWl2wAbW1gSt+ZcLg2rvFNCDCTMuAi3c9aTIt6MvXhDA"
             crossorigin="anonymous"></script>
     <script src="auth.js"></script>
+    <script src="services.js"></script>
     <script src="main.js"></script>
     <script src="health.js"></script>
     <script src="admin.js"></script>

@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'ocr': null,        // API-only – Zugriff via ocr.brain.local/docs
         'uptimeKuma': config.uptimeKumaHostname,
         'grafana': config.grafanaHostname,
+        'hermesGateway': config.hermesHostname,
     };
 
     // Iteriere durch die Dienste und aktualisiere die Links.
