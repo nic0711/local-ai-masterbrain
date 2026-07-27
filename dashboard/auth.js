@@ -44,18 +44,31 @@ function _setBadgeContent(badge, label) {
     badge.appendChild(document.createTextNode(label));
 }
 
+// Persistenter Hinweis, dass 2FA eingerichtet werden muss (nur statischer Text, kein innerHTML).
+function _show2faRequiredBanner() {
+    if (document.getElementById('mfa-required-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'mfa-required-banner';
+    banner.style.cssText = 'background:#b71c1c;color:#fff;padding:12px 16px;text-align:center;' +
+        'font-size:0.95rem;position:sticky;top:0;z-index:1000;';
+    banner.textContent = '2FA ist erforderlich. Bitte richten Sie im Tab „Mein Konto" einen ' +
+        'Authenticator ein, um auf die Dienste zugreifen zu können.';
+    document.body.insertBefore(banner, document.body.firstChild);
+}
+
 // --- Cookie-Management ---
 
 function setCookie(token) {
-    const isLocal = window.location.hostname.endsWith('.local') || window.location.hostname === 'localhost';
-    const secure = (window.location.protocol === 'https:' && !isLocal) ? '; Secure' : '';
+    // Secure immer bei HTTPS (der gesamte Zugriff läuft über Caddy-HTTPS, auch bei .local).
+    const secure = (window.location.protocol === 'https:') ? '; Secure' : '';
     const domain = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
     document.cookie = `sb-access-token=${token}; path=/; max-age=2592000; SameSite=Lax${secure}${domain}`;
 }
 
 function clearCookie() {
+    const secure = (window.location.protocol === 'https:') ? '; Secure' : '';
     const domain = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
-    document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${domain}`;
+    document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${secure}${domain}`;
 }
 
 // --- Proaktiver Token-Refresh ---
@@ -114,7 +127,21 @@ async function protectPage() {
         } else {
             setCookie(session.access_token);
             _scheduleTokenRefresh();
+            // MFA-Gate: Session nur auf aal1 → 2FA noch nicht abgeschlossen/eingerichtet.
+            const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+                // Hat verifizierten Faktor, aber Session nur aal1 → Step-up erzwingen.
+                window.location.href = 'login.html';
+                return;
+            }
             document.body.style.visibility = 'visible';
+            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal1') {
+                // Kein Faktor → zur 2FA-Einrichtung führen und Hinweis anzeigen.
+                if (typeof window.activateDashboardTab === 'function') {
+                    window.activateDashboardTab('profile');
+                }
+                _show2faRequiredBanner();
+            }
         }
     } catch (e) {
         console.error('Auth check failed:', e);
@@ -198,6 +225,34 @@ if (loginForm) {
         const params = new URLSearchParams(window.location.search);
         window.location.href = _safeRedirect(params.get('redirect'));
     });
+
+    // Landet ein Nutzer mit gültiger aal1-Session hier (via 302 von einem Dienst),
+    // direkt den passenden Schritt zeigen – ohne erneute Passworteingabe.
+    async function _resumeMfaIfNeeded() {
+        if (!_supabase) return;
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) return;
+        const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+            // Hat verifizierten Faktor → TOTP-Step direkt anzeigen.
+            const { data: factors } = await _supabase.auth.mfa.listFactors();
+            const totpFactor = factors?.totp?.find(f => f.status === 'verified');
+            if (totpFactor) {
+                _mfaFactorId = totpFactor.id;
+                const { data: challenge, error } = await _supabase.auth.mfa.challenge({ factorId: _mfaFactorId });
+                if (!error) {
+                    _mfaChallengeId = challenge.id;
+                    if (passwordStep) passwordStep.classList.add('hidden');
+                    if (totpStep) totpStep.classList.remove('hidden');
+                    document.getElementById('totp-code')?.focus();
+                }
+            }
+        } else if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal1') {
+            // Kein Faktor eingerichtet → zurück ins Dashboard zur Einrichtung.
+            window.location.href = 'index.html';
+        }
+    }
+    _resumeMfaIfNeeded();
 }
 
 // --- Logout ---

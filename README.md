@@ -66,7 +66,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 ### Was ist enthalten
 
 ✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
-✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + optionales TOTP/2FA), geschützt durch Caddy `forward_auth`
+✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + TOTP/2FA, standardmäßig verpflichtend), geschützt durch Caddy `forward_auth`
 ✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
 ✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
 ✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
@@ -94,7 +94,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ Lokaler oder servergehosteter Ollama und/oder öffentliche LLMs
 - ✅ Hermes Agent: autonomer KI-Agent mit Teams-Gateway, Web-Dashboard, Autostart mit dem Stack, steuerbar per Dashboard-Macro
 - ✅ JWT-Authentifizierung via Caddy `forward_auth` – alle Services geschützt
-- ✅ TOTP/2FA über Supabase GoTrue (kein extra Container)
+- ✅ TOTP/2FA über Supabase GoTrue (kein extra Container), serverseitig via `aal2`-Check im auth-gateway erzwungen
 - ✅ Supabase mit Vector Store & Authentifizierung
 - ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Dokumentenservice (OCR + NER, DE+EN), MinIO, Open WebUI, ...
 - ✅ TTS Service: Voice Cloning (OmniVoice, 600+ Sprachen), Video-Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
@@ -172,6 +172,26 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 ---
 
 ## 📋 Changelog
+
+### 2026-07 – Security-Fix: MFA-Bypass geschlossen, RBAC fail-closed
+
+| Was | Details |
+|-----|---------|
+| **MFA-Bypass geschlossen** | `auth-gateway` prüfte den `aal`-Claim (Multi-Factor-Level) bisher nie – ein reines Passwort-Token (`aal1`) wurde von `/verify` akzeptiert, obwohl TOTP im Login-Formular sichtbar abgefragt wurde. 2FA schützte damit nur die Login-UI, nicht die dahinterliegenden Dienste. `/verify` verlangt jetzt `aal2`, Default `MFA_REQUIRED=true` |
+| **RBAC fail-closed** | Ohne `ADMIN_EMAILS`/`SUPERADMIN_EMAILS` hatte bisher jeder authentifizierte Nutzer Admin-Rechte; `_require_admin`/`_require_superadmin` geben jetzt bei fehlender Konfiguration `False` zurück |
+| **Grafana Header-Spoofing geschlossen** | `X-Forwarded-User`/`X-Forwarded-Role` wurden auf den auth-freien Pfaden `/public/*`, `/avatar/*` und dem Static-Asset-Bypass ungefiltert durchgereicht – Caddy strippt sie dort jetzt explizit; Static-Bypass für Grafana entfernt |
+| **JWT-Cache-Fenster geschlossen** | Cache-Ablauf war fix 5 Minuten unabhängig vom Token-`exp` – jetzt am `exp` gedeckelt |
+| **Cookie `Secure`-Flag** | Wurde auf `.local`-Domains bewusst weggelassen – jetzt immer bei `https:` gesetzt |
+| **2FA-Recovery** | Neuer Superadmin-Endpoint `POST /control/users/mfa-reset` + Button „2FA zurücksetzen" in der Benutzerverwaltung, verhindert Lockout bei verlorenem Authenticator |
+| `auth-gateway/app.py` | `aal`-Extraktion, `_require_aal2()`, Cache-Cap, fail-closed RBAC, `/control/users/mfa-reset` |
+| `auth-gateway/tests/test_app.py` | 16 neue Tests (aal1/aal2, Cache-Cap, fail-closed, MFA-Reset) – 54/54 grün |
+| `dashboard/auth.js` | Step-up-Flow auf `login.html`, Enrollment-Gate in `protectPage()`, Cookie immer `Secure` bei HTTPS |
+| `dashboard/admin.js` | „2FA zurücksetzen"-Button in der Benutzerverwaltung |
+| `Caddyfile` | Header-Stripping Grafana, Static-Asset-Ausnahme verengt (`.map`/`.txt`/`.xml` entfernt), Route für MFA-Reset |
+| `docker-compose.yml` | `GRAFANA_PROXY_WHITELIST` (defense-in-depth für Grafana Auth-Proxy) |
+| `.env.example` | `MFA_REQUIRED`, `GRAFANA_PROXY_WHITELIST` dokumentiert |
+| `docs/05_security_hardening.md` | MFA-Erzwingung, fail-closed RBAC, Grafana-Header-Fix, Cookie-Flag, MFA-Reset-Endpoint dokumentiert |
+| `docs/15_api_reference.md` | `/control/users/mfa-reset` ergänzt, Auth-Level um `aal2`-Anforderung erweitert |
 
 ### 2026-07 – Fokus auf Hermes Agent: Odysseus entfernt, Dashboard aufgeräumt
 
@@ -538,7 +558,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 ### What's Included
 
 ✅ [**Self-hosted n8n**](https://n8n.io/) - Low-code platform with over 400 integrations and advanced AI components
-✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + optional TOTP/2FA), protected by Caddy `forward_auth`
+✅ **[Dashboard with Auth]** – Overview page of all services with JWT-based authentication (Email + Password + TOTP/2FA, enforced by default), protected by Caddy `forward_auth`
 ✅ [**Supabase**](https://supabase.com/) - Open source database as a service - most widely used database for AI agents
 ✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
 ✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
@@ -566,7 +586,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ Local or server hosted Ollama and/or public LLMs
 - ✅ Hermes Agent: autonomous AI agent with Teams gateway, web dashboard, autostart with the stack, controllable via dashboard macro
 - ✅ JWT Auth via Caddy `forward_auth` – all services protected
-- ✅ TOTP/2FA via Supabase GoTrue (no extra container)
+- ✅ TOTP/2FA via Supabase GoTrue (no extra container), enforced server-side via `aal2` check in the auth-gateway
 - ✅ Supabase with Vector Store & Authentication
 - ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
 - ✅ TTS Service: Voice Cloning (OmniVoice, 600+ languages), Video Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
@@ -644,6 +664,26 @@ python3 start_services.py         # Default: Ollama runs natively on host
 ---
 
 ## 📋 Changelog
+
+### 2026-07 – Security Fix: MFA Bypass Closed, RBAC Fail-Closed
+
+| What | Details |
+|-----|---------|
+| **MFA bypass closed** | `auth-gateway` never checked the `aal` claim (multi-factor level) – a plain password token (`aal1`) was accepted by `/verify` even though the login form visibly prompted for TOTP. 2FA only protected the login UI, not the services behind it. `/verify` now requires `aal2`, default `MFA_REQUIRED=true` |
+| **RBAC fail-closed** | Without `ADMIN_EMAILS`/`SUPERADMIN_EMAILS`, every authenticated user previously had admin rights; `_require_admin`/`_require_superadmin` now return `False` when unconfigured |
+| **Grafana header spoofing closed** | `X-Forwarded-User`/`X-Forwarded-Role` were passed through unfiltered on the auth-free paths `/public/*`, `/avatar/*`, and the static-asset bypass – Caddy now strips them there explicitly; static bypass for Grafana removed |
+| **JWT cache window closed** | Cache expiry was a fixed 5 minutes regardless of the token's `exp` – now capped at `exp` |
+| **Cookie `Secure` flag** | Was deliberately omitted on `.local` domains – now always set on `https:` |
+| **2FA recovery** | New superadmin endpoint `POST /control/users/mfa-reset` + "Reset 2FA" button in user management, prevents lockout on lost authenticator |
+| `auth-gateway/app.py` | `aal` extraction, `_require_aal2()`, cache cap, fail-closed RBAC, `/control/users/mfa-reset` |
+| `auth-gateway/tests/test_app.py` | 16 new tests (aal1/aal2, cache cap, fail-closed, MFA reset) – 54/54 passing |
+| `dashboard/auth.js` | Step-up flow on `login.html`, enrollment gate in `protectPage()`, cookie always `Secure` on HTTPS |
+| `dashboard/admin.js` | "Reset 2FA" button in user management |
+| `Caddyfile` | Header stripping for Grafana, narrowed static-asset exception (removed `.map`/`.txt`/`.xml`), route for MFA reset |
+| `docker-compose.yml` | `GRAFANA_PROXY_WHITELIST` (defense-in-depth for Grafana auth proxy) |
+| `.env.example` | `MFA_REQUIRED`, `GRAFANA_PROXY_WHITELIST` documented |
+| `docs/05_security_hardening.md` | MFA enforcement, fail-closed RBAC, Grafana header fix, cookie flag, MFA reset endpoint documented |
+| `docs/15_api_reference.md` | `/control/users/mfa-reset` added, auth level extended with `aal2` requirement |
 
 ### 2026-07 – Focus on Hermes Agent: Odysseus Removed, Dashboard Cleanup
 

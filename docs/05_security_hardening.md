@@ -5,10 +5,12 @@
 Alle Services (n8n, Open WebUI, Flowise, etc.) sind durch Caddy's `forward_auth` geschützt.
 
 **Flow:**
-1. Browser ruft `https://brain.local` auf → Login mit Email + Passwort (+ TOTP falls aktiviert)
-2. Nach Login setzt das Dashboard einen `sb-access-token` Cookie auf `.brain.local`
+1. Browser ruft `https://brain.local` auf → Login mit Email + Passwort, danach TOTP-Schritt (siehe [2FA / TOTP](#2fa--totp) – standardmäßig erzwungen)
+2. Nach vollständigem Login (inkl. TOTP) setzt das Dashboard einen `sb-access-token` Cookie auf `.brain.local`
 3. Zugriff auf `https://n8n.brain.local` → Caddy liest Cookie → sendet `Authorization: Bearer <token>` an `auth-gateway:5001/verify`
-4. Gültig → Zugriff erlaubt; ungültig → Redirect zu `https://brain.local/login.html`
+4. `/verify` prüft Signatur, `exp`, `aud` **und den `aal`-Claim** (Multi-Factor-Level). Nur `aal2` (Passwort **und** TOTP abgeschlossen) → Zugriff erlaubt; `aal1` (nur Passwort) oder ungültig → Redirect zu `https://brain.local/login.html`
+
+**Wichtig:** Die TOTP-Prüfung passiert nicht nur im Login-Formular, sondern wird vom auth-gateway bei **jedem** `/verify`-Call serverseitig durchgesetzt. Ein Token, das GoTrue nach reinem Passwort-Login ausstellt, trägt `aal: "aal1"` und wird von `/verify` mit `401 MFA required` abgelehnt – unabhängig davon, ob es direkt als Cookie gesetzt wird. Abschaltbar über `MFA_REQUIRED=false` in `.env` (Notfall-Kill-Switch, siehe [MFA / TOTP erzwingen](#mfa--totp-erzwingen-team-server)).
 
 **Warum Cookie statt localStorage:**
 Caddy's `forward_auth` hat nur Zugriff auf Request-Headers und Cookies – nicht auf localStorage. Der Cookie wird nach Login gesetzt und bei jedem Token-Refresh via `onAuthStateChange` aktualisiert.
@@ -17,7 +19,7 @@ Caddy's `forward_auth` hat nur Zugriff auf Request-Headers und Cookies – nicht
 
 ## 2FA / TOTP
 
-TOTP ist über Supabase GoTrue nativ eingebaut und wird im `public`-Environment automatisch aktiviert.
+TOTP ist über Supabase GoTrue nativ eingebaut. **Seit `MFA_REQUIRED=true` (Default) ist 2FA für alle Nutzer verpflichtend** – der auth-gateway lässt ohne abgeschlossenen TOTP-Schritt (`aal2`) keinen Zugriff auf geschützte Dienste zu (siehe [Authentifizierungs-Architektur](#authentifizierungs-architektur)). Nutzer ohne eingerichteten Faktor werden nach dem Login automatisch zum Profil-Tab mit Einrichtungs-Hinweis geleitet; das Dashboard selbst bleibt dafür ohne `forward_auth` erreichbar (kein Lockout-Risiko).
 
 ### Ersteinrichtung (pro Benutzer)
 
@@ -123,7 +125,9 @@ ADMIN_EMAILS=team1@example.com,team2@example.com  # Operativ – Service-Start/S
 
 In `docker-compose.yml` werden beide Variablen automatisch an auth-gateway übergeben.
 
-**Ohne Konfiguration:** Alle authentifizierten Nutzer haben Admin-Zugriff (Single-User-Betrieb). Für Team-Betrieb **müssen** beide Variablen gesetzt werden.
+**Fail-closed:** Ohne Konfiguration hat **niemand** Admin- oder Superadmin-Zugriff (`_require_admin`/`_require_superadmin` geben `False` zurück, wenn keine E-Mails hinterlegt sind). Für Team- **und** Single-User-Betrieb **muss** mindestens `SUPERADMIN_EMAILS` gesetzt sein, sonst sind alle Control-Endpoints außer den reinen Status-Abfragen für niemanden erreichbar.
+
+**MFA-Voraussetzung:** Admin- und Superadmin-Rechte erfordern zusätzlich `aal2` (abgeschlossene 2FA) – ein reines Passwort-Token wird von `_require_admin`/`_require_superadmin` unabhängig von der E-Mail-Liste abgelehnt.
 
 ### Berechtigungen
 
@@ -140,6 +144,7 @@ In `docker-compose.yml` werden beide Variablen automatisch an auth-gateway über
 | **User auflisten / anlegen** | ✅ | ✗ | ✗ |
 | **Passwort zurücksetzen** | ✅ | ✗ | ✗ |
 | **User löschen** | ✅ | ✗ | ✗ |
+| **2FA eines Users zurücksetzen** | ✅ | ✗ | ✗ |
 
 ---
 
@@ -184,6 +189,7 @@ auth-gateway prüft bei lokaler JWT-Verifikation die `aud`-Claim auf `"authentic
 | `GET /status` | 60/min |
 | `GET/POST /control/backup/*` | 5–30/min je Endpoint |
 | `GET/POST /control/users*` | 5–20/min je Endpoint |
+| `POST /control/users/mfa-reset` | 10/min |
 | `POST /control/restore` | 3/min |
 | `POST /control/services/{svc}/{action}` | 10/min |
 | `GET /control/services/{svc}/logs` | 30/min |
@@ -202,7 +208,7 @@ Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen ei
 
 | Eigenschaft | Lokal (`.local`) | Produktion |
 |---|---|---|
-| `Secure` | Nein (Self-Signed blockiert es) | Ja |
+| `Secure` | Ja (immer gesetzt bei `https:`, unabhängig von `.local`) | Ja |
 | `SameSite` | Lax | Lax |
 | `HttpOnly` | Nein (JS muss den Cookie setzen) | Nein |
 | `Max-Age` | 30 Tage (2592000s) | 30 Tage |
@@ -216,49 +222,44 @@ Der Cookie gilt für alle Subdomains (`*.brain.local` / `*.yourdomain.com`), nic
 
 ---
 
-## MFA / TOTP erzwingen (für Team-Server)
+## MFA / TOTP erzwingen (Team-Server)
 
-Standardmäßig ist MFA optional. Für den Team-Betrieb sollte MFA für alle Admins verpflichtend sein.
+**MFA ist standardmäßig erzwungen** (`MFA_REQUIRED=true`) – nicht über eine Supabase/GoTrue-Einstellung, sondern durch den auth-gateway selbst: `/verify` prüft bei jedem Request den `aal`-Claim des JWTs und lehnt `aal1`-Tokens (nur Passwort, TOTP nicht abgeschlossen) mit `401 MFA required` ab. Das ist robuster als eine reine GoTrue-Konfiguration, weil es unabhängig davon greift, wie das Token ausgestellt wurde.
 
-### Konfiguration in Supabase
+### Was passiert im Detail?
 
+1. User loggt sich mit Passwort ein → GoTrue stellt ein `aal1`-Token aus
+2. `dashboard/auth.js` prüft `mfa.getAuthenticatorAssuranceLevel()`:
+   - Faktor vorhanden, `nextLevel = 'aal2'` → TOTP-Eingabefeld erscheint automatisch, Cookie wird erst nach erfolgreicher TOTP-Verifikation gesetzt
+   - Kein Faktor eingerichtet → Nutzer wird nach dem Login zum Profil-Tab geleitet, rotes Banner „2FA ist erforderlich" erscheint
+3. Selbst falls ein `aal1`-Token direkt als Cookie gesetzt würde (z.B. durch Skript statt Browser-Flow): `auth-gateway` `/verify` lehnt es serverseitig ab – der Bypass über das clientseitige Formular ist geschlossen.
+4. Admin-/Superadmin-Endpoints verlangen zusätzlich `aal2`, unabhängig von der Rollenliste (siehe [Rollen-Hierarchie](#rollen-hierarchie)).
+
+### Notfall-Kill-Switch
+
+Falls die MFA-Pflicht temporär deaktiviert werden muss (z.B. Migration, Support-Fall):
 ```bash
-# Supabase Dashboard → Authentication → Sign In / MFA
-# → Enable MFA → "Required" für alle User
+# .env
+MFA_REQUIRED=false
 ```
-
-Alternativ via Supabase Management API:
+Danach `auth-gateway` neu starten, damit die Env-Variable greift:
 ```bash
-curl -X PATCH "https://api.supabase.com/v1/projects/<project-ref>/auth/config" \
-  -H "Authorization: Bearer <mgmt-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"mfa_required": true}'
+docker compose up -d auth-gateway
 ```
-
-### Lokale Supabase-Instanz
-
-In `supabase/docker/.env.local` (oder via Supabase Studio → Auth-Settings):
-```bash
-# GoTrue-Konfiguration
-GOTRUE_MFA_ENABLED=true
-```
-
-### Was passiert bei aktiviertem MFA-Zwang?
-
-1. User loggt sich mit Passwort ein
-2. `mfa.getAuthenticatorAssuranceLevel()` gibt `aal.nextLevel = 'aal2'` zurück
-3. Login-Flow zeigt automatisch TOTP-Eingabefeld (bereits implementiert in `auth.js`)
-4. Ohne registrierten TOTP-Faktor: Login nicht möglich
+**Achtung:** Damit greift wieder die alte Lücke – nur für kurze, kontrollierte Zeitfenster verwenden.
 
 ### Backup bei verlorenem TOTP-Device
 
-Superadmin kann TOTP-Faktor für einen User über die Supabase-Admin-API zurücksetzen:
+Superadmins können die 2FA eines Users direkt über das Dashboard zurücksetzen: **Benutzerverwaltung → „2FA zurücksetzen"** bei der jeweiligen Zeile (ruft `POST /control/users/mfa-reset` auf, siehe [15_api_reference.md](15_api_reference.md)). Der Nutzer muss danach TOTP neu einrichten.
+
+Alternativ manuell über die GoTrue-Admin-API (macht dasselbe, was der Endpoint intern tut):
 ```bash
-# Alle MFA-Faktoren eines Users auflisten
 SERVICE_KEY=$(grep "^SERVICE_ROLE_KEY=" .env | cut -d= -f2)
-curl -s "http://localhost:8000/auth/v1/admin/users/<user-id>/factors" \
+
+# Alle MFA-Faktoren eines Users auflisten
+curl -s "http://localhost:8000/auth/v1/admin/users/<user-id>" \
   -H "Authorization: Bearer $SERVICE_KEY" \
-  -H "apikey: $SERVICE_KEY"
+  -H "apikey: $SERVICE_KEY" | jq .factors
 
 # Faktor löschen
 curl -s -X DELETE "http://localhost:8000/auth/v1/admin/users/<user-id>/factors/<factor-id>" \
@@ -287,11 +288,20 @@ Andere Services (n8n, Grafana, Langfuse) senden ihre eigenen CSP-Header – kein
 
 ---
 
+## Grafana Auth-Proxy-Header
+
+Grafana vertraut den Headern `X-Forwarded-User`/`X-Forwarded-Role` (`GF_AUTH_PROXY_*` in `docker-compose.yml`). Damit ein Client diese Header nicht selbst mitschicken kann, gilt:
+
+- Auf allen Pfaden mit `forward_auth` überschreibt Caddy `X-Forwarded-User` per `copy_headers` mit dem vom auth-gateway verifizierten Wert – ein client-gelieferter Wert wird verworfen.
+- Auf den beiden auth-freien Pfaden `/public/*` und `/avatar/*` (statische Assets, kein Login-Redirect gewünscht) entfernt Caddy die Header explizit (`header_up -X-Forwarded-User` / `-X-Forwarded-Role`), statt sie durchzureichen.
+- Zusätzlich kann `GRAFANA_PROXY_WHITELIST` in `.env` gesetzt werden (IP/Subnetz des Compose-Netzes), damit Grafana die Header ohnehin nur vom Caddy-Container akzeptiert (defense-in-depth, `GF_AUTH_PROXY_WHITELIST`).
+
 ## Bekannte Einschränkungen
 
 | Thema | Status | Begründung |
 |---|---|---|
-| Cookie ohne `HttpOnly` | Bewusst | JS muss Token lesen (Supabase SDK) |
+| Cookie ohne `HttpOnly` | Bewusst | JS muss Token lesen (Supabase SDK); Server-gesetztes HttpOnly-Cookie ist als Folgeschritt geplant |
 | AnonKey im Frontend | Akzeptiert | Supabase-Design-Muster; durch RLS + `DISABLE_SIGNUP=true` geschützt |
 | Docker-Socket-Zugriff in auth-gateway | Notwendig | Pflicht für Service Control (start/stop) |
 | `SERVICE_ROLE_KEY` in Env-Vars | Standard | Docker-Pattern; kein Fix ohne Swarm Secrets |
+| CSRF-Schutz für `/control/*`-POSTs | Nicht implementiert | Nur Cookie-Auth (`SameSite=Lax`); Härtung über zusätzlichen `Authorization`-Header-Zwang ist als Folgeschritt geplant |

@@ -749,12 +749,18 @@
                     pwBtn.textContent = 'Passwort';
                     pwBtn.addEventListener('click', function () { openUserPwModal(u.id, u.email); });
 
+                    var mfaBtn = document.createElement('button');
+                    mfaBtn.className = 'btn-ghost';
+                    mfaBtn.textContent = '2FA zurücksetzen';
+                    mfaBtn.addEventListener('click', function () { doMfaReset(u.id, u.email, mfaBtn); });
+
                     var delBtn = document.createElement('button');
                     delBtn.className = 'btn-ghost btn-ghost--warn';
                     delBtn.textContent = 'Löschen';
                     delBtn.addEventListener('click', function () { openUserDelModal(u.id, u.email); });
 
                     tdActions.appendChild(pwBtn);
+                    tdActions.appendChild(mfaBtn);
                     tdActions.appendChild(delBtn);
                     tr.appendChild(tdActions);
                     fragment.appendChild(tr);
@@ -764,6 +770,31 @@
             .catch(function () {
                 clearTbody(tbody);
                 tbody.appendChild(makeNoDataRow(4, 'Fehler beim Laden.'));
+            });
+    }
+
+    // ── 2FA / MFA zurücksetzen (Recovery bei verlorenem Authenticator) ────────
+    function doMfaReset(userId, email, btn) {
+        if (!window.confirm('2FA für "' + (email || userId) + '" wirklich zurücksetzen? '
+            + 'Der Nutzer muss danach einen neuen Authenticator einrichten.')) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Setze zurück…'; }
+        fetch('/_control/users/mfa-reset', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
+            signal: AbortSignal.timeout(12000),
+        })
+            .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+            .then(function (result) {
+                if (btn) btn.disabled = false;
+                if (result.ok) {
+                    if (btn) { btn.textContent = 'Zurückgesetzt ✓'; setTimeout(function () { btn.textContent = '2FA zurücksetzen'; }, 2500); }
+                } else {
+                    if (btn) { btn.textContent = 'Fehler'; setTimeout(function () { btn.textContent = '2FA zurücksetzen'; }, 2500); }
+                }
+            })
+            .catch(function () {
+                if (btn) { btn.disabled = false; btn.textContent = 'Netzwerkfehler'; setTimeout(function () { btn.textContent = '2FA zurücksetzen'; }, 2500); }
             });
     }
 

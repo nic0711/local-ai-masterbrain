@@ -9,7 +9,7 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 
 | Service | Base URL (intern) | Base URL (extern) | Endpunkte |
 |---------|-------------------|-------------------|-----------|
-| auth-gateway | `http://auth-gateway:5001` | `https://auth.{DOMAIN}` | 18 |
+| auth-gateway | `http://auth-gateway:5001` | `https://auth.{DOMAIN}` | 19 |
 | python-nlp-service | `http://python-nlp-service:8001` | `https://nlp.{DOMAIN}` | 10 |
 | ocr-service | `http://ocr-service:8002` | `https://ocr.{DOMAIN}` | 15 |
 | tts-service | `http://tts-service:8003` | `https://tts.{DOMAIN}` | 7 |
@@ -18,13 +18,13 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 
 ## auth-gateway (Port 5001)
 
-Auth-Level: **Auth** = gültiges JWT · **Admin** = in `ADMIN_EMAILS` · **Superadmin** = in `SUPERADMIN_EMAILS` (siehe [05_security_hardening.md](05_security_hardening.md))
+Auth-Level: **Auth** = gültiges JWT (bei aktivem `MFA_REQUIRED` zusätzlich `aal2`, d.h. abgeschlossene 2FA) · **Admin** = in `ADMIN_EMAILS`/`SUPERADMIN_EMAILS` + `aal2` · **Superadmin** = in `SUPERADMIN_EMAILS` + `aal2` (siehe [05_security_hardening.md](05_security_hardening.md))
 
 | Methode | Pfad | Auth | Beschreibung |
 |---------|------|------|--------------|
 | `GET` | `/health` | – | Health-Check (öffentlich) |
 | `GET` | `/status` | Auth | Service-Status (alle auth. Nutzer) |
-| `GET` | `/verify` | – | JWT verifizieren (Caddy `forward_auth` target) |
+| `GET` | `/verify` | – | JWT verifizieren (Caddy `forward_auth` target); verlangt `aal2` sofern `MFA_REQUIRED` aktiv |
 | `GET` | `/control/backup/status` | Auth | Status des letzten Backups |
 | `GET` | `/control/backup/list` | Auth | Verfügbare Backup-Archive auflisten |
 | `GET` | `/control/services/status` | Auth | Status aller Docker-Services |
@@ -40,6 +40,7 @@ Auth-Level: **Auth** = gültiges JWT · **Admin** = in `ADMIN_EMAILS` · **Super
 | `POST` | `/control/users` | **Superadmin** | Neuen Benutzer anlegen |
 | `POST` | `/control/users/password` | **Superadmin** | Passwort zurücksetzen |
 | `POST` | `/control/users/delete` | **Superadmin** | Benutzer löschen |
+| `POST` | `/control/users/mfa-reset` | **Superadmin** | Alle MFA-Faktoren eines Users entfernen (Recovery bei verlorenem Authenticator) |
 
 ### POST `/control/backup`
 ```json
@@ -51,7 +52,17 @@ Auth-Level: **Auth** = gültiges JWT · **Admin** = in `ADMIN_EMAILS` · **Super
 ```
 
 ### GET `/verify`
-Wird von Caddy als `forward_auth` aufgerufen. Gibt `200 OK` zurück wenn das JWT gültig ist, sonst `401`.
+Wird von Caddy als `forward_auth` aufgerufen. Gibt `200 OK` zurück wenn das JWT gültig ist (Signatur, `exp`, `aud`), sonst `401`. Ist `MFA_REQUIRED=true` (Default) gesetzt, wird zusätzlich der `aal`-Claim geprüft – ein Token mit `aal1` (Passwort ohne abgeschlossene 2FA) liefert `401 MFA required`, auch wenn Signatur/`exp`/`aud` gültig sind.
+
+### POST `/control/users/mfa-reset`
+Nur Superadmin. Entfernt alle registrierten MFA-Faktoren (TOTP) eines Users über die GoTrue-Admin-API – Recovery-Pfad bei verlorenem Authenticator, damit MFA-Pflicht nicht zum Lockout führt.
+```json
+// Request body
+{ "user_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
+
+// Response
+{ "status": "ok", "removed": 1 }
+```
 
 ### GET `/control/services/status`
 Gibt den laufenden Status aller kontrollierbaren Docker-Services zurück.

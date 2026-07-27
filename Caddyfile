@@ -35,7 +35,7 @@
 # Statische Assets (.js, .css, Fonts, Bilder) werden ohne forward_auth ausgeliefert –
 # HTML-Seiten und API-Calls erfordern weiterhin Auth. Reduziert Auth-Calls erheblich.
 (protected) {
-    @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+    @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.webp
     forward_auth @needs_auth auth-gateway:5001 {
         uri /verify
         header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
@@ -93,6 +93,10 @@
     }
     handle /_control/users/delete {
         rewrite * /control/users/delete
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_control/users/mfa-reset {
+        rewrite * /control/users/mfa-reset
         reverse_proxy auth-gateway:5001
     }
     handle /_control/users {
@@ -153,7 +157,7 @@
 
     # Alle anderen Requests: Supabase-Auth prüfen, dann weiterleiten
     handle {
-        @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
+        @needs_auth not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.webp
         forward_auth @needs_auth auth-gateway:5001 {
             uri /verify
             header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
@@ -264,12 +268,20 @@
 {$GRAFANA_HOSTNAME} {
     import security_headers
 
+    # Statische Grafana-Pfade ohne forward_auth: client-gelieferte Trust-Header
+    # entfernen, damit X-Forwarded-User/-Role hier nicht gespooft werden können.
     handle /public/* {
-        reverse_proxy grafana:3000
+        reverse_proxy grafana:3000 {
+            header_up -X-Forwarded-User
+            header_up -X-Forwarded-Role
+        }
     }
 
     handle /avatar/* {
-        reverse_proxy grafana:3000
+        reverse_proxy grafana:3000 {
+            header_up -X-Forwarded-User
+            header_up -X-Forwarded-Role
+        }
     }
 
     # API-Calls aus dem Browser-SPA: JWT prüfen, X-Forwarded-User setzen
@@ -300,8 +312,10 @@
     }
 
     handle {
-        @needs_auth_grafana not path *.js *.css *.png *.jpg *.jpeg *.gif *.svg *.ico *.woff *.woff2 *.ttf *.eot *.map *.webp *.txt *.xml
-        forward_auth @needs_auth_grafana auth-gateway:5001 {
+        # Kein Static-Asset-Bypass: ALLE Nicht-/api/-/public/-/avatar-Requests werden
+        # authentifiziert. forward_auth überschreibt X-Forwarded-User mit dem verifizierten
+        # Wert (copy_headers) – ein client-gelieferter Header kann so nicht durchrutschen.
+        forward_auth auth-gateway:5001 {
             uri /verify
             header_up Authorization "Bearer {http.request.cookie.sb-access-token}"
             copy_headers X-Forwarded-User
