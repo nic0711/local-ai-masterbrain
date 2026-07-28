@@ -378,3 +378,31 @@ class TestPDFAnalyzeType:
         data = response.json()
         assert "pdf_analysis" in data
         assert "request_id" in data
+
+    def test_analysis_error_does_not_leak_exception_details(self):
+        """Regression test: internal exception text must never reach the client
+        (CodeQL py/stack-trace-exposure)."""
+        broken_manager = _make_mock_engine_manager()
+        broken_manager._analyze_pdf_type.side_effect = RuntimeError("/secret/internal/path leaked")
+        with patch.object(app_module, "OCREngineManager", return_value=broken_manager):
+            files = {"file": ("doc.pdf", _small_pdf_bytes(), "application/pdf")}
+            response = client.post("/pdf/analyze-type", files=files)
+        assert response.status_code == 500
+        assert "/secret/internal/path" not in response.text
+        assert response.json()["detail"] == "PDF analysis failed"
+
+
+# ---------------------------------------------------------------------------
+# Tests: OCREngineManager error paths don't leak exception details
+# ---------------------------------------------------------------------------
+
+class TestOCREngineErrorMessages:
+
+    def test_analyze_pdf_type_error_is_generic(self):
+        import ocr_engines
+        from ocr_engines import OCREngineManager
+        manager = OCREngineManager()
+        with patch.object(ocr_engines.fitz, "open", side_effect=RuntimeError("/secret/internal/path")):
+            result = manager._analyze_pdf_type("/nonexistent/file.pdf")
+        assert result["analysis_method"] == "error"
+        assert result["error"] == "PDF-Analyse fehlgeschlagen"

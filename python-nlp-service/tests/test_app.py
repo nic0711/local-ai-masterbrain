@@ -298,11 +298,12 @@ class TestPdfExtract:
         assert body["needs_ocr"] is False
 
     def test_ocr_path_ollama_error_returns_502(self, client):
-        """When Ollama is unreachable during OCR, returns 502."""
+        """When Ollama is unreachable during OCR, returns 502 without leaking
+        the raw exception text (CodeQL py/stack-trace-exposure regression)."""
         fake_pdf = b"%PDF-1.4 fake"
         with patch.object(app_module, "_pdf_extract_text", return_value=("", 1)), \
              patch.object(app_module, "_pdf_to_png_pages", return_value=[b"PNGDATA"]), \
-             patch.object(app_module, "_ocr_image_with_ollama", side_effect=RuntimeError("Ollama nicht erreichbar")):
+             patch.object(app_module, "_ocr_image_with_ollama", side_effect=RuntimeError("Ollama nicht erreichbar unter http://internal-host:11434")):
             data = {"file": (io.BytesIO(fake_pdf), "test.pdf")}
             resp = client.post(
                 "/pdf/extract",
@@ -310,6 +311,7 @@ class TestPdfExtract:
                 content_type="multipart/form-data",
             )
         assert resp.status_code == 502
+        assert "internal-host" not in resp.get_data(as_text=True)
 
 
 # ===========================================================================
@@ -338,6 +340,20 @@ class TestDocumentAnalyze:
         resp = client.post("/document/analyze", json={"text": "Test"})
         assert resp.status_code == 503
         app_module.service_ready = True
+
+    def test_ocr_error_does_not_leak_exception_details(self, client):
+        """Regression test for CodeQL py/stack-trace-exposure: the RuntimeError
+        message must never reach the HTTP response body."""
+        with patch.object(app_module, "_ocr_image_with_ollama",
+                           side_effect=RuntimeError("Ollama nicht erreichbar unter http://internal-host:11434")):
+            data = {"file": (io.BytesIO(b"\x89PNG fake"), "scan.png")}
+            resp = client.post(
+                "/document/analyze",
+                data=data,
+                content_type="multipart/form-data",
+            )
+        assert resp.status_code == 502
+        assert "internal-host" not in resp.get_data(as_text=True)
 
 
 # ===========================================================================
@@ -427,6 +443,31 @@ class TestGraphIndex:
         body = resp.get_json()
         assert body["status"] == "ok"
         assert "entities_indexed" in body
+
+    def test_wikilinks_still_extracted_with_bounded_regex(self, client):
+        """Regression test: the ReDoS-hardened wikilink regex (bounded
+        repetition) must still extract normal [[Note Title]] links."""
+        driver = self._neo4j_driver_mock()
+        with patch.object(app_module, "_get_neo4j", return_value=driver):
+            resp = client.post(
+                "/graph/index",
+                json={
+                    "path": "/notes/test.md",
+                    "text": "Siehe [[Berlin]] und [[München|die bayerische Hauptstadt]].",
+                },
+            )
+        assert resp.status_code == 200
+
+    def test_wikilink_regex_resists_redos_input(self, client):
+        """Adversarial input (many unclosed '[[' sequences) must not cause
+        polynomial-time blowup (CodeQL py/polynomial-redos regression)."""
+        import time
+        adversarial = "[[\\" * 20_000
+        start = time.monotonic()
+        wikilinks = app_module.re.findall(r'\[\[([^\]|]{1,300})(?:\|[^\]]{0,300})?\]\]', adversarial)
+        elapsed = time.monotonic() - start
+        assert wikilinks == []
+        assert elapsed < 1.0
 
 
 # ===========================================================================

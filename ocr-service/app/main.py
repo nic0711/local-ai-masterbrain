@@ -297,7 +297,7 @@ async def process_folder_ocr(
                 results.append({
                     "filename": filename,
                     "file_path": file_path,
-                    "error": str(e),
+                    "error": "Verarbeitung fehlgeschlagen",
                     "status": "failed"
                 })
         
@@ -343,7 +343,7 @@ async def process_folder_ocr(
         
     except Exception as e:
         logger.error(f"Folder OCR processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Folder processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Folder processing failed")
 
 
 @app.post("/pdf/analyze")
@@ -429,7 +429,7 @@ async def analyze_pdf(
             "analysis_method": "error",
             "filename": file.filename,
             "request_id": request_id,
-            "error": str(e)
+            "error": "PDF-Analyse fehlgeschlagen"
         }
     
     finally:
@@ -481,7 +481,7 @@ async def analyze_pdf_type(file: UploadFile = File(...)):
         raise
     except Exception as e:
         logger.error(f"PDF analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=f"PDF analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF analysis failed")
     
     finally:
         # Clean up temporary file
@@ -619,7 +619,7 @@ async def convert_pdf_to_png(
         # Clean up temp file if it exists
         if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
-        raise HTTPException(status_code=500, detail=f"PDF conversion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF conversion failed")
 
 
 @app.post("/pdf/to-png-all")
@@ -719,7 +719,7 @@ async def convert_pdf_all_pages_to_png(
         # Clean up temp file if it exists
         if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
-        raise HTTPException(status_code=500, detail=f"PDF conversion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF conversion failed")
 
 
 @app.get("/pdf/page-count")
@@ -770,7 +770,7 @@ async def get_pdf_page_count(file: UploadFile = File(...)):
         # Clean up temp file if it exists
         if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
-        raise HTTPException(status_code=500, detail=f"PDF page count failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF page count failed")
 
 
 @app.post("/pdf/to-png-combined")
@@ -915,7 +915,7 @@ async def convert_pdf_to_combined_png(
         # Clean up temp file if it exists
         if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
-        raise HTTPException(status_code=500, detail=f"PDF conversion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF conversion failed")
 
 
 @app.post("/pdf/to-png-smart")
@@ -1067,7 +1067,7 @@ async def convert_pdf_smart(
         # Clean up temp file if it exists
         if 'temp_pdf_path' in locals() and os.path.exists(temp_pdf_path):
             os.remove(temp_pdf_path)
-        raise HTTPException(status_code=500, detail=f"PDF conversion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="PDF conversion failed")
 
 
 @app.post("/debug/file-info")
@@ -1108,9 +1108,10 @@ async def debug_file_info(file: UploadFile = File(...)):
         }
         
     except Exception as e:
+        logger.error(f"Debug file-info failed: {e}")
         return {
             "status": "error",
-            "error": str(e),
+            "error": "Datei-Info konnte nicht ermittelt werden",
             "file_info": {
                 "filename": getattr(file, 'filename', 'unknown'),
                 "content_type": getattr(file, 'content_type', 'unknown')

@@ -93,7 +93,10 @@ class TTSEngine:
         if save_as:
             if not _SAFE_ID_RE.match(save_as):
                 raise ValueError("Ungültiger save_as Name.")
-            dest = (VOICES_DIR / f"{save_as}.wav").resolve()
+            # os.path.basename entfernt jegliche Verzeichnisanteile explizit (defense in
+            # depth zusätzlich zur Regex-Prüfung oben und dem Containment-Check unten).
+            safe_name = os.path.basename(save_as)
+            dest = (VOICES_DIR / f"{safe_name}.wav").resolve()
             voices_resolved = VOICES_DIR.resolve()
             try:
                 dest.relative_to(voices_resolved)

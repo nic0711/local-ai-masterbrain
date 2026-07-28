@@ -230,7 +230,7 @@ class OCREngineManager:
                 "needs_ocr": True,
                 "text_length": 0,
                 "analysis_method": "error",
-                "error": str(e)
+                "error": "PDF-Analyse fehlgeschlagen"
             }
 
     async def extract_text(self, file_path: str, engine_preference: str = "auto") -> Dict[str, Any]:
@@ -320,7 +320,7 @@ class OCREngineManager:
                 "engine_used": "none",
                 "processing_time": time.time() - start_time,
                 "confidence": 0.0,
-                "error": str(e),
+                "error": "Texterkennung fehlgeschlagen",
                 "file_path": file_path,
                 "method": "error"
             }
