@@ -94,13 +94,13 @@ class TTSEngine:
             if not _SAFE_ID_RE.match(save_as):
                 raise ValueError("Ungültiger save_as Name.")
             # os.path.basename entfernt jegliche Verzeichnisanteile explizit (defense in
-            # depth zusätzlich zur Regex-Prüfung oben und dem Containment-Check unten).
+            # depth zusätzlich zur Regex-Prüfung oben). Normpath + startswith-Containment-
+            # Check statt pathlib.resolve()/relative_to(): von CodeQL als sicheres Muster
+            # für Pfad-Validierung erkannt.
             safe_name = os.path.basename(save_as)
-            dest = (VOICES_DIR / f"{safe_name}.wav").resolve()
-            voices_resolved = VOICES_DIR.resolve()
-            try:
-                dest.relative_to(voices_resolved)
-            except ValueError:
+            voices_root = os.path.normpath(str(VOICES_DIR.resolve()))
+            dest = os.path.normpath(os.path.join(voices_root, f"{safe_name}.wav"))
+            if not dest.startswith(voices_root + os.sep):
                 raise ValueError("Ungültiger Zieldateipfad.")
             import shutil
             shutil.copy2(ref_audio_path, dest)
