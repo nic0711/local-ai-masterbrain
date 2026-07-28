@@ -117,6 +117,12 @@ def service_status():
 # Lokale JWT-Verifikation: kein HTTP-Call zu Supabase nötig
 _JWT_SECRET = os.environ.get("JWT_SECRET", "")
 
+# Domain für das serverseitig gesetzte Session-Cookie (z.B. ".brain.local").
+# Gleiche Logik wie dashboard/entrypoint.sh: nur im Public-Profil mit echter Domain gesetzt.
+_IS_PUBLIC_PROFILE = os.environ.get("IS_PUBLIC_PROFILE", "false").lower() == "true"
+_DOMAIN = os.environ.get("DOMAIN", "")
+_COOKIE_DOMAIN = f".{_DOMAIN}" if (_IS_PUBLIC_PROFILE and _DOMAIN) else ""
+
 # Cache für lokale Verifikationsergebnisse (Speicherschutz, max. 500 Einträge)
 _jwt_cache: dict = {}
 _JWT_CACHE_TTL = 300  # 5 Minuten – großzügig, da lokal verifiziert
@@ -124,8 +130,7 @@ _JWT_CACHE_MAX = 500
 
 
 def _get_verified_user():
-    """Validiert JWT lokal via PyJWT (kein Supabase-HTTP-Call).
-    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
+    """Liest das Token aus Authorization-Header oder Cookie und verifiziert es."""
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ', 1)[1]
@@ -133,7 +138,12 @@ def _get_verified_user():
         token = request.cookies.get('sb-access-token')
         if not token:
             return None
+    return _verify_token_string(token)
 
+
+def _verify_token_string(token):
+    """Validiert einen rohen Token-String lokal via PyJWT (kein Supabase-HTTP-Call).
+    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
     now = time.time()
     # Use SHA-256 of full token as cache key to avoid suffix-collision attacks
     cache_key = hashlib.sha256(token.encode()).hexdigest()
@@ -147,6 +157,7 @@ def _get_verified_user():
         del _jwt_cache[cache_key]
 
     user = None
+    token_exp = None
 
     if _JWT_SECRET:
         # Schneller Pfad: lokale kryptografische Verifikation (<1ms)
@@ -160,16 +171,19 @@ def _get_verified_user():
                 token, _JWT_SECRET, algorithms=["HS256"],
                 audience="authenticated",
             )
+            token_exp = payload.get("exp")
             user = SimpleNamespace(
                 id=payload.get("sub", ""),
                 email=payload.get("email", ""),
+                aal=payload.get("aal", "aal1"),
             )
         except pyjwt.ExpiredSignatureError:
             return None
         except pyjwt.InvalidTokenError:
             return None
     elif supabase:
-        # Fallback: Supabase-API (wenn JWT_SECRET nicht gesetzt)
+        # Fallback: Supabase-API (wenn JWT_SECRET nicht gesetzt).
+        # Hinweis: liefert kein aal-Claim → MFA-Enforcement erfordert gesetztes JWT_SECRET.
         try:
             resp = supabase.auth.get_user(token)
             user = resp.user if resp else None
@@ -181,7 +195,12 @@ def _get_verified_user():
         if len(_jwt_cache) >= _JWT_CACHE_MAX:
             oldest = min(_jwt_cache, key=lambda k: _jwt_cache[k][1])
             del _jwt_cache[oldest]
-        _jwt_cache[cache_key] = (user, now + _JWT_CACHE_TTL)
+        # Cache-Ablauf am Token-exp deckeln: verhindert, dass ein abgelaufenes oder
+        # widerrufenes Token bis zu TTL Sekunden über sein echtes exp hinaus gilt.
+        expires_at = now + _JWT_CACHE_TTL
+        if token_exp:
+            expires_at = min(expires_at, token_exp)
+        _jwt_cache[cache_key] = (user, expires_at)
 
     return user
 
@@ -196,25 +215,67 @@ if not _SUPERADMIN_EMAILS:
     )
 if not _ADMIN_EMAILS:
     logging.warning(
-        "ADMIN_EMAILS nicht gesetzt – alle authentifizierten Nutzer haben Admin-Zugriff auf "
-        "Control-Endpoints. Für externe Server ADMIN_EMAILS=user@example.com setzen."
+        "ADMIN_EMAILS nicht gesetzt – nur Superadmins haben Admin-Zugriff auf Control-Endpoints "
+        "(fail-closed). Für weitere Admins ADMIN_EMAILS=user@example.com setzen."
     )
+
+# MFA-Enforcement: Der Gateway verlangt aal2 (Passwort + TOTP), sofern nicht abgeschaltet.
+_MFA_REQUIRED = os.environ.get("MFA_REQUIRED", "true").lower() != "false"
+
+
+def _require_aal2(user) -> bool:
+    """True wenn die Session ein zweites Faktor-Level (aal2) erreicht hat."""
+    return getattr(user, "aal", "aal1") == "aal2"
 
 
 def _require_admin(user) -> bool:
-    """True wenn der User Admin- oder Superadmin-Rechte hat.
-    Ohne ADMIN_EMAILS-Konfiguration haben alle auth. Nutzer Admin-Zugriff (lokaler Betrieb)."""
-    if not _ADMIN_EMAILS:
-        return True
+    """True wenn der User Admin- oder Superadmin-Rechte hat (und aal2, falls MFA erzwungen).
+    Fail-closed: Ohne konfigurierte ADMIN_EMAILS/SUPERADMIN_EMAILS hat niemand Admin-Zugriff."""
+    if _MFA_REQUIRED and not _require_aal2(user):
+        return False
+    if not _ADMIN_EMAILS and not _SUPERADMIN_EMAILS:
+        return False
     return user.email in _ADMIN_EMAILS or user.email in _SUPERADMIN_EMAILS
 
 
 def _require_superadmin(user) -> bool:
-    """True wenn der User Superadmin-Rechte hat.
-    Ohne SUPERADMIN_EMAILS-Konfiguration fällt dies auf Admin-Prüfung zurück."""
+    """True wenn der User Superadmin-Rechte hat (und aal2, falls MFA erzwungen).
+    Ohne SUPERADMIN_EMAILS-Konfiguration fällt dies auf die (fail-closed) Admin-Prüfung zurück."""
+    if _MFA_REQUIRED and not _require_aal2(user):
+        return False
     if not _SUPERADMIN_EMAILS:
         return _require_admin(user)
     return user.email in _SUPERADMIN_EMAILS
+
+
+@app.route('/session', methods=['POST'])
+@limiter.limit("60 per minute")
+def create_session():
+    """Verifiziert ein supabase-js-Token und setzt es als HttpOnly-Cookie.
+    Trägt sb-access-token für Caddys forward_auth; supabase-js behält seine
+    eigene Session separat in localStorage."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("access_token", "")
+    if not token:
+        return jsonify({"error": "missing token"}), 400
+    user = _verify_token_string(token)
+    if not user:
+        return jsonify({"error": "invalid token"}), 401
+    if _MFA_REQUIRED and not _require_aal2(user):
+        return jsonify({"error": "mfa required"}), 401
+    resp = make_response(jsonify({"status": "ok"}), 200)
+    resp.set_cookie("sb-access-token", token, max_age=2592000, httponly=True,
+                     secure=True, samesite="Lax", domain=_COOKIE_DOMAIN or None, path="/")
+    return resp
+
+
+@app.route('/session/logout', methods=['POST'])
+@limiter.limit("60 per minute")
+def destroy_session():
+    resp = make_response(jsonify({"status": "ok"}), 200)
+    resp.set_cookie("sb-access-token", "", max_age=0, httponly=True,
+                     secure=True, samesite="Lax", domain=_COOKIE_DOMAIN or None, path="/")
+    return resp
 
 
 @app.route('/verify', methods=['GET'])
@@ -227,6 +288,11 @@ def verify_auth():
 
     user = _get_verified_user()
     if user:
+        if _MFA_REQUIRED and not _require_aal2(user):
+            # Token gültig, aber nur Passwort-Level (aal1) – 2FA nicht abgeschlossen.
+            # 401 → Caddy leitet auf login.html um (Step-up / Enrollment).
+            logging.info("Auth ok, aber aal2 erforderlich (User auf aal1).")
+            return "MFA required", 401
         logging.info(f"Successfully authenticated user: {user.id}")
         resp = make_response("OK", 200)
         resp.headers['X-Forwarded-User'] = user.email or user.id
@@ -614,6 +680,43 @@ def delete_user():
     except Exception as e:
         logging.error(f"delete_user error: {e}")
         return jsonify({"error": "Fehler beim Löschen des Benutzers"}), 500
+
+
+@app.route('/control/users/mfa-reset', methods=['POST'])
+@limiter.limit("10 per minute")
+def mfa_reset():
+    """Entfernt alle MFA-Faktoren eines Users (Recovery bei verlorenem Authenticator).
+    Auth + Superadmin erforderlich. Nutzt die GoTrue-Admin-API via Service-Role-Key."""
+    user = _get_verified_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if not _require_superadmin(user):
+        return jsonify({"error": "Forbidden: Superadmin-Rechte erforderlich"}), 403
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id', '')
+    if not _USER_ID_RE.match(user_id):
+        return jsonify({"error": "Ungültige Benutzer-ID"}), 400
+    base = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
+    if not base or not key:
+        return jsonify({"error": "Auth service not configured"}), 500
+    import httpx
+    headers = {"Authorization": f"Bearer {key}", "apikey": key}
+    try:
+        r = httpx.get(f"{base}/auth/v1/admin/users/{user_id}", headers=headers, timeout=10)
+        r.raise_for_status()
+        factors = r.json().get("factors", []) or []
+        for f in factors:
+            httpx.delete(
+                f"{base}/auth/v1/admin/users/{user_id}/factors/{f['id']}",
+                headers=headers, timeout=10,
+            )
+        logging.info(f"MFA reset for user {user_id} by {user.id} ({len(factors)} factor(s))")
+        return jsonify({"status": "ok", "removed": len(factors)}), 200
+    except Exception:
+        # Keine Detail-Leaks (Token/Interna) an den Client.
+        logging.error("MFA-Reset fehlgeschlagen")
+        return jsonify({"error": "MFA-Reset fehlgeschlagen"}), 502
 
 
 # ── Service Control ──────────────────────────────────────────────────────────

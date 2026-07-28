@@ -4,7 +4,6 @@
 const AUTH_ENABLED = window.APP_CONFIG?.authEnabled ?? true;
 const SUPABASE_URL = window.APP_CONFIG?.supabaseUrl;
 const SUPABASE_ANON_KEY = window.APP_CONFIG?.supabaseAnonKey;
-const COOKIE_DOMAIN = window.APP_CONFIG?.cookieDomain || '';
 
 // --- Initialisierung ---
 const { createClient } = supabase;
@@ -44,38 +43,58 @@ function _setBadgeContent(badge, label) {
     badge.appendChild(document.createTextNode(label));
 }
 
-// --- Cookie-Management ---
-
-function setCookie(token) {
-    const isLocal = window.location.hostname.endsWith('.local') || window.location.hostname === 'localhost';
-    const secure = (window.location.protocol === 'https:' && !isLocal) ? '; Secure' : '';
-    const domain = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
-    document.cookie = `sb-access-token=${token}; path=/; max-age=2592000; SameSite=Lax${secure}${domain}`;
+// Persistenter Hinweis, dass 2FA eingerichtet werden muss (nur statischer Text, kein innerHTML).
+function _show2faRequiredBanner() {
+    if (document.getElementById('mfa-required-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'mfa-required-banner';
+    banner.style.cssText = 'background:#b71c1c;color:#fff;padding:12px 16px;text-align:center;' +
+        'font-size:0.95rem;position:sticky;top:0;z-index:1000;';
+    banner.textContent = '2FA ist erforderlich. Bitte richten Sie im Tab „Mein Konto" einen ' +
+        'Authenticator ein, um auf die Dienste zugreifen zu können.';
+    document.body.insertBefore(banner, document.body.firstChild);
 }
 
-function clearCookie() {
-    const domain = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
-    document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax${domain}`;
+// --- Cookie-Management ---
+// Das Cookie wird server-seitig vom auth-gateway per Set-Cookie gesetzt (HttpOnly –
+// vor XSS-Tokendiebstahl geschützt). supabase-js behält seine eigene Session in
+// localStorage unberührt; das Cookie ist nur der Träger für Caddys forward_auth.
+
+async function setCookie(token) {
+    try {
+        await fetch('/_auth/session', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_token: token }),
+        });
+    } catch (e) { console.error('Session-Cookie setzen fehlgeschlagen', e); }
+}
+
+async function clearCookie() {
+    try {
+        await fetch('/_auth/session/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) { /* ignore */ }
 }
 
 // --- Proaktiver Token-Refresh ---
-// Liest die JWT-Ablaufzeit aus dem Cookie und plant einen Refresh
-// 5 Minuten vor Ablauf. Rekursiv – solange die Seite offen ist.
+// Liest die JWT-Ablaufzeit aus der supabase-js-Session (Cookie ist HttpOnly, nicht
+// mehr per document.cookie lesbar) und plant einen Refresh 5 Minuten vor Ablauf.
+// Rekursiv – solange die Seite offen ist.
 let _refreshTimer = null;
-function _scheduleTokenRefresh() {
+async function _scheduleTokenRefresh() {
     if (!_supabase) return;
     if (_refreshTimer) clearTimeout(_refreshTimer);
 
-    const jwt = _readJWTPayload();
-    if (!jwt?.exp) return;
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (!session?.expires_at) return;
 
-    const msUntilExpiry = jwt.exp * 1000 - Date.now();
+    const msUntilExpiry = session.expires_at * 1000 - Date.now();
     const msUntilRefresh = Math.max(0, msUntilExpiry - 5 * 60 * 1000); // 5 min vor Ablauf
 
     _refreshTimer = setTimeout(async () => {
         const { data } = await _supabase.auth.refreshSession();
         if (data?.session?.access_token) {
-            setCookie(data.session.access_token);
+            await setCookie(data.session.access_token);
             _scheduleTokenRefresh(); // nächsten Refresh einplanen
         }
     }, msUntilRefresh);
@@ -83,12 +102,12 @@ function _scheduleTokenRefresh() {
 
 // --- Auth State Synchronisation ---
 if (_supabase) {
-    _supabase.auth.onAuthStateChange((event, session) => {
+    _supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.access_token) {
-            setCookie(session.access_token);
+            await setCookie(session.access_token);
             _scheduleTokenRefresh();
         } else if (event === 'SIGNED_OUT') {
-            clearCookie();
+            await clearCookie();
             if (_refreshTimer) clearTimeout(_refreshTimer);
         }
     });
@@ -112,9 +131,23 @@ async function protectPage() {
         if (!session) {
             window.location.href = 'login.html';
         } else {
-            setCookie(session.access_token);
+            await setCookie(session.access_token);
             _scheduleTokenRefresh();
+            // MFA-Gate: Session nur auf aal1 → 2FA noch nicht abgeschlossen/eingerichtet.
+            const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+                // Hat verifizierten Faktor, aber Session nur aal1 → Step-up erzwingen.
+                window.location.href = 'login.html';
+                return;
+            }
             document.body.style.visibility = 'visible';
+            if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal1') {
+                // Kein Faktor → zur 2FA-Einrichtung führen und Hinweis anzeigen.
+                if (typeof window.activateDashboardTab === 'function') {
+                    window.activateDashboardTab('profile');
+                }
+                _show2faRequiredBanner();
+            }
         }
     } catch (e) {
         console.error('Auth check failed:', e);
@@ -156,7 +189,7 @@ if (loginForm) {
                 if (errorMessage) errorMessage.textContent = 'Ungültiger Code: ' + error.message;
             } else {
                 const { data: { session } } = await _supabase.auth.getSession();
-                if (session) setCookie(session.access_token);
+                if (session) await setCookie(session.access_token);
                 const params = new URLSearchParams(window.location.search);
                 window.location.href = _safeRedirect(params.get('redirect'));
             }
@@ -194,10 +227,38 @@ if (loginForm) {
             }
         }
 
-        if (data.session) setCookie(data.session.access_token);
+        if (data.session) await setCookie(data.session.access_token);
         const params = new URLSearchParams(window.location.search);
         window.location.href = _safeRedirect(params.get('redirect'));
     });
+
+    // Landet ein Nutzer mit gültiger aal1-Session hier (via 302 von einem Dienst),
+    // direkt den passenden Schritt zeigen – ohne erneute Passworteingabe.
+    async function _resumeMfaIfNeeded() {
+        if (!_supabase) return;
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) return;
+        const { data: aal } = await _supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+            // Hat verifizierten Faktor → TOTP-Step direkt anzeigen.
+            const { data: factors } = await _supabase.auth.mfa.listFactors();
+            const totpFactor = factors?.totp?.find(f => f.status === 'verified');
+            if (totpFactor) {
+                _mfaFactorId = totpFactor.id;
+                const { data: challenge, error } = await _supabase.auth.mfa.challenge({ factorId: _mfaFactorId });
+                if (!error) {
+                    _mfaChallengeId = challenge.id;
+                    if (passwordStep) passwordStep.classList.add('hidden');
+                    if (totpStep) totpStep.classList.remove('hidden');
+                    document.getElementById('totp-code')?.focus();
+                }
+            }
+        } else if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal1') {
+            // Kein Faktor eingerichtet → zurück ins Dashboard zur Einrichtung.
+            window.location.href = 'index.html';
+        }
+    }
+    _resumeMfaIfNeeded();
 }
 
 // --- Logout ---
@@ -205,7 +266,7 @@ const logoutButton = document.getElementById('logout-button');
 if (logoutButton) {
     logoutButton.addEventListener('click', async () => {
         if (!_supabase) return;
-        clearCookie();
+        await clearCookie();
         await _supabase.auth.signOut();
         window.location.href = '/login.html';
     });
@@ -225,24 +286,6 @@ if (setup2faButton) {
     });
 }
 
-// --- JWT-Cookie dekodieren (kein Netzwerk, kein Supabase-Client nötig) ---
-function _readJWTPayload() {
-    try {
-        const match = document.cookie.split(';')
-            .map(c => c.trim())
-            .find(c => c.startsWith('sb-access-token='));
-        if (!match) return null;
-        const token = match.substring('sb-access-token='.length);
-        const b64 = token.split('.')[1];
-        if (!b64) return null;
-        // Base64url → Base64 padding
-        const padded = b64.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((b64.length + 3) % 4);
-        return JSON.parse(atob(padded));
-    } catch (e) {
-        return null;
-    }
-}
-
 // --- Profil laden ---
 async function loadProfile() {
     if (!_supabase) return;
@@ -250,9 +293,11 @@ async function loadProfile() {
     const emailEl = document.getElementById('profile-email');
     const createdEl = document.getElementById('profile-created');
 
-    // Sofort-Fallback aus JWT-Cookie während der API-Call läuft
-    const jwt = _readJWTPayload();
-    if (emailEl && jwt?.email) emailEl.textContent = jwt.email;
+    // Sofort-Fallback aus der supabase-js-Session (Cookie ist HttpOnly, nicht lesbar)
+    // während der API-Call läuft
+    const { data: { session } } = await _supabase.auth.getSession();
+    const fallbackEmail = session?.user?.email;
+    if (emailEl && fallbackEmail) emailEl.textContent = fallbackEmail;
     if (createdEl) createdEl.textContent = '…';
 
     try {
@@ -268,8 +313,8 @@ async function loadProfile() {
                 : '–';
         }
     } catch (e) {
-        // Fallback: zumindest E-Mail aus JWT-Cookie anzeigen
-        if (emailEl && emailEl.textContent === '…') emailEl.textContent = jwt?.email || '–';
+        // Fallback: zumindest E-Mail aus der Session anzeigen
+        if (emailEl && emailEl.textContent === '…') emailEl.textContent = fallbackEmail || '–';
         if (createdEl && createdEl.textContent === '…') createdEl.textContent = '–';
         console.warn('Profil-Laden fehlgeschlagen:', e.message);
     }

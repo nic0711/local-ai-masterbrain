@@ -306,6 +306,9 @@ services:
       - GF_AUTH_PROXY_HEADERS=Email:X-Forwarded-User Role:X-Forwarded-Role
       - GF_AUTH_PROXY_SYNC_TTL=60
       - GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN=false
+      # Defense-in-depth: Trust-Header nur vom Caddy-Netz akzeptieren. Leer = keine
+      # Einschränkung. Auf das Docker-Subnetz des Stacks setzen (z.B. 172.18.0.0/16).
+      - GF_AUTH_PROXY_WHITELIST=${GRAFANA_PROXY_WHITELIST:-}
       - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Admin
       - GF_LOG_LEVEL=debug
       - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS:-}
@@ -849,6 +852,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - SUPERADMIN_EMAILS=${SUPERADMIN_EMAILS:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - IS_PUBLIC_PROFILE=${IS_PUBLIC_PROFILE:-false}
+      - DOMAIN=${DOMAIN}
       - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
       - APP_DIR=/opt/project

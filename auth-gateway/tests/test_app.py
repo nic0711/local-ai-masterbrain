@@ -28,12 +28,13 @@ _TEST_EMAIL = "test@example.com"
 
 
 def _make_token(secret=_TEST_SECRET, sub=_TEST_USER_ID, email=_TEST_EMAIL,
-                exp_offset=3600, extra_header=None, aud="authenticated"):
-    """Return a signed HS256 JWT."""
+                exp_offset=3600, extra_header=None, aud="authenticated", aal="aal2"):
+    """Return a signed HS256 JWT. Default aal2 (MFA abgeschlossen)."""
     payload = {
         "sub": sub,
         "email": email,
         "aud": aud,
+        "aal": aal,
         "iat": int(time.time()),
         "exp": int(time.time()) + exp_offset,
     }
@@ -75,6 +76,9 @@ def client(tmp_path):
         "BACKUP_TRIGGER_FILE": str(tmp_path / ".trigger"),
         "BACKUP_STATUS_FILE": str(tmp_path / ".backup_status"),
         "APP_DIR": str(tmp_path),
+        # Fail-closed RBAC: Default-Testnutzer explizit als Superadmin autorisieren,
+        # damit die Admin-/Superadmin-Endpoint-Tests weiterhin gültig sind.
+        "SUPERADMIN_EMAILS": _TEST_EMAIL,
     }
 
     # Patch env before importing the module
@@ -198,6 +202,66 @@ class TestVerifyEndpoint:
         token = f"{header}.{payload}."
         resp = client.get("/verify", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401
+
+    def test_verify_aal1_token_rejected(self, client):
+        """MFA-Pflicht: ein reines Passwort-Token (aal1) darf /verify nicht passieren."""
+        token = _make_token(aal="aal1")
+        resp = client.get("/verify", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401
+        assert b"MFA required" in resp.data
+
+    def test_verify_aal2_token_accepted(self, client):
+        """aal2-Token (Passwort + TOTP) wird akzeptiert."""
+        token = _make_token(aal="aal2")
+        resp = client.get("/verify", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+
+    def test_verify_missing_aal_treated_as_aal1(self, client):
+        """Fehlt der aal-Claim, gilt der Default aal1 → abgelehnt."""
+        import jwt as pyjwt
+        payload = {
+            "sub": _TEST_USER_ID, "email": _TEST_EMAIL, "aud": "authenticated",
+            "iat": int(time.time()), "exp": int(time.time()) + 3600,
+        }
+        token = pyjwt.encode(payload, _TEST_SECRET, algorithm="HS256")
+        resp = client.get("/verify", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# /session, /session/logout (F1: HttpOnly-Session-Cookie)
+# ---------------------------------------------------------------------------
+
+class TestSessionEndpoint:
+    def test_session_valid_token_sets_httponly_cookie(self, client):
+        token = _make_token()
+        resp = client.post("/session", json={"access_token": token})
+        assert resp.status_code == 200
+        set_cookie = resp.headers.get("Set-Cookie", "")
+        assert "sb-access-token=" in set_cookie
+        assert "HttpOnly" in set_cookie
+        assert "Secure" in set_cookie
+
+    def test_session_missing_token_returns_400(self, client):
+        resp = client.post("/session", json={})
+        assert resp.status_code == 400
+
+    def test_session_invalid_token_returns_401(self, client):
+        resp = client.post("/session", json={"access_token": "not.a.jwt"})
+        assert resp.status_code == 401
+
+    def test_session_aal1_token_rejected(self, client):
+        """MFA-Pflicht gilt auch für den Session-Endpoint."""
+        token = _make_token(aal="aal1")
+        resp = client.post("/session", json={"access_token": token})
+        assert resp.status_code == 401
+
+    def test_session_logout_clears_cookie(self, client):
+        resp = client.post("/session/logout")
+        assert resp.status_code == 200
+        set_cookie = resp.headers.get("Set-Cookie", "")
+        assert "sb-access-token=" in set_cookie
+        assert "HttpOnly" in set_cookie
 
 
 # ---------------------------------------------------------------------------
@@ -596,3 +660,81 @@ class TestValidateFilepath:
 
     def test_simple_filename(self):
         assert self._vf("app.py") is True
+
+
+# ---------------------------------------------------------------------------
+# Fail-closed RBAC & MFA (aal2) enforcement
+# ---------------------------------------------------------------------------
+
+class TestFailClosedRbac:
+    def test_unlisted_user_denied_admin_endpoint(self, client_with_roles):
+        """Ein Token, dessen E-Mail in KEINER Liste steht, wird auf Admin-Endpoints abgelehnt."""
+        token = _make_token(email="nobody@example.com")
+        resp = client_with_roles.post(
+            "/control/services/n8n/restart",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+    def test_aal1_denied_on_admin_endpoint(self, client):
+        """aal1-Token (nur Passwort) darf keine Admin-Aktion auslösen, auch als Superadmin."""
+        token = _make_token(aal="aal1")
+        resp = client.post(
+            "/control/backup",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code in (401, 403)
+
+
+class TestMfaReset:
+    def test_mfa_reset_requires_superadmin(self, client_with_roles):
+        """Admin-Token darf /control/users/mfa-reset nicht aufrufen."""
+        token = _make_token(email=_ADMIN_ONLY_EMAIL)
+        resp = client_with_roles.post(
+            "/control/users/mfa-reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"user_id": _TEST_USER_ID},
+        )
+        assert resp.status_code == 403
+
+    def test_mfa_reset_invalid_user_id(self, client_with_roles):
+        """Ungültige user_id → 400."""
+        token = _make_token(email=_SUPERADMIN_EMAIL)
+        resp = client_with_roles.post(
+            "/control/users/mfa-reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"user_id": "not-a-uuid"},
+        )
+        assert resp.status_code == 400
+
+    def test_mfa_reset_superadmin_removes_factors(self, client_with_roles):
+        """Superadmin entfernt die Faktoren des Users über die GoTrue-Admin-API."""
+        token = _make_token(email=_SUPERADMIN_EMAIL)
+        fake_get = MagicMock()
+        fake_get.raise_for_status.return_value = None
+        fake_get.json.return_value = {"factors": [{"id": "factor-1"}, {"id": "factor-2"}]}
+        with patch("httpx.get", return_value=fake_get) as mg, patch("httpx.delete") as md:
+            resp = client_with_roles.post(
+                "/control/users/mfa-reset",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"user_id": _TEST_USER_ID},
+            )
+        assert resp.status_code == 200
+        assert resp.get_json()["removed"] == 2
+        assert md.call_count == 2
+
+
+class TestJwtCacheExpiryCap:
+    def test_cache_not_extended_past_token_exp(self, client):
+        """Der Cache darf ein Token nicht über sein echtes exp hinaus akzeptieren."""
+        import app as app_module
+        token = _make_token(exp_offset=30)  # läuft in 30s ab
+        with app_module.app.test_request_context(
+            "/verify", headers={"Authorization": f"Bearer {token}"},
+        ):
+            assert app_module._get_verified_user() is not None
+        # Cache-Eintrag darf nicht länger als das Token gelten
+        import hashlib, time as _t
+        key = hashlib.sha256(token.encode()).hexdigest()
+        _user, expires_at = app_module._jwt_cache[key]
+        assert expires_at <= int(_t.time()) + 31
