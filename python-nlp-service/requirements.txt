@@ -27,7 +27,7 @@ neo4j==5.27.0
 
 # Dokument- und PDF-Verarbeitung
 PyMuPDF==1.24.3           # PDF-Text-Extraktion und PDF→PNG (fitz)
-Pillow==12.2.0            # Bildverarbeitung für OCR-Vorbereitung
+Pillow==12.3.0            # Bildverarbeitung für OCR-Vorbereitung
 
 # System Dependencies werden im Dockerfile installiert:
 # - curl (für HEALTHCHECK)
