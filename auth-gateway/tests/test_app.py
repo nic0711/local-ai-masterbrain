@@ -229,6 +229,42 @@ class TestVerifyEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# /session, /session/logout (F1: HttpOnly-Session-Cookie)
+# ---------------------------------------------------------------------------
+
+class TestSessionEndpoint:
+    def test_session_valid_token_sets_httponly_cookie(self, client):
+        token = _make_token()
+        resp = client.post("/session", json={"access_token": token})
+        assert resp.status_code == 200
+        set_cookie = resp.headers.get("Set-Cookie", "")
+        assert "sb-access-token=" in set_cookie
+        assert "HttpOnly" in set_cookie
+        assert "Secure" in set_cookie
+
+    def test_session_missing_token_returns_400(self, client):
+        resp = client.post("/session", json={})
+        assert resp.status_code == 400
+
+    def test_session_invalid_token_returns_401(self, client):
+        resp = client.post("/session", json={"access_token": "not.a.jwt"})
+        assert resp.status_code == 401
+
+    def test_session_aal1_token_rejected(self, client):
+        """MFA-Pflicht gilt auch für den Session-Endpoint."""
+        token = _make_token(aal="aal1")
+        resp = client.post("/session", json={"access_token": token})
+        assert resp.status_code == 401
+
+    def test_session_logout_clears_cookie(self, client):
+        resp = client.post("/session/logout")
+        assert resp.status_code == 200
+        set_cookie = resp.headers.get("Set-Cookie", "")
+        assert "sb-access-token=" in set_cookie
+        assert "HttpOnly" in set_cookie
+
+
+# ---------------------------------------------------------------------------
 # /control/backup – POST (trigger backup)
 # ---------------------------------------------------------------------------
 

@@ -117,6 +117,12 @@ def service_status():
 # Lokale JWT-Verifikation: kein HTTP-Call zu Supabase nötig
 _JWT_SECRET = os.environ.get("JWT_SECRET", "")
 
+# Domain für das serverseitig gesetzte Session-Cookie (z.B. ".brain.local").
+# Gleiche Logik wie dashboard/entrypoint.sh: nur im Public-Profil mit echter Domain gesetzt.
+_IS_PUBLIC_PROFILE = os.environ.get("IS_PUBLIC_PROFILE", "false").lower() == "true"
+_DOMAIN = os.environ.get("DOMAIN", "")
+_COOKIE_DOMAIN = f".{_DOMAIN}" if (_IS_PUBLIC_PROFILE and _DOMAIN) else ""
+
 # Cache für lokale Verifikationsergebnisse (Speicherschutz, max. 500 Einträge)
 _jwt_cache: dict = {}
 _JWT_CACHE_TTL = 300  # 5 Minuten – großzügig, da lokal verifiziert
@@ -124,8 +130,7 @@ _JWT_CACHE_MAX = 500
 
 
 def _get_verified_user():
-    """Validiert JWT lokal via PyJWT (kein Supabase-HTTP-Call).
-    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
+    """Liest das Token aus Authorization-Header oder Cookie und verifiziert es."""
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ', 1)[1]
@@ -133,7 +138,12 @@ def _get_verified_user():
         token = request.cookies.get('sb-access-token')
         if not token:
             return None
+    return _verify_token_string(token)
 
+
+def _verify_token_string(token):
+    """Validiert einen rohen Token-String lokal via PyJWT (kein Supabase-HTTP-Call).
+    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
     now = time.time()
     # Use SHA-256 of full token as cache key to avoid suffix-collision attacks
     cache_key = hashlib.sha256(token.encode()).hexdigest()
@@ -236,6 +246,36 @@ def _require_superadmin(user) -> bool:
     if not _SUPERADMIN_EMAILS:
         return _require_admin(user)
     return user.email in _SUPERADMIN_EMAILS
+
+
+@app.route('/session', methods=['POST'])
+@limiter.limit("60 per minute")
+def create_session():
+    """Verifiziert ein supabase-js-Token und setzt es als HttpOnly-Cookie.
+    Trägt sb-access-token für Caddys forward_auth; supabase-js behält seine
+    eigene Session separat in localStorage."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("access_token", "")
+    if not token:
+        return jsonify({"error": "missing token"}), 400
+    user = _verify_token_string(token)
+    if not user:
+        return jsonify({"error": "invalid token"}), 401
+    if _MFA_REQUIRED and not _require_aal2(user):
+        return jsonify({"error": "mfa required"}), 401
+    resp = make_response(jsonify({"status": "ok"}), 200)
+    resp.set_cookie("sb-access-token", token, max_age=2592000, httponly=True,
+                     secure=True, samesite="Lax", domain=_COOKIE_DOMAIN or None, path="/")
+    return resp
+
+
+@app.route('/session/logout', methods=['POST'])
+@limiter.limit("60 per minute")
+def destroy_session():
+    resp = make_response(jsonify({"status": "ok"}), 200)
+    resp.set_cookie("sb-access-token", "", max_age=0, httponly=True,
+                     secure=True, samesite="Lax", domain=_COOKIE_DOMAIN or None, path="/")
+    return resp
 
 
 @app.route('/verify', methods=['GET'])

@@ -852,6 +852,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - SUPERADMIN_EMAILS=${SUPERADMIN_EMAILS:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - IS_PUBLIC_PROFILE=${IS_PUBLIC_PROFILE:-false}
+      - DOMAIN=${DOMAIN}
       - BACKUP_TRIGGER_FILE=/opt/backups/.trigger
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
       - APP_DIR=/opt/project

@@ -61,6 +61,17 @@
         reverse_proxy auth-gateway:5001
     }
 
+    # Session-Cookie: auth-gateway verifiziert das supabase-js-Token und setzt
+    # sb-access-token als HttpOnly-Cookie (Träger für forward_auth, XSS-geschützt)
+    handle /_auth/session/logout {
+        rewrite * /session/logout
+        reverse_proxy auth-gateway:5001
+    }
+    handle /_auth/session {
+        rewrite * /session
+        reverse_proxy auth-gateway:5001
+    }
+
     # Backup-Control – JWT-Verifizierung erfolgt im auth-gateway selbst
     handle /_control/backup/status {
         rewrite * /control/backup/status
