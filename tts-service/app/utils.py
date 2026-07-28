@@ -14,8 +14,6 @@ VOICES_DIR = Path("/data/voices")
 
 _SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 _SAFE_EXT_RE = re.compile(r"^\.[a-z0-9]{1,8}$")
-_ALLOWED_AUDIO_EXT = frozenset({".wav", ".mp3", ".flac"})
-_ALLOWED_VIDEO_EXT = frozenset({".mp4", ".mkv", ".mov", ".webm", ".avi"})
 
 
 def _assert_safe_id(value: str, name: str = "ID") -> None:
@@ -24,13 +22,28 @@ def _assert_safe_id(value: str, name: str = "ID") -> None:
 
 
 def _safe_audio_ext(filename: str) -> str:
+    """Bildet die Original-Dateiendung auf eine feste Konstante ab (nie den
+    User-Wert selbst zurückgeben – sonst bleibt die Herkunft aus dem Dateinamen
+    für statische Analyse als 'unsicher' nachverfolgbar)."""
     suffix = Path(filename).suffix.lower()
-    return suffix if suffix in _ALLOWED_AUDIO_EXT else ".wav"
+    if suffix == ".mp3":
+        return ".mp3"
+    if suffix == ".flac":
+        return ".flac"
+    return ".wav"
 
 
 def _safe_video_ext(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
-    return suffix if suffix in _ALLOWED_VIDEO_EXT else ".mp4"
+    if suffix == ".mkv":
+        return ".mkv"
+    if suffix == ".mov":
+        return ".mov"
+    if suffix == ".webm":
+        return ".webm"
+    if suffix == ".avi":
+        return ".avi"
+    return ".mp4"
 
 
 def new_job_id() -> str:

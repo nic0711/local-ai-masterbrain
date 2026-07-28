@@ -291,7 +291,7 @@ def pdf_extract():
         })
     except RuntimeError as e:
         logger.error(str(e))
-        return jsonify({"error": str(e)}), 502
+        return jsonify({"error": "Verarbeitungsfehler (Upstream nicht erreichbar)"}), 502
     except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"error": "PDF-Extraktion fehlgeschlagen"}), 500
@@ -363,7 +363,7 @@ def document_analyze():
 
     except RuntimeError as e:
         logger.error(str(e))
-        return jsonify({"error": str(e)}), 502
+        return jsonify({"error": "Verarbeitungsfehler (Upstream nicht erreichbar)"}), 502
     except Exception:
         logger.error(traceback.format_exc())
         return jsonify({"error": "Analyse fehlgeschlagen"}), 500
@@ -428,8 +428,10 @@ def graph_index():
     try:
         entities = _extract_entities(text[:10_000], lang) if text else []
 
-        # Wikilinks aus Text extrahieren [[Notiz-Titel]]
-        wikilinks = re.findall(r'\[\[([^\]|]+)(?:\|[^\]]*)?\]\]', text)
+        # Wikilinks aus Text extrahieren [[Notiz-Titel]]. Länge pro Gruppe begrenzt,
+        # damit die Regex bei sehr langem Text ohne schließendes ]] nicht polynomial
+        # viel Backtracking-Arbeit verrichtet (ReDoS-Schutz).
+        wikilinks = re.findall(r'\[\[([^\]|]{1,300})(?:\|[^\]]{0,300})?\]\]', text)
 
         driver = _get_neo4j()
         with driver.session() as session:
