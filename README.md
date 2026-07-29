@@ -173,6 +173,18 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 
 ## 📋 Changelog
 
+### 2026-07 – HttpOnly-Session-Cookie, CodeQL-Härtung
+
+| Was | Details |
+|-----|---------|
+| **HttpOnly-Session-Cookie** | `sb-access-token` wurde bisher per `document.cookie` im Browser gesetzt – für jedes im Dashboard laufende JavaScript lesbar, eine XSS-Lücke hätte den Token direkt stehlen können. Der auth-gateway setzt den Cookie jetzt selbst per `Set-Cookie` (`HttpOnly` + `Secure`); `supabase-js` behält seine Session unverändert in `localStorage` |
+| **Neue Endpoints** | `POST /session` (Token verifizieren + Cookie setzen, aal2-Pflicht) und `POST /session/logout` (Cookie löschen), Caddy-Routen `/_auth/session(/logout)` |
+| **CodeQL-Alerts behoben** | 8 offene Code-Scanning-Alerts (Stack-Trace-Exposure in ocr-service/python-nlp-service, polynomialer ReDoS in der Wikilink-Regex, Path-Injection-Härtung in tts-service) – keine dismissed, alle per Code-Fix geschlossen |
+| `auth-gateway/app.py` | `_get_verified_user`/`_verify_token_string`-Refactor, `/session`, `/session/logout`, `_COOKIE_DOMAIN` |
+| `dashboard/auth.js` | `setCookie`/`clearCookie` async über Server-Roundtrip, `_readJWTPayload` entfernt (Cookie nicht mehr lesbar) |
+| `ocr-service`, `python-nlp-service`, `tts-service` | Exception-Details bleiben im Server-Log statt in der Response; Wikilink-Regex mit begrenzter Gruppenlänge; Pfad-Sanitisierung CodeQL-erkennbar gemacht |
+| `docs/05_security_hardening.md`, `docs/15_api_reference.md` | HttpOnly-Cookie-Architektur, `/session`-Endpoints dokumentiert |
+
 ### 2026-07 – Security-Fix: MFA-Bypass geschlossen, RBAC fail-closed
 
 | Was | Details |
@@ -299,7 +311,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | `n8n-tool-workflows/api-health-reference.json` | Live API Referenz Arbeitsablauf mit Health Checks + Endpunkt Katalog |
 | `n8n-tool-workflows/ocr-processing-workflow.json` | N8N-Arbeitsablauf für OCR Batch Verarbeitung |
 | `docs/14_ocr_service.md` | OCR Service Doku: Setup, alle 15 Endpunkte, Modelle, Storage |
-| `docs/15_api_reference.md` | Vollständige API Referenz: 43 Endpunkte über 3 Services |
+| `docs/15_api_reference.md` | Vollständige API Referenz: 53 Endpunkte über 4 Services |
 | `docs/16_scraping_configurator.md` | Scraping Configurator Guide: Modes, Destinations, Beispiele |
 | `docs/17_dashboard_changes.md` | Dashboard Architektur: Auth Flow, Tabs, Cards, JS Bridges, Whisper |
 
@@ -309,8 +321,8 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 
 | Komponente | Was |
 |---|-----|
-| `auth-gateway/app.py` | Cookie Fallback: liest `sb-access-token` aus Cookie falls kein Authorization Header |
-| `dashboard/auth.js` | Cookie Management: setzt JWT nach Login als `sb-access-token` Cookie auf `.brain.local`; `onAuthStateChange` hält Cookie bei Token Refresh aktuell |
+| `auth-gateway/app.py` | Cookie Fallback: liest `sb-access-token` aus Cookie falls kein Authorization Header (Cookie wird seit dem HttpOnly-Umbau serverseitig über `POST /session` gesetzt, siehe Changelog oben) |
+| `dashboard/auth.js` | Cookie Management: löst nach Login/Token-Refresh `POST /_auth/session` aus, damit der auth-gateway den `sb-access-token` Cookie auf `.brain.local` setzt |
 | `dashboard/auth.js` | TOTP/2FA Flow: nach Passwort-Login automatische MFA Prüfung, TOTP Challenge Schritt |
 | `dashboard/auth.js` | 2FA Enrollment: QR Code Anzeige via Supabase `mfa.enroll()`, Bestätigung mit 6-stelligem Code |
 | `dashboard/login.html` | Zweistufiges Login Formular (Passwort → TOTP), initialer TOTP Schritt versteckt |
@@ -665,6 +677,18 @@ python3 start_services.py         # Default: Ollama runs natively on host
 
 ## 📋 Changelog
 
+### 2026-07 – HttpOnly Session Cookie, CodeQL Hardening
+
+| What | Details |
+|-----|---------|
+| **HttpOnly session cookie** | `sb-access-token` used to be set via `document.cookie` in the browser – readable by any JavaScript running in the dashboard, so an XSS bug could have stolen the token directly. The auth-gateway now sets the cookie itself via `Set-Cookie` (`HttpOnly` + `Secure`); `supabase-js` keeps its own session in `localStorage` unchanged |
+| **New endpoints** | `POST /session` (verify token + set cookie, requires aal2) and `POST /session/logout` (clear cookie), Caddy routes `/_auth/session(/logout)` |
+| **CodeQL alerts fixed** | 8 open code-scanning alerts (stack-trace exposure in ocr-service/python-nlp-service, polynomial ReDoS in the wikilink regex, path-injection hardening in tts-service) – none dismissed, all closed via code fixes |
+| `auth-gateway/app.py` | `_get_verified_user`/`_verify_token_string` refactor, `/session`, `/session/logout`, `_COOKIE_DOMAIN` |
+| `dashboard/auth.js` | `setCookie`/`clearCookie` now async over a server roundtrip, `_readJWTPayload` removed (cookie no longer readable) |
+| `ocr-service`, `python-nlp-service`, `tts-service` | Exception details stay in the server log instead of the response; wikilink regex with bounded group length; path sanitization made CodeQL-recognizable |
+| `docs/05_security_hardening.md`, `docs/15_api_reference.md` | HttpOnly cookie architecture, `/session` endpoints documented |
+
 ### 2026-07 – Security Fix: MFA Bypass Closed, RBAC Fail-Closed
 
 | What | Details |
@@ -791,7 +815,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | `n8n-tool-workflows/api-health-reference.json` | Live API reference workflow with health checks + endpoint catalog |
 | `n8n-tool-workflows/ocr-processing-workflow.json` | N8N workflow for OCR batch processing |
 | `docs/14_ocr_service.md` | OCR service docs: setup, all 15 endpoints, models, storage |
-| `docs/15_api_reference.md` | Full API reference: 43 endpoints across 3 services |
+| `docs/15_api_reference.md` | Full API reference: 53 endpoints across 4 services |
 | `docs/16_scraping_configurator.md` | Scraping configurator guide: modes, destinations, examples |
 | `docs/17_dashboard_changes.md` | Dashboard architecture: auth flow, tabs, cards, JS bridges, Whisper |
 
@@ -801,8 +825,8 @@ python3 start_services.py         # Default: Ollama runs natively on host
 
 | Component | What |
 |---|-----|
-| `auth-gateway/app.py` | Cookie fallback: reads `sb-access-token` from cookie if no Authorization header present |
-| `dashboard/auth.js` | Cookie management: sets JWT after login as `sb-access-token` cookie on `.brain.local`; `onAuthStateChange` keeps cookie current during token refresh |
+| `auth-gateway/app.py` | Cookie fallback: reads `sb-access-token` from cookie if no Authorization header present (cookie is now set server-side via `POST /session` since the HttpOnly rework, see changelog above) |
+| `dashboard/auth.js` | Cookie management: triggers `POST /_auth/session` after login/token refresh so the auth-gateway sets the `sb-access-token` cookie on `.brain.local` |
 | `dashboard/auth.js` | TOTP/2FA flow: automatic MFA check after password login, TOTP challenge step |
 | `dashboard/auth.js` | 2FA enrollment: QR code display via Supabase `mfa.enroll()`, confirmation with 6-digit code |
 | `dashboard/login.html` | Two-step login form (password → TOTP), initial TOTP step hidden |

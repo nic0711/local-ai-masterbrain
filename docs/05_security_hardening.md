@@ -6,14 +6,14 @@ Alle Services (n8n, Open WebUI, Flowise, etc.) sind durch Caddy's `forward_auth`
 
 **Flow:**
 1. Browser ruft `https://brain.local` auf → Login mit Email + Passwort, danach TOTP-Schritt (siehe [2FA / TOTP](#2fa--totp) – standardmäßig erzwungen)
-2. Nach vollständigem Login (inkl. TOTP) setzt das Dashboard einen `sb-access-token` Cookie auf `.brain.local`
+2. Nach vollständigem Login (inkl. TOTP) sendet `dashboard/auth.js` das Token per `POST /_auth/session` an den auth-gateway. Dieser verifiziert es (inkl. `aal2`-Pflicht) und setzt den `sb-access-token` Cookie selbst per `Set-Cookie` – `HttpOnly`, `Secure`, `SameSite=Lax` (siehe [Cookie-Sicherheit](#cookie-sicherheit)). `supabase-js` behält seine eigene Session unabhängig davon in `localStorage`.
 3. Zugriff auf `https://n8n.brain.local` → Caddy liest Cookie → sendet `Authorization: Bearer <token>` an `auth-gateway:5001/verify`
 4. `/verify` prüft Signatur, `exp`, `aud` **und den `aal`-Claim** (Multi-Factor-Level). Nur `aal2` (Passwort **und** TOTP abgeschlossen) → Zugriff erlaubt; `aal1` (nur Passwort) oder ungültig → Redirect zu `https://brain.local/login.html`
 
-**Wichtig:** Die TOTP-Prüfung passiert nicht nur im Login-Formular, sondern wird vom auth-gateway bei **jedem** `/verify`-Call serverseitig durchgesetzt. Ein Token, das GoTrue nach reinem Passwort-Login ausstellt, trägt `aal: "aal1"` und wird von `/verify` mit `401 MFA required` abgelehnt – unabhängig davon, ob es direkt als Cookie gesetzt wird. Abschaltbar über `MFA_REQUIRED=false` in `.env` (Notfall-Kill-Switch, siehe [MFA / TOTP erzwingen](#mfa--totp-erzwingen-team-server)).
+**Wichtig:** Die TOTP-Prüfung passiert nicht nur im Login-Formular, sondern wird vom auth-gateway bei **jedem** `/verify`-Call serverseitig durchgesetzt. Ein Token, das GoTrue nach reinem Passwort-Login ausstellt, trägt `aal: "aal1"` und wird sowohl von `/session` (401, kein Cookie wird gesetzt) als auch von `/verify` (401 MFA required) abgelehnt. Abschaltbar über `MFA_REQUIRED=false` in `.env` (Notfall-Kill-Switch, siehe [MFA / TOTP erzwingen](#mfa--totp-erzwingen-team-server)).
 
 **Warum Cookie statt localStorage:**
-Caddy's `forward_auth` hat nur Zugriff auf Request-Headers und Cookies – nicht auf localStorage. Der Cookie wird nach Login gesetzt und bei jedem Token-Refresh via `onAuthStateChange` aktualisiert.
+Caddy's `forward_auth` hat nur Zugriff auf Request-Headers und Cookies – nicht auf localStorage. Der Cookie wird nach Login gesetzt und bei jedem Token-Refresh via `onAuthStateChange` über denselben `POST /_auth/session`-Roundtrip aktualisiert – `dashboard/auth.js` liest oder schreibt den Cookie-Wert nie direkt.
 
 ---
 
@@ -210,7 +210,7 @@ Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen ei
 |---|---|---|
 | `Secure` | Ja (immer gesetzt bei `https:`, unabhängig von `.local`) | Ja |
 | `SameSite` | Lax | Lax |
-| `HttpOnly` | Nein (JS muss den Cookie setzen) | Nein |
+| `HttpOnly` | Ja | Ja |
 | `Max-Age` | 30 Tage (2592000s) | 30 Tage |
 | `Domain` | `.brain.local` | `.yourdomain.com` |
 
@@ -218,7 +218,12 @@ Ein Prozess = geteilter JWT-Cache. Mit mehreren Prozessen hätte jeder seinen ei
 
 Der Cookie gilt für alle Subdomains (`*.brain.local` / `*.yourdomain.com`), nicht für externe Domains.
 
-**Warum kein `HttpOnly`:** Das Supabase SDK muss das Token aus JavaScript lesen können, um es bei API-Calls weiterzuschicken. `HttpOnly`-Cookies wären für JS unsichtbar. Eine `HttpOnly`-Lösung würde eine server-seitige Session-Architektur erfordern (Caddy liest Cookie direkt, JS nutzt separate Cookie-Session).
+**Wie das `HttpOnly`-Cookie funktioniert:** Früher setzte `dashboard/auth.js` den Cookie direkt per `document.cookie` – damit war er für jedes im Dashboard laufende JavaScript lesbar, eine XSS-Lücke hätte den Token direkt stehlen können. Jetzt läuft das Setzen/Löschen über den auth-gateway:
+
+- `POST /_auth/session` (Body: `{"access_token": "<jwt>"}`) – verifiziert das Token (inkl. `aal2`-Pflicht) und setzt den Cookie per `Set-Cookie` mit `HttpOnly`.
+- `POST /_auth/session/logout` – löscht den Cookie serverseitig.
+
+`supabase-js` liest/schreibt seine eigene Session weiterhin unverändert in `localStorage` – das Cookie ist ausschließlich der Träger für Caddys `forward_auth` und für clientseitiges JavaScript nicht mehr einsehbar. Endpoint-Details siehe [15_api_reference.md](15_api_reference.md).
 
 ---
 
@@ -300,7 +305,6 @@ Grafana vertraut den Headern `X-Forwarded-User`/`X-Forwarded-Role` (`GF_AUTH_PRO
 
 | Thema | Status | Begründung |
 |---|---|---|
-| Cookie ohne `HttpOnly` | Bewusst | JS muss Token lesen (Supabase SDK); Server-gesetztes HttpOnly-Cookie ist als Folgeschritt geplant |
 | AnonKey im Frontend | Akzeptiert | Supabase-Design-Muster; durch RLS + `DISABLE_SIGNUP=true` geschützt |
 | Docker-Socket-Zugriff in auth-gateway | Notwendig | Pflicht für Service Control (start/stop) |
 | `SERVICE_ROLE_KEY` in Env-Vars | Standard | Docker-Pattern; kein Fix ohne Swarm Secrets |

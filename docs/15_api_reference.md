@@ -9,7 +9,7 @@ Für Drittanbieter-Services (Supabase REST/Auth, n8n, Ollama) siehe die jeweilig
 
 | Service | Base URL (intern) | Base URL (extern) | Endpunkte |
 |---------|-------------------|-------------------|-----------|
-| auth-gateway | `http://auth-gateway:5001` | `https://auth.{DOMAIN}` | 19 |
+| auth-gateway | `http://auth-gateway:5001` | `https://auth.{DOMAIN}` | 21 |
 | python-nlp-service | `http://python-nlp-service:8001` | `https://nlp.{DOMAIN}` | 10 |
 | ocr-service | `http://ocr-service:8002` | `https://ocr.{DOMAIN}` | 15 |
 | tts-service | `http://tts-service:8003` | `https://tts.{DOMAIN}` | 7 |
@@ -25,6 +25,8 @@ Auth-Level: **Auth** = gültiges JWT (bei aktivem `MFA_REQUIRED` zusätzlich `aa
 | `GET` | `/health` | – | Health-Check (öffentlich) |
 | `GET` | `/status` | Auth | Service-Status (alle auth. Nutzer) |
 | `GET` | `/verify` | – | JWT verifizieren (Caddy `forward_auth` target); verlangt `aal2` sofern `MFA_REQUIRED` aktiv |
+| `POST` | `/session` | – (Token im Body) | Token verifizieren und als `HttpOnly`-Cookie setzen (Caddy-Route `/_auth/session`) |
+| `POST` | `/session/logout` | – | `sb-access-token`-Cookie löschen (Caddy-Route `/_auth/session/logout`) |
 | `GET` | `/control/backup/status` | Auth | Status des letzten Backups |
 | `GET` | `/control/backup/list` | Auth | Verfügbare Backup-Archive auflisten |
 | `GET` | `/control/services/status` | Auth | Status aller Docker-Services |
@@ -53,6 +55,29 @@ Auth-Level: **Auth** = gültiges JWT (bei aktivem `MFA_REQUIRED` zusätzlich `aa
 
 ### GET `/verify`
 Wird von Caddy als `forward_auth` aufgerufen. Gibt `200 OK` zurück wenn das JWT gültig ist (Signatur, `exp`, `aud`), sonst `401`. Ist `MFA_REQUIRED=true` (Default) gesetzt, wird zusätzlich der `aal`-Claim geprüft – ein Token mit `aal1` (Passwort ohne abgeschlossene 2FA) liefert `401 MFA required`, auch wenn Signatur/`exp`/`aud` gültig sind.
+
+### POST `/session`
+Wird von `dashboard/auth.js` nach Login, Token-Refresh und TOTP-Erfolg aufgerufen (Caddy-Route `/_auth/session`). Verifiziert das übergebene Token genauso wie `/verify` (inkl. `aal2`-Pflicht) und setzt bei Erfolg den `sb-access-token`-Cookie serverseitig per `Set-Cookie` mit `HttpOnly` + `Secure` – JavaScript kann den Cookie danach nicht mehr lesen (XSS-Schutz). `supabase-js` behält seine Session unabhängig davon in `localStorage`.
+```json
+// Request body
+{ "access_token": "<jwt>" }
+
+// Response 200
+{ "status": "ok" }
+// Set-Cookie: sb-access-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000; Path=/
+
+// Fehlerfälle
+// 400 { "error": "missing token" }        – kein access_token im Body
+// 401 { "error": "invalid token" }        – Signatur/exp/aud ungültig
+// 401 { "error": "mfa required" }         – Token hat nur aal1, MFA_REQUIRED=true
+```
+
+### POST `/session/logout`
+Wird beim Logout aufgerufen (Caddy-Route `/_auth/session/logout`). Löscht den `sb-access-token`-Cookie serverseitig (`Max-Age=0`), unabhängig vom Token-Zustand.
+```json
+// Response 200
+{ "status": "ok" }
+```
 
 ### POST `/control/users/mfa-reset`
 Nur Superadmin. Entfernt alle registrierten MFA-Faktoren (TOTP) eines Users über die GoTrue-Admin-API – Recovery-Pfad bei verlorenem Authenticator, damit MFA-Pflicht nicht zum Lockout führt.
