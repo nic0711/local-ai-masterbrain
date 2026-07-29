@@ -65,11 +65,11 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 
 ### Was ist enthalten
 
-✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten
-✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + TOTP/2FA, standardmäßig verpflichtend), geschützt durch Caddy `forward_auth`
-✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten
-✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
-✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
+✅ [**Selbst gehoste n8n**](https://n8n.io/) – Low-code-Plattform mit über 400 Integrationen und fortschrittlichen AI-Komponenten 
+✅ **[Dashboard mit Auth]** – Übersichtsseite aller Services mit JWT-basierter Authentifizierung (E-Mail + Passwort + TOTP/2FA, standardmäßig verpflichtend), geschützt durch Caddy `forward_auth` 
+✅ [**Supabase**](https://supabase.com/) – Open-Source-Datenbank als Service – am weitesten verbreitete Datenbank für KI-Agenten 
+✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs 
+✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten 
 ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama, startet standardmäßig automatisch mit dem Stack
 ✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
 ✅ [**Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw. 
