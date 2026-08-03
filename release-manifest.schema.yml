@@ -1,0 +1,23 @@
+# Versioniertes Schema/Vorlage fuer ein geprueftes Stack-Release-Manifest.
+# Siehe ADR-0007 (docs/adr/0007-release-and-update-strategy.md) und
+# docs/handbook/04-updates-und-rollback.md.
+#
+# Dies ist in Phase 1 ausschliesslich eine Schema-/Vorlagendatei, kein
+# tatsaechliches Release wird durch diesen PR erzeugt oder veroeffentlicht.
+
+release_version: "" # SemVer des Gesamt-Stack-Release
+git_sha: "" # Commit, aus dem das Release gebaut wurde
+
+images:
+  - name: "" # z.B. "auth-gateway"
+    tag: ""
+    digest: "" # sha256:...
+    sbom_ref: "" # Referenz auf CycloneDX-SBOM-Artefakt dieses Builds
+    scan_report_ref: "" # Referenz auf Trivy-Scan-Report (SARIF) dieses Builds
+    signed: false # true erst, wenn Image-Signing produktiv aktiv ist (s. github-manual-settings.md)
+
+approvals:
+  critical: [] # Liste echter GitHub-PR-Review-Referenzen, mind. 2 fuer Critical-Findings
+  high: [] # Liste echter GitHub-PR-Review-Referenzen, mind. 1 fuer High-Findings
+
+known_exceptions_ref: "" # Verweis auf docs/planning/security-exceptions/ Eintraege, die fuer dieses Release aktiv sind
