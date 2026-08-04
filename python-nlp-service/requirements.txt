@@ -9,7 +9,7 @@ gunicorn==25.1.0
 
 # NLP Core
 # spacy 3.8.x ist kompatibel mit NumPy 2.x
-spacy==3.8.11
+spacy==3.8.14
 spacy-lookups-data==1.0.5
 
 # HTTP Client (für Ollama-Calls und Health Checks)
