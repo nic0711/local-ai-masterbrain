@@ -235,16 +235,19 @@ jobs:
           digest=$(docker inspect --format='{{index .Id}}' "ci-local/${{ matrix.service }}:${{ github.sha }}")
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Trivy Image-Scan (JSON)
+        # WICHTIG: $PWD muss zusaetzlich zum Docker-Socket gemountet werden -
+        # sonst schreibt --output in das (nach --rm verworfene) Dateisystem
+        # des Trivy-Containers selbst, nicht auf den Runner-Host.
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format json --output "${{ matrix.service }}-image-report.json" \
+            image --format json --output "/out/${{ matrix.service }}-image-report.json" \
             --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
       - name: Trivy Image-Scan (SARIF)
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format sarif --output "${{ matrix.service }}-image.sarif" \
+            image --format sarif --output "/out/${{ matrix.service }}-image.sarif" \
             --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
