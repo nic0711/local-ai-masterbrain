@@ -155,8 +155,15 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Checkt den echten PR-Branch-HEAD aus, NICHT den synthetischen
+      # refs/pull/N/merge-Commit (Default bei pull_request-Trigger). Der
+      # Merge-Commit wird bei jedem Lauf neu erzeugt und aendert dadurch die
+      # von Gitleaks ermittelte Commit-Zuordnung (Fingerprint) fuer Inhalte,
+      # die mehrfach in der Historie vorkommen - das macht eine Baseline
+      # instabil. Der Branch-HEAD-Commit ist stabil ueber mehrere CI-Laeufe.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: gitleaks (Git-Historie, redigierte Ausgabe, Baseline fuer bekannte Bestandsfunde)
         # Siehe docs/planning/gitleaks-baseline.md: 24 bereits bekannte,
