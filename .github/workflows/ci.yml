@@ -155,24 +155,24 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Checkt den echten PR-Branch-HEAD aus, NICHT den synthetischen
-      # refs/pull/N/merge-Commit (Default bei pull_request-Trigger). Der
-      # Merge-Commit wird bei jedem Lauf neu erzeugt und aendert dadurch die
-      # von Gitleaks ermittelte Commit-Zuordnung (Fingerprint) fuer Inhalte,
-      # die mehrfach in der Historie vorkommen - das macht eine Baseline
-      # instabil. Der Branch-HEAD-Commit ist stabil ueber mehrere CI-Laeufe.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-      - name: gitleaks (Git-Historie, redigierte Ausgabe, Baseline fuer bekannte Bestandsfunde)
-        # Siehe docs/planning/gitleaks-baseline.md: 24 bereits bekannte,
-        # historische Funde werden nicht erneut blockierend gemeldet - NEUE
-        # Secrets werden weiterhin sofort erkannt und blockieren den Job.
+      - name: gitleaks (aktueller Dateiinhalt, redigierte Ausgabe, Baseline fuer bekannte Bestandsfunde)
+        # --no-git: scannt den ausgecheckten Dateiinhalt, NICHT die
+        # Git-Historie. Ein Git-History-Scan (gitleaks detect ohne --no-git)
+        # ordnet Funde einzelnen Commits zu (Fingerprint enthaelt die
+        # Commit-SHA); bei pull_request-Triggern aendert sich diese Zuordnung
+        # jedoch von Lauf zu Lauf (GitHub erzeugt bei jedem Lauf einen neuen
+        # synthetischen refs/pull/N/merge-Commit, und bereits mehrfach in der
+        # Historie vorkommender Inhalt wird davon abhaengig einem anderen
+        # Commit zugeordnet) - das macht eine commit-basierte Baseline
+        # instabil. Der Dateiinhalt-Scan ist unabhaengig davon stabil, siehe
+        # docs/planning/gitleaks-baseline.md. Bekannte Bestandsfunde im
+        # aktuellen Dateiinhalt werden nicht erneut blockierend gemeldet -
+        # NEUE Secrets im Dateiinhalt werden weiterhin sofort erkannt.
         run: |
           docker run --rm -v "$PWD":/repo \
             zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
-            detect --source=/repo --baseline-path /repo/docs/planning/gitleaks-baseline.json -v --redact
+            detect --source=/repo --no-git --baseline-path /repo/docs/planning/gitleaks-baseline.json -v --redact
 
   trivy-fs:
     runs-on: ubuntu-latest
