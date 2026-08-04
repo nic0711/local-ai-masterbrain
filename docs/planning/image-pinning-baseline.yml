@@ -1,0 +1,55 @@
+# Bestandsfindings: Third-Party-Images in docker-compose.yml, die zum
+# Zeitpunkt von PR agent/phase-1-governance-ci-supply-chain bereits ohne
+# festen Tag oder mit ":latest" liefen. Behebung ist ausdruecklich Phase 2/3
+# (siehe docs/planning/implementation-roadmap.md), NICHT Gegenstand dieses PR.
+#
+# scripts/ci/check-image-pinning.sh blockiert nur NEUE Funde, die hier noch
+# nicht gelistet sind - diese Liste selbst unterdrueckt nichts dauerhaft,
+# sie macht den Ist-Zustand nur sichtbar und verhindert eine sofortige,
+# nicht umsetzbare Blockade des allerersten CI-Laufs.
+
+known_findings:
+  # explizit :latest getaggt
+  - image: "n8nio/n8n:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "grafana/grafana:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "neo4j:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "unclecode/crawl4ai:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "docker.io/searxng/searxng:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "ollama/ollama:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "ollama/ollama:rocm"
+    note: "Bestandsfinding (AMD-Variante), Behebung Phase 2/3"
+  - image: "prom/prometheus:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "prom/node-exporter:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "gcr.io/cadvisor/cadvisor:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "prom/pushgateway:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "hikhvar/mqtt2prometheus:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "nmaarse/modbus_exporter:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  # ganz ohne Tag (= implizit latest)
+  - image: "flowiseai/flowise"
+    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+  - image: "ghcr.io/open-webui/open-webui:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
+  - image: "qdrant/qdrant"
+    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+  - image: "clickhouse/clickhouse-server"
+    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+  - image: "minio/minio"
+    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+
+# Hinweis: nur Major-Version gepinnte Images (postgres, caddy:2-alpine,
+# valkey:8-alpine, langfuse:3, uptime-kuma:1, alpine:3) sind KEIN Treffer
+# fuer den ":latest"/kein-Tag-Check und daher hier nicht gelistet - sie
+# bleiben ein separates, in docs/planning/documentation-inventory.md und der
+# Roadmap vermerktes Bestandsthema fuer spaetere Phasen.

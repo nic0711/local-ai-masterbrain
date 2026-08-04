@@ -168,10 +168,24 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Teams Bot + Asana-Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket KI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Wissensdatenbank (KB-Arbeitsabläufe) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
+| Zielarchitektur (Governance-Baseline) | [CONTEXT.md](CONTEXT.md) |
+| Architektur-Entscheidungen (ADRs)     | [docs/adr/](docs/adr/) |
+| Umsetzungsplan & Governance-Planung   | [docs/planning/](docs/planning/) |
+| Betriebshandbuch (im Aufbau)          | [docs/handbook/](docs/handbook/) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-08 – Phase-1-Governance-Baseline (CI, Supply Chain, Architektur)
+
+| Was | Details |
+|-----|---------|
+| **Architektur-Baseline integriert** | `CONTEXT.md` und 10 ADRs (`docs/adr/0001`–`0010`) sowie der Umsetzungsplan (`docs/planning/implementation-roadmap.md`) wurden aus der zuvor lokal vorbereiteten Zielarchitektur ins Repository übernommen |
+| **CI/Supply-Chain-Governance** | Erstmaliger `.github/workflows/ci.yml`: YAML-/Workflow-Lint, Compose-Config-Prüfung, Custom-Image-Builds, Trivy-Repo-/Image-Scan mit strukturiertem Ausnahmeprozess (`docs/planning/security-exceptions/`), Secret-Scan, CycloneDX-SBOM, SARIF-Upload |
+| **CODEOWNERS & Dependabot** | `.github/CODEOWNERS` (vorbereitet, Einzelowner-Blocker dokumentiert), `.github/dependabot.yml` |
+| **Bekannte Bestandsfindings sichtbar gemacht** | `docs/planning/image-pinning-baseline.yml` (Third-Party-`latest`-Images), `docs/planning/test-coverage-gaps.md` (`tts-service` ohne Tests) — Behebung ist Phase 2/3, hier nur dokumentiert |
+| **Manuelle GitHub-Einstellungen dokumentiert** | `docs/planning/github-manual-settings.md` — Branch-Protection, Secret-Scanning-Toggle etc. erfordern Repo-Admin-Aktion, wurden durch diesen PR nicht selbst gesetzt |
 
 ### 2026-07 – HttpOnly-Session-Cookie, CodeQL-Härtung
 
@@ -672,10 +686,24 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | Teams Bot + Asana Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket AI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Knowledge Base (KB Workflows) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
+| Target architecture (governance baseline) | [CONTEXT.md](CONTEXT.md) |
+| Architecture decision records (ADRs) | [docs/adr/](docs/adr/) |
+| Implementation roadmap & governance planning | [docs/planning/](docs/planning/) |
+| Operations handbook (in progress) | [docs/handbook/](docs/handbook/) |
 
 ---
 
 ## 📋 Changelog
+
+### 2026-08 – Phase 1 governance baseline (CI, supply chain, architecture)
+
+| What | Details |
+|-----|---------|
+| **Architecture baseline integrated** | `CONTEXT.md` and 10 ADRs (`docs/adr/0001`–`0010`) plus the implementation roadmap (`docs/planning/implementation-roadmap.md`) were brought in from the previously locally-prepared target architecture |
+| **CI/supply-chain governance** | First-ever `.github/workflows/ci.yml`: YAML/workflow lint, compose config check, custom image builds, Trivy repo/image scan with a structured exception process (`docs/planning/security-exceptions/`), secret scan, CycloneDX SBOM, SARIF upload |
+| **CODEOWNERS & Dependabot** | `.github/CODEOWNERS` (prepared, single-owner blocker documented), `.github/dependabot.yml` |
+| **Known pre-existing findings made visible** | `docs/planning/image-pinning-baseline.yml` (third-party `latest` images), `docs/planning/test-coverage-gaps.md` (`tts-service` has no tests) — fixing these is phase 2/3, only documented here |
+| **Manual GitHub settings documented** | `docs/planning/github-manual-settings.md` — branch protection, secret-scanning toggle etc. require repo-admin action and were not set by this PR itself |
 
 ### 2026-07 – HttpOnly Session Cookie, CodeQL Hardening
 

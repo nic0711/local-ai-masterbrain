@@ -1,0 +1,36 @@
+# CODEOWNERS
+#
+# Platzhalter-Owner @nic0711 (GitHub-Repo-Eigentuemer laut `gh repo view`).
+# Muss bestaetigt oder durch ein echtes Team ersetzt werden, BEVOR die
+# Branch-Protection-Option "Require review from Code Owners" aktiviert wird
+# (siehe docs/planning/github-manual-settings.md und
+# docs/handbook/09-verantwortlichkeiten.md fuer den Einzelowner-Blocker).
+#
+# Diese Datei wird in Phase 1 nur vorbereitet, nicht durch Branch-Protection
+# erzwungen.
+
+/.github/                          @nic0711
+/docs/planning/                    @nic0711
+/docs/adr/                         @nic0711
+/CONTEXT.md                        @nic0711
+
+/.env.example                      @nic0711
+/auth-gateway/                     @nic0711
+/supabase/                         @nic0711
+/Caddyfile                         @nic0711
+/caddy-addon/                      @nic0711
+
+/backup.sh                         @nic0711
+/restore.sh                        @nic0711
+/backup/                           @nic0711
+
+/ocr-service/                      @nic0711
+/tts-service/                      @nic0711
+/python-nlp-service/               @nic0711
+
+/docker-compose.yml                @nic0711
+/docker-compose.override.*.yml     @nic0711
+/.gitmodules                       @nic0711
+
+/release-manifest.schema.yml       @nic0711
+/scripts/ci/                       @nic0711
