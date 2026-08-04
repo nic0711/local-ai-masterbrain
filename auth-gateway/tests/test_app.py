@@ -51,13 +51,14 @@ def _expired_token():
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 def reset_jwt_cache():
-    """Clear the in-memory JWT cache between tests."""
+    """Clear the in-memory JWT cache (masterbrain_common.jwt_verify.JWTVerifier)
+    between tests."""
     # app may not be imported yet (first test in session); guard against that.
-    if "app" in sys.modules:
-        sys.modules["app"]._jwt_cache.clear()
+    if "app" in sys.modules and sys.modules["app"]._jwt_verifier:
+        sys.modules["app"]._jwt_verifier.clear_cache()
     yield
-    if "app" in sys.modules:
-        sys.modules["app"]._jwt_cache.clear()
+    if "app" in sys.modules and sys.modules["app"]._jwt_verifier:
+        sys.modules["app"]._jwt_verifier.clear_cache()
 
 
 @pytest.fixture()
@@ -734,7 +735,126 @@ class TestJwtCacheExpiryCap:
         ):
             assert app_module._get_verified_user() is not None
         # Cache-Eintrag darf nicht länger als das Token gelten
+        # (Cache lebt jetzt in masterbrain_common.jwt_verify.JWTVerifier)
         import hashlib, time as _t
         key = hashlib.sha256(token.encode()).hexdigest()
-        _user, expires_at = app_module._jwt_cache[key]
+        _user, expires_at = app_module._jwt_verifier._cache[key]
         assert expires_at <= int(_t.time()) + 31
+
+
+# ---------------------------------------------------------------------------
+# /ready, /version – masterbrain_common.health-basierte Endpunkte (Phase 2A)
+# ---------------------------------------------------------------------------
+
+class TestReadyEndpoint:
+    def test_ready_ok_when_supabase_initialized(self, client):
+        resp = client.get("/ready")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ready"
+        assert data["checks"]["supabase"] == "ok"
+
+    def test_ready_503_when_supabase_unavailable(self, client):
+        import app as app_module
+        with patch.object(app_module, "supabase", None):
+            resp = client.get("/ready")
+        assert resp.status_code == 503
+        data = resp.get_json()
+        assert data["status"] == "not_ready"
+        assert data["checks"]["supabase"] == "down"
+
+    def test_ready_requires_no_auth(self, client):
+        """Ready-Endpoint ist wie /health unauthenticated erreichbar
+        (Orchestrierungs-/Monitoring-Zweck)."""
+        resp = client.get("/ready")
+        assert resp.status_code in (200, 503)
+
+
+class TestVersionEndpoint:
+    def test_version_contains_expected_fields_no_secrets(self, client):
+        resp = client.get("/version")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["service"] == "auth-gateway"
+        assert "service_version" in data
+        assert "masterbrain_common_version" in data
+        assert "git_commit" in data
+        # Keine Secrets/interne Pfade in der Antwort
+        body_text = resp.get_data(as_text=True)
+        assert "JWT_SECRET" not in body_text
+        assert "SUPABASE_SERVICE_ROLE_KEY" not in body_text
+
+
+# ---------------------------------------------------------------------------
+# Audit-Logging – tatsaechliche Verdrahtung, kein reines Vorhandensein
+# ---------------------------------------------------------------------------
+
+class TestAuditLogging:
+    def _auth_header(self):
+        return {"Authorization": f"Bearer {_make_token()}"}
+
+    @patch("app.audit_log")
+    @patch("app._get_docker_container")
+    def test_service_control_start_emits_audit_event(self, mock_gdc, mock_audit, client):
+        mock_container = MagicMock()
+        mock_gdc.return_value = (MagicMock(), mock_container)
+        resp = client.post("/control/services/n8n/start", headers=self._auth_header())
+        assert resp.status_code == 200
+        mock_audit.assert_called_once()
+        _, kwargs = mock_audit.call_args
+        assert kwargs["actor"] == _TEST_USER_ID
+        assert kwargs["action"] == "start"
+        assert kwargs["target"] == "n8n"
+        assert kwargs["result"] == "ok"
+
+    @patch("app.audit_log")
+    @patch("app._get_docker_container")
+    def test_service_control_error_emits_audit_event_with_error_result(
+        self, mock_gdc, mock_audit, client
+    ):
+        mock_gdc.return_value = (MagicMock(), MagicMock())
+        mock_gdc.return_value[1].restart.side_effect = RuntimeError("boom")
+        resp = client.post("/control/services/n8n/restart", headers=self._auth_header())
+        assert resp.status_code == 500
+        mock_audit.assert_called_once()
+        _, kwargs = mock_audit.call_args
+        assert kwargs["result"] == "error"
+
+    @patch("app.audit_log")
+    @patch("app._get_docker_container")
+    def test_service_logs_emits_audit_event(self, mock_gdc, mock_audit, client):
+        mock_container = MagicMock()
+        mock_container.logs.return_value = b"log line\n"
+        mock_gdc.return_value = (MagicMock(), mock_container)
+        resp = client.get("/control/services/n8n/logs", headers=self._auth_header())
+        assert resp.status_code == 200
+        mock_audit.assert_called_once()
+        _, kwargs = mock_audit.call_args
+        assert kwargs["action"] == "logs"
+        assert kwargs["target"] == "n8n"
+        assert kwargs["result"] == "ok"
+
+    @patch("app.audit_log")
+    @patch("app._get_docker_container")
+    def test_run_macro_emits_audit_event_per_step(self, mock_gdc, mock_audit, client, tmp_path):
+        import app as app_module
+
+        mock_container = MagicMock()
+        mock_gdc.return_value = (MagicMock(), mock_container)
+
+        macros_file = tmp_path / "macros.json"
+        macros_file.write_text(json.dumps({
+            "macros": [
+                {"id": "nightly", "actions": [{"service": "n8n", "action": "restart"}]}
+            ]
+        }))
+        with patch.object(app_module, "_MACROS_FILE", str(macros_file)):
+            resp = client.post("/control/macro/nightly", headers=self._auth_header())
+
+        assert resp.status_code == 200
+        mock_audit.assert_called_once()
+        _, kwargs = mock_audit.call_args
+        assert kwargs["action"] == "restart"
+        assert kwargs["target"] == "n8n"
+        assert kwargs["result"] == "ok"
+        assert kwargs["macro_id"] == "nightly"

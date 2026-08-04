@@ -836,10 +836,17 @@ services:
   auth-gateway:
     container_name: auth-gateway
     build:
-      context: ./auth-gateway
+      context: .
+      dockerfile: auth-gateway/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     restart: unless-stopped
     expose:
       - 5001/tcp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     group_add:
       - "0"
     volumes:
@@ -858,6 +865,12 @@ services:
       - BACKUP_STATUS_FILE=/opt/backups/.backup_status
       - APP_DIR=/opt/project
       - HOST_PROJECT_DIR=${PWD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     deploy:
       resources:
         limits:
