@@ -39,8 +39,8 @@ known_findings:
   # ganz ohne Tag (= implizit latest)
   - image: "flowiseai/flowise"
     note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
-  - image: "ghcr.io/open-webui/open-webui"
-    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+  - image: "ghcr.io/open-webui/open-webui:latest"
+    note: "Bestandsfinding, Behebung Phase 2/3"
   - image: "qdrant/qdrant"
     note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
   - image: "clickhouse/clickhouse-server"

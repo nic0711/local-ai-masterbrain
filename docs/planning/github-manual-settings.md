@@ -21,7 +21,9 @@
 - Require status checks to pass before merging: **an**, konkrete Pflicht-Checks:
   `lint-yaml`, `compose-config`, `check-image-pinning`, `build-custom-images`,
   `test-presence-check`, `component-tests`, `secret-scan`, `trivy-fs`,
-  `trivy-image`, `validate-exceptions`
+  `validate-exceptions`
+- `trivy-image` bewusst **noch nicht** in dieser Liste — siehe eigener
+  Abschnitt "trivy-image: bewusst noch kein Required Check" unten.
 - Require branches to be up to date before merging: **an**
 - Require linear history: **an** (unterstützt Squash-Merge-Pflicht)
 - Do not allow bypassing the above settings: **an** (auch für Admins/Owner)
@@ -55,6 +57,41 @@
 - `id-token: write` (für OIDC/Keyless-Signing) **nicht global gewähren** —
   relevant erst, sobald ein Image-Signing-Workflow tatsächlich existiert
   (in Phase 1 bewusst nicht der Fall, siehe Abschnitt "Image-Signing" unten)
+
+## `trivy-image`: bewusst noch kein Required Check
+
+Waehrend der Phase-1-Validierung wurden alle vier Custom Images tatsaechlich
+mit Trivy gescannt (`docker build` + `trivy image`, siehe PR-Testprotokoll).
+Ergebnis, real und reproduzierbar, ohne jede Ausnahme:
+
+| Image | Critical/High-Findings gesamt |
+|---|---|
+| `auth-gateway` | 42 (ueberwiegend Debian-12-Basis-Paket-CVEs, u.a. `perl-base`, `zlib1g`, `libsqlite3-0`, plus mitgebundene `docker-ce-cli`-Go-Abhaengigkeiten) |
+| `python-nlp-service` | 38 |
+| `ocr-service` | 1738 |
+| `tts-service` | 1856 |
+
+Das ist **kein Fehler dieses PR** — es ist der reale Ist-Zustand der
+bestehenden Base-Images/Abhaengigkeiten (Debian-12-Basis bei den ersten
+beiden, EOL-nahes Debian-11/"bullseye" plus grosse ungepinnte ML-Abhaengigkeiten
+bei `ocr-service`/`tts-service`, siehe ADR-0008 und
+`docs/planning/documentation-inventory.md`). Der `trivy-image`-Job selbst
+funktioniert korrekt: Critical/High-Findings sind vollstaendig sichtbar
+(siehe Job-Log/SARIF), und ohne eine strukturierte, echt freigegebene
+Ausnahme unter `docs/planning/security-exceptions/` blockiert der Check
+zurecht (`docs/planning/implementation-roadmap.md`: "Critical und High
+blockieren" ist explizit das Ziel).
+
+**Konsequenz fuer Branch Protection:** Wuerde `trivy-image` bereits jetzt als
+"Required" markiert, koennte **kein** kuenftiger PR mehr gemergt werden — auch
+kein reiner Dokumentations-PR — bis diese Bestandsfunde behoben (Phase 2:
+Container haerten, Base-Images aktualisieren/digest-pinnen) oder einzeln
+strukturiert und echt freigegeben ausgenommen sind. Deshalb bleibt
+`trivy-image` in Phase 1 **aktiv in der CI** (jeder PR sieht die Funde,
+SARIF wird hochgeladen), aber **nicht** in der Liste der Required Status
+Checks. Das ist eine bewusste, hier dokumentierte Entscheidung, kein
+Uebersehen — bitte beim spaeteren Aktivieren von Branch Protection nicht
+versehentlich doch als Required markieren, bevor Phase 2 abgeschlossen ist.
 
 ## Image-Signing — offener Blocker, kein Workflow in diesem PR
 
