@@ -378,6 +378,27 @@
   "Fingerprint": "cf4d9b8a50e64ed9c4d5e4b21e99625b2d4d37c8:.env.example:generic-api-key:68"
  },
  {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 22,
+  "EndLine": 22,
+  "StartColumn": 2,
+  "EndColumn": 81,
+  "Match": "SECRET_KEY_BASE=REDACTED",
+  "Secret": "REDACTED",
+  "File": ".env.example",
+  "SymlinkFile": "",
+  "Commit": "5da67cd51534bb61bd8ad2b291b1d003db6521c7",
+  "Link": "https://github.com/nic0711/local-ai-masterbrain/blob/5da67cd51534bb61bd8ad2b291b1d003db6521c7/.env.example#L22",
+  "Entropy": 5.1597743,
+  "Author": "Cole Medin",
+  "Email": "cole@dynamous.ai",
+  "Date": "2025-02-16T21:12:32Z",
+  "Message": "Initial Commit for Revamped Local AI Package with Supabase",
+  "Tags": [],
+  "Fingerprint": "5da67cd51534bb61bd8ad2b291b1d003db6521c7:.env.example:generic-api-key:22"
+ },
+ {
   "RuleID": "jwt",
   "Description": "Uncovered a JSON Web Token, which may lead to unauthorized access to web applications and sensitive user data.",
   "StartLine": 18,
@@ -430,15 +451,15 @@
   "Secret": "REDACTED",
   "File": ".env.example",
   "SymlinkFile": "",
-  "Commit": "5da67cd51534bb61bd8ad2b291b1d003db6521c7",
-  "Link": "https://github.com/nic0711/local-ai-masterbrain/blob/5da67cd51534bb61bd8ad2b291b1d003db6521c7/.env.example#L22",
+  "Commit": "bf966e9d6dd6ce7855c9143d4b52e06e478518e8",
+  "Link": "https://github.com/nic0711/local-ai-masterbrain/blob/bf966e9d6dd6ce7855c9143d4b52e06e478518e8/.env.example#L22",
   "Entropy": 5.1597743,
   "Author": "Cole Medin",
   "Email": "cole@dynamous.ai",
   "Date": "2025-02-16T21:12:32Z",
   "Message": "Initial Commit for Revamped Local AI Package with Supabase",
   "Tags": [],
-  "Fingerprint": "5da67cd51534bb61bd8ad2b291b1d003db6521c7:.env.example:generic-api-key:22"
+  "Fingerprint": "bf966e9d6dd6ce7855c9143d4b52e06e478518e8:.env.example:generic-api-key:22"
  },
  {
   "RuleID": "jwt",
@@ -481,26 +502,5 @@
   "Message": "Initial Commit for Revamped Local AI Package with Supabase",
   "Tags": [],
   "Fingerprint": "bf966e9d6dd6ce7855c9143d4b52e06e478518e8:.env.example:jwt:19"
- },
- {
-  "RuleID": "generic-api-key",
-  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
-  "StartLine": 22,
-  "EndLine": 22,
-  "StartColumn": 2,
-  "EndColumn": 81,
-  "Match": "SECRET_KEY_BASE=REDACTED",
-  "Secret": "REDACTED",
-  "File": ".env.example",
-  "SymlinkFile": "",
-  "Commit": "bf966e9d6dd6ce7855c9143d4b52e06e478518e8",
-  "Link": "https://github.com/nic0711/local-ai-masterbrain/blob/bf966e9d6dd6ce7855c9143d4b52e06e478518e8/.env.example#L22",
-  "Entropy": 5.1597743,
-  "Author": "Cole Medin",
-  "Email": "cole@dynamous.ai",
-  "Date": "2025-02-16T21:12:32Z",
-  "Message": "Initial Commit for Revamped Local AI Package with Supabase",
-  "Tags": [],
-  "Fingerprint": "bf966e9d6dd6ce7855c9143d4b52e06e478518e8:.env.example:generic-api-key:22"
  }
 ]

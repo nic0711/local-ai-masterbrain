@@ -147,7 +147,7 @@ jobs:
           # verlangt NEO4J_AUTH bereits beim Modul-Import (app.py).
           NEO4J_AUTH: "neo4j/test-dummy-password"
         run: |
-          python3 -m pip install --requirement requirements.txt
+          python3 -m pip install --requirement requirements.txt pytest
           python3 -m pytest -q
 
   secret-scan:
