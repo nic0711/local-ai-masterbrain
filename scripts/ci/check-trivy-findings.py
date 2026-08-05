@@ -4,10 +4,12 @@
 Bestehende Critical/High-Findings werden IMMER vollstaendig ausgegeben
 (sichtbar, keine pauschale Unterdrueckung). Ein Fund blockiert (Exit 1) nur
 dann NICHT, wenn eine passende, nicht abgelaufene Ausnahme unter
-docs/planning/security-exceptions/*.yml existiert, die zusaetzlich einen
-nicht-leeren 'github_approval_ref' traegt (Verweis auf einen echten
-GitHub-PR-Review). Eine reine approvals-Liste in der YAML-Datei zaehlt NICHT
-als Freigabe.
+docs/planning/security-exceptions/*.yml existiert UND deren `id` in der von
+scripts/ci/check-exception-approvals.py erzeugten approved-exceptions.json
+(via --approved-exceptions-file) auftaucht - d.h. zur Laufzeit echte,
+unabhaengige GitHub-PR-Reviews auf den aktuellen head_sha erhalten hat. Ohne
+uebergebene Freigabedatei gilt KEINE Ausnahme als freigegeben (fail-closed),
+nicht "alles erlaubt".
 """
 from __future__ import annotations
 
@@ -27,7 +29,9 @@ BLOCKING_SEVERITIES = {"CRITICAL", "HIGH"}
 EXCEPTIONS_GLOB = "docs/planning/security-exceptions/*.yml"
 
 
-def load_active_exceptions() -> list[dict]:
+def load_active_exceptions(approved_ids: set[str]) -> list[dict]:
+    """Laedt Ausnahmen, die (a) nicht abgelaufen sind UND (b) deren `id` in
+    approved_ids steht (echte, zur Laufzeit geprueft GitHub-Freigabe)."""
     active = []
     today = datetime.date.today()
     for path in sorted(glob.glob(EXCEPTIONS_GLOB)):
@@ -42,7 +46,8 @@ def load_active_exceptions() -> list[dict]:
             continue
         if expiry < today:
             continue
-        if not data.get("github_approval_ref"):
+        exc_id = data.get("id", path)
+        if exc_id not in approved_ids:
             continue
         data["_source_file"] = path
         active.append(data)
@@ -65,12 +70,31 @@ def main() -> int:
     parser.add_argument("--report", required=True, help="Pfad zu trivy --format json Output")
     parser.add_argument("--component", required=True, help="Name der Komponente, z.B. 'ocr-service' oder 'repo-fs'")
     parser.add_argument("--image-digest", default=None, help="Image-Digest, falls Image-Scan")
+    parser.add_argument(
+        "--approved-exceptions-file",
+        default=None,
+        help="JSON-Liste freigegebener Ausnahme-IDs aus check-exception-approvals.py. "
+        "Ohne diese Datei gilt fail-closed: keine Ausnahme wird angewendet.",
+    )
     args = parser.parse_args()
 
     with open(args.report, encoding="utf-8") as fh:
         report = json.load(fh)
 
-    active_exceptions = load_active_exceptions()
+    approved_ids: set[str] = set()
+    if args.approved_exceptions_file:
+        try:
+            with open(args.approved_exceptions_file, encoding="utf-8") as fh:
+                approved_ids = set(json.load(fh))
+        except FileNotFoundError:
+            print(
+                f"Hinweis: {args.approved_exceptions_file} nicht gefunden - "
+                "keine Ausnahme wird als freigegeben behandelt (fail-closed)."
+            )
+    else:
+        print("Hinweis: keine --approved-exceptions-file uebergeben - fail-closed, keine Ausnahmen aktiv.")
+
+    active_exceptions = load_active_exceptions(approved_ids)
 
     all_findings = []
     blocking_findings = []
@@ -83,12 +107,12 @@ def main() -> int:
             installed = vuln.get("InstalledVersion", "")
 
             covered = False
-            covering_ref = None
+            covering_id = None
             if severity in BLOCKING_SEVERITIES:
                 for exc in active_exceptions:
                     if exception_covers(exc, cve, args.component, args.image_digest):
                         covered = True
-                        covering_ref = exc.get("github_approval_ref")
+                        covering_id = exc.get("id", exc.get("_source_file"))
                         break
 
             entry = {
@@ -96,7 +120,7 @@ def main() -> int:
                 "severity": severity,
                 "package": pkg,
                 "installed_version": installed,
-                "covered_by_exception": covering_ref if covered else None,
+                "covered_by_exception": covering_id if covered else None,
             }
             all_findings.append(entry)
 

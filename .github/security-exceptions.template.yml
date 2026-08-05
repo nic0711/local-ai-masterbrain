@@ -1,17 +1,24 @@
 # Vorlage fuer eine strukturierte Security-Ausnahme.
 #
-# Diese Vorlage wird NICHT direkt verwendet, um eine Ausnahme zu "genehmigen" -
-# eine hier eingetragene approvals-Liste ist KEINE gueltige Freigabe.
-# Verbindliche Freigaben entstehen ausschliesslich ueber echte GitHub-PR-Reviews
-# auf die konkrete Ausnahmedatei unter docs/planning/security-exceptions/,
-# durchgesetzt durch Branch-Schutzregeln + CODEOWNERS.
+# Freigabe-Modell (korrigiert, siehe docs/handbook/09-verantwortlichkeiten.md):
+# Diese Datei enthaelt KEIN Freigabe-Feld mehr. Eine fruehere Version verlangte
+# einen `github_approval_ref`, der erst NACH einem PR-Review in diese Datei
+# committet werden musste - das erzeugte einen Deadlock, weil ein neuer Commit
+# (der die Referenz eintraegt) bestehende Freigaben unter aktiver
+# Branch-Protection wieder zuruecksetzt und die Freigabe damit durch ihre
+# eigene Dokumentation ungueltig machte.
 #
-# scripts/ci/validate-exceptions.py prueft NUR:
+# Stattdessen: scripts/ci/check-exception-approvals.py fragt zur Laufzeit
+# echte GitHub-PR-Reviews auf den AKTUELLEN head_sha des PR ab (GitHub REST
+# API, keine gespeicherte Referenz). Notwendige Freigaben: High = 1, Critical
+# = 2, jeweils unabhaengige Reviewer (weder PR-Autor noch requested_by).
+# Ergebnis wird als approved-exceptions.json an den trivy-image-Job
+# weitergereicht - nichts davon wird in diese Datei zurueckgeschrieben.
+#
+# scripts/ci/validate-exceptions.py prueft nur noch:
 #   - sind alle Pflichtfelder vorhanden?
+#   - ist severity gueltig (critical|high)?
 #   - liegt expires_on in der Zukunft?
-#   - ist requested_by nicht der einzige "Nachweis" einer Freigabe?
-#   - passt severity zur Mindestanzahl in approvals (nur strukturelle Zaehlung,
-#     keine Aussage ueber Echtheit der Freigabe)
 #
 # Fuer Trivy-Findings gelten zusaetzlich die Felder cve/package/installed_version/
 # affected_image_digest.
@@ -30,10 +37,6 @@ affected_image_digest: ""
 reason: "" # warum ist die Ausnahme notwendig
 owner: "" # verantwortliche Person/Team fuer die Behebung
 mitigation: "" # Kompensationsmassnahme bis zur Behebung
-requested_by: "" # wer hat die Ausnahme beantragt (darf NICHT selbst freigeben)
-
-# Struktur-Feld, keine Freigabe-Ersatz. Reale Freigabe = github_approval_ref.
-approvals: []
+requested_by: "" # wer hat die Ausnahme beantragt (zaehlt nicht als Freigabe-Reviewer)
 
 expires_on: "" # ISO-8601-Datum, muss in der Zukunft liegen
-github_approval_ref: "" # Link auf den PR/Review, der diese Ausnahme tatsaechlich freigegeben hat
