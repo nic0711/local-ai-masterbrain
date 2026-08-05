@@ -3,7 +3,6 @@ import re
 import time
 import glob
 import json
-import hashlib
 import tarfile
 import difflib
 import logging
@@ -11,17 +10,22 @@ import subprocess
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from types import SimpleNamespace
-import jwt as pyjwt
 from flask import Flask, request, jsonify, make_response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from supabase import create_client, Client
 
-# Logging konfigurieren
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+import masterbrain_common
+from masterbrain_common import logging as mbc_logging
+from masterbrain_common.audit import log_event as audit_log
+from masterbrain_common.health import ReadyCheck, health_response, ready_response, version_response
+from masterbrain_common.jwt_verify import JWTVerifier
+
+# JSON-Logging mit Correlation-ID konfigurieren
+mbc_logging.configure_json_logging("auth-gateway")
 
 app = Flask(__name__)
+mbc_logging.install_flask_correlation_id(app)
 
 limiter = Limiter(
     get_remote_address,
@@ -57,10 +61,34 @@ _HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", _APP_DIR)
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health Check Endpoint für Docker und Caddy."""
+    """Health Check Endpoint für Docker und Caddy. Bleibt bewusst
+    unveraendert und leichtgewichtig - dient weiterhin dem
+    Docker-HEALTHCHECK, der bei externen Abhaengigkeiten sonst in eine
+    Restart-Schleife laufen koennte."""
     if supabase is None:
         return "Service Unavailable", 503
     return "OK", 200
+
+
+_SERVICE_VERSION = "1.0.0"
+_GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
+
+
+@app.route('/ready', methods=['GET'])
+def ready():
+    """Prueft externe Abhaengigkeiten (Supabase). Nicht als Docker-
+    HEALTHCHECK-Ziel gedacht - siehe masterbrain_common.health."""
+    checks = [ReadyCheck("supabase", lambda: supabase is not None)]
+    body, status = ready_response(checks)
+    return jsonify(body), status
+
+
+@app.route('/version', methods=['GET'])
+def version():
+    body, status = version_response(
+        "auth-gateway", _SERVICE_VERSION, masterbrain_common.__version__, _GIT_COMMIT,
+    )
+    return jsonify(body), status
 
 # Service health check map: name → (host, port, path)
 _SERVICES = {
@@ -123,10 +151,10 @@ _IS_PUBLIC_PROFILE = os.environ.get("IS_PUBLIC_PROFILE", "false").lower() == "tr
 _DOMAIN = os.environ.get("DOMAIN", "")
 _COOKIE_DOMAIN = f".{_DOMAIN}" if (_IS_PUBLIC_PROFILE and _DOMAIN) else ""
 
-# Cache für lokale Verifikationsergebnisse (Speicherschutz, max. 500 Einträge)
-_jwt_cache: dict = {}
-_JWT_CACHE_TTL = 300  # 5 Minuten – großzügig, da lokal verifiziert
-_JWT_CACHE_MAX = 500
+# Lokale HS256-Verifikation inkl. TTL-Cache und crit-Header-Pruefung lebt in
+# masterbrain_common.jwt_verify (migriert von hier). Nur instanziiert, wenn
+# ein Secret gesetzt ist - sonst greift der Supabase-Fallback unten.
+_jwt_verifier = JWTVerifier(secret=_JWT_SECRET) if _JWT_SECRET else None
 
 
 def _get_verified_user():
@@ -142,67 +170,21 @@ def _get_verified_user():
 
 
 def _verify_token_string(token):
-    """Validiert einen rohen Token-String lokal via PyJWT (kein Supabase-HTTP-Call).
-    Fallback auf Supabase-API wenn JWT_SECRET nicht gesetzt."""
-    now = time.time()
-    # Use SHA-256 of full token as cache key to avoid suffix-collision attacks
-    cache_key = hashlib.sha256(token.encode()).hexdigest()
-
-    # Cache-Lookup
-    cached = _jwt_cache.get(cache_key)
-    if cached:
-        user, expires_at = cached
-        if now < expires_at:
-            return user
-        del _jwt_cache[cache_key]
-
-    user = None
-    token_exp = None
-
-    if _JWT_SECRET:
-        # Schneller Pfad: lokale kryptografische Verifikation (<1ms)
-        try:
-            # RFC 7515 §4.1.11: reject tokens with unrecognised critical extensions.
-            # PyJWT does not enforce this, so we check manually.
-            unverified_header = pyjwt.get_unverified_header(token)
-            if unverified_header.get("crit"):
-                return None
-            payload = pyjwt.decode(
-                token, _JWT_SECRET, algorithms=["HS256"],
-                audience="authenticated",
-            )
-            token_exp = payload.get("exp")
-            user = SimpleNamespace(
-                id=payload.get("sub", ""),
-                email=payload.get("email", ""),
-                aal=payload.get("aal", "aal1"),
-            )
-        except pyjwt.ExpiredSignatureError:
-            return None
-        except pyjwt.InvalidTokenError:
-            return None
-    elif supabase:
-        # Fallback: Supabase-API (wenn JWT_SECRET nicht gesetzt).
-        # Hinweis: liefert kein aal-Claim → MFA-Enforcement erfordert gesetztes JWT_SECRET.
+    """Validiert einen rohen Token-String. Lokale HS256-Verifikation via
+    masterbrain_common.jwt_verify (kein Supabase-HTTP-Call), Fallback auf die
+    Supabase-API wenn JWT_SECRET nicht gesetzt ist.
+    Hinweis Fallback-Pfad: liefert kein aal-Claim → MFA-Enforcement erfordert
+    gesetztes JWT_SECRET."""
+    if _jwt_verifier:
+        return _jwt_verifier.verify(token)
+    if supabase:
         try:
             resp = supabase.auth.get_user(token)
-            user = resp.user if resp else None
+            return resp.user if resp else None
         except Exception as e:
             logging.error(f"JWT validation error: {e}")
             return None
-
-    if user:
-        if len(_jwt_cache) >= _JWT_CACHE_MAX:
-            oldest = min(_jwt_cache, key=lambda k: _jwt_cache[k][1])
-            del _jwt_cache[oldest]
-        # Cache-Ablauf am Token-exp deckeln: verhindert, dass ein abgelaufenes oder
-        # widerrufenes Token bis zu TTL Sekunden über sein echtes exp hinaus gilt.
-        expires_at = now + _JWT_CACHE_TTL
-        if token_exp:
-            expires_at = min(expires_at, token_exp)
-        _jwt_cache[cache_key] = (user, expires_at)
-
-    return user
+    return None
 
 
 _SUPERADMIN_EMAILS = [e.strip() for e in os.environ.get("SUPERADMIN_EMAILS", "").split(",") if e.strip()]
@@ -846,8 +828,11 @@ def service_control(service, action):
                 )
                 if result.returncode != 0:
                     logging.error(f"compose up {service} failed: {result.stderr}")
+                    audit_log(actor=user.id, action="start", target=service, result="error",
+                              detail="compose up failed")
                     return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
-                logging.info(f"[CONTROL] {user.id} → compose up {service}")
+                audit_log(actor=user.id, action="start", target=service, result="ok",
+                          detail="compose up (optional)")
                 return jsonify({"status": "ok", "message": f"{service} gestartet (compose)"}), 200
             if action == 'start' and service in _MONITORING_COMPOSE_SERVICES:
                 compose_svc = _MONITORING_COMPOSE_SERVICES[service]
@@ -862,8 +847,11 @@ def service_control(service, action):
                 )
                 if result.returncode != 0:
                     logging.error(f"compose up {service} failed: {result.stderr}")
+                    audit_log(actor=user.id, action="start", target=service, result="error",
+                              detail="compose up (monitoring) failed")
                     return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
-                logging.info(f"[CONTROL] {user.id} → compose up {service} (monitoring)")
+                audit_log(actor=user.id, action="start", target=service, result="ok",
+                          detail="compose up (monitoring)")
                 return jsonify({"status": "ok", "message": f"{service} gestartet (monitoring)"}), 200
             return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
 
@@ -874,10 +862,11 @@ def service_control(service, action):
         elif action == 'restart':
             container.restart(timeout=10)
 
-        logging.info(f"[CONTROL] {user.id} → {action} {service}")
+        audit_log(actor=user.id, action=action, target=service, result="ok")
         return jsonify({"status": "ok", "message": f"{service} {action} ausgeführt"}), 200
     except Exception as e:
         logging.error(f"service_control error ({service}/{action}): {e}")
+        audit_log(actor=user.id, action=action, target=service, result="error")
         return jsonify({"error": "Fehler beim Steuern des Dienstes"}), 500
 
 
@@ -907,10 +896,11 @@ def service_logs(service):
 
         raw = container.logs(tail=lines, timestamps=True)
         log_text = raw.decode('utf-8', errors='replace')
-        logging.info(f"[CONTROL] {user.id} → logs {service} (tail={lines})")
+        audit_log(actor=user.id, action="logs", target=service, result="ok", lines=lines)
         return jsonify({"service": service, "lines": lines, "logs": log_text}), 200
     except Exception as e:
         logging.error(f"service_logs error ({service}): {e}")
+        audit_log(actor=user.id, action="logs", target=service, result="error")
         return jsonify({"error": "Fehler beim Abrufen der Logs"}), 500
 
 
@@ -972,7 +962,8 @@ def run_macro(macro_id):
             if container is None:
                 if act == 'stop':
                     results.append(f"stop {svc}: bereits gestoppt")
-                    logging.info(f"[CONTROL] macro={macro_id} {user.id} → stop {svc} (bereits absent)")
+                    audit_log(actor=user.id, action=act, target=svc, result="ok",
+                              macro_id=macro_id, detail="already absent")
                     continue
                 errors.append(f"{svc}: Container nicht gefunden")
                 continue
@@ -983,10 +974,11 @@ def run_macro(macro_id):
             elif act == 'restart':
                 container.restart(timeout=10)
             results.append(f"{act} {svc}: ok")
-            logging.info(f"[CONTROL] macro={macro_id} {user.id} → {act} {svc}")
+            audit_log(actor=user.id, action=act, target=svc, result="ok", macro_id=macro_id)
         except Exception as e:
             errors.append(f"{svc}: Fehler beim Ausführen der Aktion")
             logging.error(f"run_macro error ({macro_id} {act} {svc}): {e}")
+            audit_log(actor=user.id, action=act, target=svc, result="error", macro_id=macro_id)
 
     return jsonify({
         "status": "ok" if not errors else "partial",

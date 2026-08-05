@@ -1,22 +1,41 @@
-# --- Build Stage ---
-FROM python:3.14-slim-bookworm AS builder
+# Build-Context ist der Repo-Root (siehe docker-compose.yml, Service
+# auth-gateway), damit packages/python/masterbrain-common/ erreichbar ist.
+# Siehe /.dockerignore fuer die verpflichtenden Build-Context-Ausschluesse.
+
+# --- Dependency-Build-Stage (Drittanbieter, hash-verifiziert) ---
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8 AS builder
 
 WORKDIR /app
 
-# Virtual environment erstellen und Abhängigkeiten installieren
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY auth-gateway/requirements.lock.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --require-hashes -r requirements.lock.txt
 
-# --- Runtime Stage ---
-FROM python:3.14-slim-bookworm
+# --- Wheel-Build-Stage (masterbrain-common) ---
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8 AS wheel-builder
+
+WORKDIR /build
+RUN pip install --no-cache-dir build==1.3.0
+
+COPY packages/python/masterbrain-common/ .
+RUN python -m build --wheel --outdir /wheels && \
+    sha256sum /wheels/*.whl > /wheels/checksum.sha256
+
+# --- Runtime-Stage ---
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8
+
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 WORKDIR /app
 
 # System-Updates, curl für HEALTHCHECK und Docker CLI für Service-Control
+# (subprocess-Aufrufe fuer `docker compose up` bei optionalen Services;
+# der Docker-SDK-Zugriff selbst laeuft ueber das pip-Paket "docker", nicht
+# ueber diese CLI - beide bleiben unabhaengig voneinander noetig)
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     install -m 0755 -d /etc/apt/keyrings && \
@@ -31,12 +50,21 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
 # Non-root user anlegen
 RUN useradd --create-home --uid 1002 appuser
 
-# Venv aus dem Builder-Stage übernehmen
+# Venv mit hash-verifizierten Drittanbieter-Abhaengigkeiten uebernehmen
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# masterbrain-common-Wheel: Checksumme pruefen, dann OHNE erneute
+# Abhaengigkeitsaufloesung installieren (--no-deps) - seine Laufzeit-Deps
+# (PyJWT, python-json-logger) sind bereits ueber requirements.lock.txt
+# hash-verifiziert installiert.
+COPY --from=wheel-builder /wheels/ /wheels/
+RUN cd /wheels && sha256sum -c checksum.sha256 && \
+    pip install --no-cache-dir --no-deps /wheels/*.whl && \
+    rm -rf /wheels
+
 # App-Code kopieren
-COPY --chown=appuser:appuser app.py .
+COPY --chown=appuser:appuser auth-gateway/app.py .
 
 USER appuser
 

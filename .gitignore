@@ -45,6 +45,7 @@ dashboard/config.js
 # Python-spezifische Ignorierungen
 __pycache__/
 *.pyc
+*.egg-info/
 
 # macOS-spezifische Systemdateien
 .DS_Store

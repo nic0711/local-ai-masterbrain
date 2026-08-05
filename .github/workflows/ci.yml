@@ -70,6 +70,15 @@ jobs:
       - name: Third-Party-Images gegen Baseline pruefen
         run: bash scripts/ci/check-image-pinning.sh
 
+  check-dockerignore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pflicht-Ausschlussmuster in .dockerignore pruefen
+        run: bash scripts/ci/check-dockerignore.sh
+
   build-custom-images:
     runs-on: ubuntu-latest
     permissions:
@@ -82,7 +91,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build ${{ matrix.service }} (kein Push)
-        run: docker build -t "ci-local/${{ matrix.service }}:${{ github.sha }}" "./${{ matrix.service }}"
+        # auth-gateway (seit Phase 2A): Build-Context = Repo-Root, eigener
+        # Dockerfile-Pfad, GIT_COMMIT-Build-Arg (fuer /version) - siehe
+        # docker-compose.yml. Die anderen drei Services bauen weiterhin mit
+        # ihrem eigenen Verzeichnis als Context (Phase 2B/2C).
+        run: |
+          if [ "${{ matrix.service }}" = "auth-gateway" ]; then
+            docker build -f auth-gateway/Dockerfile \
+              --build-arg GIT_COMMIT="${{ github.sha }}" \
+              -t "ci-local/auth-gateway:${{ github.sha }}" .
+          else
+            docker build -t "ci-local/${{ matrix.service }}:${{ github.sha }}" "./${{ matrix.service }}"
+          fi
       - name: Image-Digest ermitteln
         id: digest
         run: |
@@ -140,6 +160,9 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      - name: masterbrain-common installieren (nur fuer auth-gateway noetig)
+        if: matrix.service == 'auth-gateway'
+        run: python3 -m pip install ./packages/python/masterbrain-common
       - name: Abhaengigkeiten installieren und Tests ausfuehren
         working-directory: ${{ matrix.service }}
         env:
@@ -147,8 +170,63 @@ jobs:
           # verlangt NEO4J_AUTH bereits beim Modul-Import (app.py).
           NEO4J_AUTH: "neo4j/test-dummy-password"
         run: |
-          python3 -m pip install --requirement requirements.txt pytest
+          if [ "${{ matrix.service }}" = "auth-gateway" ]; then
+            python3 -m pip install --require-hashes -r requirements.lock.txt -r requirements-test.lock.txt
+          else
+            python3 -m pip install --requirement requirements.txt pytest
+          fi
           python3 -m pytest -q
+
+  masterbrain-common-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: masterbrain-common editable installieren und Tests ausfuehren
+        working-directory: packages/python/masterbrain-common
+        run: |
+          python3 -m pip install -e . pytest
+          python3 -m pytest -q
+
+  auth-gateway-smoke-test:
+    # Leichtgewichtiger Container-Smoke-Test (kein ML, echte Container-
+    # Importtests statt vollem Modell-Boot): Image starten, /health, /ready,
+    # /version real abfragen, wieder stoppen.
+    needs: [build-custom-images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: image-auth-gateway
+      - name: Image laden
+        run: docker load -i auth-gateway.tar
+      - name: Container starten
+        run: |
+          docker run -d --name auth-gateway-smoke \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e SUPABASE_URL=http://fake-supabase \
+            -e SUPABASE_SERVICE_ROLE_KEY=fake-key \
+            -e JWT_SECRET=ci-smoke-test-secret-not-a-real-secret \
+            -p 15001:5001 \
+            "ci-local/auth-gateway:${{ github.sha }}"
+          sleep 3
+      - name: /health, /ready, /version pruefen
+        run: |
+          curl -sf http://localhost:15001/health
+          curl -sf http://localhost:15001/ready | tee /dev/stderr | grep -q '"status":"ready"'
+          curl -sf http://localhost:15001/version | tee /dev/stderr | grep -q '"service":"auth-gateway"'
+      - name: Container-Logs bei Fehlschlag zeigen
+        if: failure()
+        run: docker logs auth-gateway-smoke
+      - name: Aufraeumen
+        if: always()
+        run: docker rm -f auth-gateway-smoke || true
 
   secret-scan:
     runs-on: ubuntu-latest
@@ -212,8 +290,42 @@ jobs:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
+  security-exception-approval:
+    # Prueft echte GitHub-PR-Reviews gegen den aktuellen head_sha, um
+    # Security-Ausnahmen freizugeben - siehe scripts/ci/check-exception-approvals.py
+    # fuer die Begruendung (ersetzt ein fruehers Feld-basiertes Modell, das
+    # einen Freigabe-Deadlock durch Branch-Protection-Stale-Dismissal erzeugte).
+    # Nur im PR-Kontext sinnvoll (Reviews existieren nur auf einem offenen PR).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install pyyaml
+      - name: Echte PR-Reviews gegen aktuellen head_sha pruefen
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/ci/check-exception-approvals.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: approved-exceptions
+          path: approved-exceptions.json
+          retention-days: 1
+
   trivy-image:
-    needs: [build-custom-images]
+    needs: [build-custom-images, security-exception-approval]
+    # security-exception-approval laeuft nur bei pull_request (s.o.) - bei
+    # push/workflow_dispatch wird er uebersprungen. `always()` verhindert,
+    # dass dieser Job dadurch ebenfalls uebersprungen wird; der eigentliche
+    # Erfolg von build-custom-images bleibt Pflicht.
+    if: always() && needs.build-custom-images.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -253,12 +365,24 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m pip install pyyaml
-      - name: Findings gegen strukturierte Ausnahmen bewerten
+      - name: Freigegebene Ausnahmen laden (falls vorhanden)
+        # continue-on-error: das Artifact existiert nur, wenn
+        # security-exception-approval tatsaechlich gelaufen ist (pull_request).
+        # Fehlt es (push/workflow_dispatch), bleibt check-trivy-findings.py
+        # fail-closed - keine Ausnahme wird angewendet.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: approved-exceptions
+      - name: Findings gegen strukturierte, freigegebene Ausnahmen bewerten
         run: |
-          python3 scripts/ci/check-trivy-findings.py \
-            --report "${{ matrix.service }}-image-report.json" \
-            --component "${{ matrix.service }}" \
-            --image-digest "${{ steps.digest.outputs.digest }}"
+          args=(--report "${{ matrix.service }}-image-report.json"
+                --component "${{ matrix.service }}"
+                --image-digest "${{ steps.digest.outputs.digest }}")
+          if [ -f approved-exceptions.json ]; then
+            args+=(--approved-exceptions-file approved-exceptions.json)
+          fi
+          python3 scripts/ci/check-trivy-findings.py "${args[@]}"
       - name: SARIF hochladen
         if: always()
         uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5

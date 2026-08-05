@@ -1,0 +1,4 @@
+# Nur fuer Tests/CI, NICHT im Runtime-Image installiert (reduziert
+# CVE-Flaeche im Produktivimage, siehe auth-gateway/Dockerfile Test-Stage).
+pytest
+pytest-flask

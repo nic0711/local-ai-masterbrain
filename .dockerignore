@@ -1,0 +1,56 @@
+# Root-.dockerignore. Notwendig, seit Docker-Build-Contexte fuer Custom
+# Services (beginnend mit auth-gateway in Phase 2A) auf den Repo-Root
+# umgestellt wurden, damit packages/python/masterbrain-common/ erreichbar
+# ist. Pflicht-Ausschlussliste, real verifiziert (siehe PR-Testprotokoll) -
+# keiner der folgenden Pfade darf im Build-Context landen.
+
+# Secrets, Zertifikate, Konfiguration mit sensiblen Werten
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Lokales, git-ignoriertes Handoff-/KI-Tooling-Material
+.handoff/
+.claude/
+.remember/
+.git/
+
+# Laufzeitdaten, Backups, Caches, generierte Modelle
+ocr_storage/
+tts_storage/
+shared/
+backups/
+neo4j/
+hermes_data/
+volumes/
+crawl4ai-data/
+grafana/
+prometheus/
+searxng/
+n8n/
+flowise/
+
+# Submodule/Vendor mit eigener Governance - nicht Teil des Build-Contexts
+# der Custom Services (jeder Service kopiert nur was er tatsaechlich braucht)
+supabase/
+hermes-agent/
+hermes-config/
+
+# Node/Python-Build-Artefakte, Caches
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+
+# Grosse, fuer Docker-Builds irrelevante Verzeichnisse
+n8n-tool-workflows/
+sps-monitoring/
+caddy-addon/
+assets/
+dashboard/
+
+# macOS
+.DS_Store

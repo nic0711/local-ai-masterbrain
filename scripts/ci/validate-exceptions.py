@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Struktur-, Ablauf- und Konsistenzpruefung fuer Security-Ausnahmedateien.
+"""Struktur-, Typ- und Ablaufpruefung fuer Security-Ausnahmedateien.
 
-Prueft NUR Struktur, Ablaufdatum, Scope und Konsistenz einer Ausnahme unter
-docs/planning/security-exceptions/*.yml. Eine hier vorhandene approvals-Liste
-wird NICHT als tatsaechliche Freigabe gewertet - verbindliche Freigaben
-entstehen ausschliesslich ueber echte GitHub-PR-Reviews auf die jeweilige
-Datei, durchgesetzt durch Branch-Schutzregeln und CODEOWNERS. Dieses Skript
-ersetzt keinen Freigabeprozess.
+Prueft AUSSCHLIESSLICH Struktur, Ablaufdatum und Grundtyp einer Ausnahme
+unter docs/planning/security-exceptions/*.yml. Diese Datei enthaelt KEIN
+Freigabe-Feld - die eigentliche Freigabepruefung (echte GitHub-PR-Reviews auf
+den aktuellen head_sha) uebernimmt scripts/ci/check-exception-approvals.py
+zur Laufzeit, nicht ein Feld in der Ausnahmedatei selbst. Siehe
+docs/handbook/09-verantwortlichkeiten.md fuer die Begruendung dieser
+Trennung (vermeidet einen Freigabe-Deadlock durch Branch-Protection-bedingtes
+Zuruecksetzen von Freigaben bei neuen Commits).
 """
 from __future__ import annotations
 
@@ -32,7 +34,7 @@ REQUIRED_FIELDS = [
     "expires_on",
 ]
 
-MIN_APPROVAL_COUNT = {"critical": 2, "high": 1}
+VALID_SEVERITIES = {"critical", "high"}
 
 EXCEPTIONS_GLOB = "docs/planning/security-exceptions/*.yml"
 
@@ -47,31 +49,9 @@ def validate_file(path: str) -> list[str]:
             errors.append(f"{path}: Pflichtfeld '{field}' fehlt oder ist leer")
 
     severity = str(data.get("severity", "")).lower()
-    if severity not in MIN_APPROVAL_COUNT:
+    if severity not in VALID_SEVERITIES:
         errors.append(
             f"{path}: severity '{data.get('severity')}' ungueltig, erwartet 'critical' oder 'high'"
-        )
-    else:
-        approvals = data.get("approvals") or []
-        if len(approvals) < MIN_APPROVAL_COUNT[severity]:
-            errors.append(
-                f"{path}: nur {len(approvals)} Eintraege in approvals, "
-                f"strukturell mind. {MIN_APPROVAL_COUNT[severity]} fuer severity={severity} erwartet "
-                "(strukturelle Zaehlung, ersetzt keine echte GitHub-Freigabe)"
-            )
-
-    requested_by = data.get("requested_by")
-    approvals = data.get("approvals") or []
-    if requested_by and requested_by in approvals:
-        errors.append(
-            f"{path}: requested_by ('{requested_by}') taucht in approvals auf - "
-            "Antragsteller darf nicht sich selbst freigeben"
-        )
-
-    if not data.get("github_approval_ref"):
-        errors.append(
-            f"{path}: 'github_approval_ref' fehlt - ohne Verweis auf einen echten "
-            "GitHub-PR-Review gilt diese Ausnahme nicht als freigegeben"
         )
 
     expires_on = data.get("expires_on")
@@ -104,6 +84,7 @@ def main() -> int:
         return 1
 
     print(f"Alle {len(files)} Ausnahmedatei(en) strukturell konsistent.")
+    print("Hinweis: Freigabepruefung erfolgt separat, siehe check-exception-approvals.py.")
     return 0
 
 

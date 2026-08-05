@@ -1,0 +1,71 @@
+# High-Security-Finding: "auth-gateway has direct access to rootful Docker socket"
+#
+# Kein CVE - ein architektonisches Finding (cve/package/installed_version/
+# affected_image_digest aus dem Template bleiben deshalb leer). Struktur nach
+# .github/security-exceptions.template.yml, erweitert um broker_plan_ref.
+#
+# Freigabe erfolgt NICHT ueber ein Feld in dieser Datei, sondern zur Laufzeit
+# durch scripts/ci/check-exception-approvals.py: mindestens 1 unabhaengiger,
+# genehmigender GitHub-PR-Review auf den aktuellen head_sha des PR, der weder
+# vom PR-Autor noch von requested_by stammt (severity=high -> 1 Freigabe
+# noetig). Siehe docs/handbook/09-verantwortlichkeiten.md.
+#
+# Bekannter struktureller Blocker: Aktuell ist @nic0711 sowohl einziger
+# bekannter Repo-Owner als auch typischerweise PR-Autor automatisierter PRs -
+# ohne einen zweiten, unabhaengigen GitHub-Account/Team kann diese Ausnahme
+# nicht freigegeben werden. Das ist keine Automatisierungsluecke, sondern ein
+# korrekt sichtbar gemachter Governance-Blocker (identisch zum bereits
+# dokumentierten CODEOWNERS-Einzelowner-Blocker).
+
+id: "2026-08-auth-gateway-docker-socket"
+finding_id: "auth-gateway-rootful-docker-socket"
+component: "auth-gateway"
+severity: "high"
+
+cve: ""
+package: ""
+installed_version: ""
+affected_image_digest: ""
+
+reason: >
+  auth-gateway mountet /var/run/docker.sock und ist per group_add: ["0"]
+  Mitglied der Root-Gruppe, damit das Dashboard-Feature "Service Control"
+  (Start/Stop/Restart/Logs fuer eine feste Allowlist von 23 Containern,
+  siehe app.py _CONTROLLABLE) funktioniert. Docker-Socket-Zugriff ist
+  strukturell root-aequivalent: bei vollstaendiger Kompromittierung des
+  auth-gateway-Prozesses (z.B. ueber eine noch unbekannte Schwachstelle in
+  einer Abhaengigkeit) waere eine vollstaendige Host-Uebernahme moeglich.
+  Verifiziert (Phase 2A, read-only Code-Review): service_control(),
+  service_logs() und run_macro() validieren `service`/`svc` strikt gegen die
+  feste Allowlist _CONTROLLABLE und `action`/`act` gegen ('start','stop',
+  'restart'); subprocess.run() nutzt durchgehend Listen-Form ohne Shell,
+  `compose_svc`-Werte kommen aus festen Dicts, nicht aus Nutzereingabe. Kein
+  exec, kein create, kein build, kein pull/push/commit, kein frei
+  uebergebener Service-Name moeglich - der ueber die eigene API des Service
+  erreichbare Missbrauchspfad ist damit eng begrenzt. Das Grundrisiko des
+  Socket-Zugriffs selbst bleibt davon unberuehrt bestehen.
+
+owner: "@nic0711"
+
+mitigation: >
+  Bestehende Schutzmassnahmen: Admin-Only-Endpunkte (_require_admin, faelt
+  auf aal2/MFA zurueck), feste Allowlist _CONTROLLABLE statt freier
+  Service-Namen, kein exec/create/build/pull/push/commit erreichbar,
+  strukturiertes Audit-Logging fuer jede Aktion (masterbrain_common.audit,
+  seit Phase 2A tatsaechlich in service_control/service_logs/run_macro
+  verdrahtet, nicht nur als vorhandene Bibliothek). Zusaetzlich seit Phase 2A:
+  cap_drop: [ALL] und security_opt: [no-new-privileges:true] auf
+  Compose-Ebene (Defense-in-Depth, beseitigt NICHT das Root-aequivalente
+  Risiko des Sockets selbst - wird hier bewusst nicht als solches verkauft).
+  group_add: ["0"] bleibt unveraendert: die tatsaechliche Docker-Socket-GID
+  ist plattformabhaengig (auf dieser macOS/Docker-Desktop-Entwicklungsumgebung
+  verifiziert: der Socket ist ein Symlink zur Docker-Desktop-VM ohne natives
+  Linux-Docker-Group-Modell) und kann ohne eine Linux-Zielumgebung nicht
+  sicher auf die echte Gruppen-ID umgestellt werden - offener Folgeschritt,
+  s. broker_plan_ref.
+
+requested_by: "@claude-code-phase2a"
+
+expires_on: "2026-11-02"
+
+broker_plan_ref: "docs/planning/future-work/service-control-broker.md"
