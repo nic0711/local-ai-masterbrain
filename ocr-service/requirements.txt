@@ -22,5 +22,5 @@ tiktoken>=0.13.0
 pytesseract>=0.3.13
 
 # Additional ML dependencies
-datasets>=2.14.0
+datasets>=5.0.1
 tokenizers>=0.15.0
