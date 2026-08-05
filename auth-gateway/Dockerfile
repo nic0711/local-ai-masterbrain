@@ -3,7 +3,7 @@
 # Siehe /.dockerignore fuer die verpflichtenden Build-Context-Ausschluesse.
 
 # --- Dependency-Build-Stage (Drittanbieter, hash-verifiziert) ---
-FROM python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS builder
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8 AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --require-hashes -r requirements.lock.txt
 
 # --- Wheel-Build-Stage (masterbrain-common) ---
-FROM python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS wheel-builder
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8 AS wheel-builder
 
 WORKDIR /build
 RUN pip install --no-cache-dir build==1.3.0
@@ -25,7 +25,7 @@ RUN python -m build --wheel --outdir /wheels && \
     sha256sum /wheels/*.whl > /wheels/checksum.sha256
 
 # --- Runtime-Stage ---
-FROM python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b
+FROM python:3.14-slim-bookworm@sha256:4c92ffcde4dd6f1ff72a24518f49fd4990b27134987dfa31a733badde66df9f8
 
 ARG GIT_COMMIT=unknown
 ENV GIT_COMMIT=${GIT_COMMIT}
