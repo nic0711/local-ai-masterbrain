@@ -119,3 +119,79 @@ Siehe `docs/handbook/09-verantwortlichkeiten.md`. Solange nur `@nic0711` als
 Owner bekannt ist, kann "Require review from Code Owners" nicht sinnvoll
 aktiviert werden (Self-Approval-Deadlock) und die Freigabe-Matrix für
 Critical-Findings (2 unabhängige Freigaben) ist strukturell nicht erfüllbar.
+
+## Alte Code-Scanning-Kategorien löschen (manueller Nachschritt)
+
+Vor diesem Nachschritt hatte `main` 3.665 offene GitHub-Code-Scanning-Alerts
+(verifiziert via `gh api code-scanning/alerts`), fast ausschließlich aus den
+`trivy-image-*`-SARIF-Uploads — dieselben Critical/High-Container-Paket-Funde,
+die bereits über `check-trivy-findings.py`/die Workflow-Artefakte sichtbar
+sind, nur zusätzlich dauerhaft im Security-Tab dupliziert. Ein PR
+("CI: Trivy-Image-Scans als Artefakt statt Code-Scanning-Alert") hat den
+`upload-sarif`-Schritt für `trivy-image` entfernt (nur `trivy-fs` lädt
+weiterhin SARIF hoch) — dadurch werden **keine neuen** Alerts in diesen vier
+Kategorien mehr erzeugt, die **bereits vorhandenen** bleiben aber offen, bis
+sie manuell gelöscht werden:
+
+- `trivy-image-auth-gateway`
+- `trivy-image-python-nlp-service`
+- `trivy-image-ocr-service`
+- `trivy-image-tts-service`
+
+**Ausdrücklich nicht automatisiert ausgeführt** — das Löschen von
+Security-Alert-Historie wirkt auf geteilten Zustand und liegt beim Repo-Owner.
+
+### Empfohlener Standardweg: GitHub-UI
+
+Security → Code scanning → Tool status → betroffene Konfiguration
+(`trivy-image-<service>`) → "Delete configuration". Das ist der einfachste
+Weg und für die meisten Fälle ausreichend.
+
+### Alternative: GitHub-REST-API
+
+Kein einzelner DELETE-Aufruf entfernt automatisch alle älteren Analysen
+derselben Kategorie — jede Analyse muss einzeln gelöscht werden. Maßgeblich
+laut GitHub-REST-API-Dokumentation
+(`DELETE /repos/{owner}/{repo}/code-scanning/analyses/{analysis_id}`):
+
+- Der Query-Parameter heißt **`confirm_delete`**.
+- Löschbar ist immer nur die Analyse mit `"deletable": true` — das ist
+  jeweils die **neueste** Analyse innerhalb eines "Sets". Ein Set ist die
+  eindeutige Kombination aus **`ref` + `tool` + `category`** (z. B. Branch
+  `refs/heads/main` + Tool `Trivy` + Kategorie `trivy-image-auth-gateway`).
+- Beim Löschen der **letzten verbleibenden** Analyse eines Sets muss
+  `confirm_delete=true` gesetzt werden, sonst liefert die API einen
+  400-Fehler.
+- Die DELETE-Antwort enthält `next_analysis_url` (zeigt auf die nächste zu
+  löschende Analyse desselben Sets, falls vorhanden) bzw.
+  `confirm_delete_url` (sobald es die letzte Analyse im Set ist — diese URL
+  bereits mit `confirm_delete=true`).
+
+Tatsächlicher Ablauf pro Set (Ref + Tool + Kategorie):
+
+```bash
+# 1. Analysen fuer Tool + Kategorie auflisten, neueste zuerst
+gh api "/repos/nic0711/local-ai-masterbrain/code-scanning/analyses?tool_name=Trivy&per_page=100" \
+  --jq '.[] | select(.category=="trivy-image-auth-gateway") | {id, deletable, created_at}'
+
+# 2. Nur die Analyse mit deletable=true loeschen (beginnend mit der neuesten)
+gh api -X DELETE \
+  "/repos/nic0711/local-ai-masterbrain/code-scanning/analyses/<ANALYSIS_ID>"
+
+# 3. Nach jedem DELETE: der zurueckgegebenen next_analysis_url folgen
+#    (oder Schritt 1 erneut ausfuehren) und Schritt 2 fuer die naechste
+#    deletable=true-Analyse desselben Sets wiederholen.
+
+# 4. Fuer die letzte verbleibende Analyse des Sets confirm_delete=true setzen:
+gh api -X DELETE \
+  "/repos/nic0711/local-ai-masterbrain/code-scanning/analyses/<LETZTE_ANALYSIS_ID>?confirm_delete=true"
+```
+
+Diesen Vorgang für alle vier Kategorien wiederholen
+(`trivy-image-auth-gateway`, `trivy-image-python-nlp-service`,
+`trivy-image-ocr-service`, `trivy-image-tts-service`) und — falls Analysen
+zu mehreren Refs existieren (z. B. abgeschlossene PR-Branches) — je Ref
+erneut durchführen, da Sets nach `ref` getrennt sind.
+
+Nach Abschluss sollte `gh api code-scanning/alerts?state=open --paginate --jq length`
+nur noch die `trivy-fs`- und CodeQL-Funde zeigen.
