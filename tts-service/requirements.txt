@@ -14,7 +14,7 @@ pydub>=0.25.1
 omnivoice>=0.1.0
 
 # Transkription (Dubbing)
-faster-whisper>=1.0.0
+faster-whisper>=1.2.1
 
 # YouTube-Download
 yt-dlp>=2024.1.0
