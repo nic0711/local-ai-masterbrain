@@ -361,6 +361,21 @@ jobs:
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
             image --format sarif --output "/out/${{ matrix.service }}-image.sarif" \
             --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
+      - name: Vollstaendigen Report als Workflow-Artefakt sichern
+        # Ersetzt den frueheren SARIF-Upload nach GitHub Code Scanning fuer
+        # trivy-image (entfernt): Container-Paket-CVEs
+        # sind kein Code-Scanning-Finding im eigentlichen Sinn und haben den
+        # Security-Tab mit tausenden Alerts ueberladen (Bestandsfindings aus
+        # EOL-Basis-Images/ungepinnten Deps, keine neuen Probleme). JSON+SARIF
+        # bleiben vollstaendig erhalten, nur als Artefakt statt als Alert.
+        id: upload-report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: trivy-report-${{ matrix.service }}
+          path: |
+            ${{ matrix.service }}-image-report.json
+            ${{ matrix.service }}-image.sarif
+          retention-days: 14
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -375,20 +390,20 @@ jobs:
         with:
           name: approved-exceptions
       - name: Findings gegen strukturierte, freigegebene Ausnahmen bewerten
+        # Trivy-Severity-Filter (--severity CRITICAL,HIGH beim Scan oben),
+        # Ausnahmeprozess und Exit-Code-Verhalten sind unveraendert - dieser
+        # Schritt schreibt zusaetzlich eine kompakte GitHub-Step-Summary mit
+        # Critical/High/fixable-Zaehlung und Link zum Artefakt.
         run: |
           args=(--report "${{ matrix.service }}-image-report.json"
                 --component "${{ matrix.service }}"
-                --image-digest "${{ steps.digest.outputs.digest }}")
+                --image-digest "${{ steps.digest.outputs.digest }}"
+                --artifact-name "trivy-report-${{ matrix.service }}"
+                --artifact-url "${{ steps.upload-report.outputs.artifact-url }}")
           if [ -f approved-exceptions.json ]; then
             args+=(--approved-exceptions-file approved-exceptions.json)
           fi
           python3 scripts/ci/check-trivy-findings.py "${args[@]}"
-      - name: SARIF hochladen
-        if: always()
-        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5
-        with:
-          sarif_file: ${{ matrix.service }}-image.sarif
-          category: trivy-image-${{ matrix.service }}
 
   sbom-cyclonedx:
     needs: [build-custom-images]

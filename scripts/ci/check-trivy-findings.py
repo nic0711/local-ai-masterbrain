@@ -10,6 +10,12 @@ scripts/ci/check-exception-approvals.py erzeugten approved-exceptions.json
 unabhaengige GitHub-PR-Reviews auf den aktuellen head_sha erhalten hat. Ohne
 uebergebene Freigabedatei gilt KEINE Ausnahme als freigegeben (fail-closed),
 nicht "alles erlaubt".
+
+Schreibt zusaetzlich eine kompakte Zusammenfassung (Critical/High/fixable/
+ohne Fix + Link zum vollstaendigen Report-Artefakt) nach
+$GITHUB_STEP_SUMMARY, falls gesetzt - der volle Report wird nicht mehr per
+SARIF nach GitHub Code Scanning hochgeladen (siehe ci.yml), sondern nur noch
+als Workflow-Artefakt bereitgestellt.
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ import argparse
 import datetime
 import glob
 import json
+import os
 import sys
 
 try:
@@ -65,6 +72,47 @@ def exception_covers(exc: dict, cve: str, component: str, image_digest: str | No
     return True
 
 
+def write_step_summary(
+    component: str,
+    all_findings: list[dict],
+    artifact_name: str | None,
+    artifact_url: str | None,
+) -> None:
+    """Schreibt eine kompakte Markdown-Zusammenfassung nach
+    $GITHUB_STEP_SUMMARY, falls die Variable gesetzt ist (nur innerhalb
+    eines GitHub-Actions-Laufs der Fall). Lokal/ausserhalb von CI: no-op,
+    kein Fehler - verhindert nicht das normale Skriptverhalten."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+
+    critical = sum(1 for f in all_findings if f["severity"] == "CRITICAL")
+    high = sum(1 for f in all_findings if f["severity"] == "HIGH")
+    fixable = sum(1 for f in all_findings if f["fixed_version"])
+    no_fix = sum(1 for f in all_findings if not f["fixed_version"])
+
+    lines = [
+        f"### Trivy Image-Scan: `{component}`",
+        "",
+        "| Metrik | Anzahl |",
+        "|---|---|",
+        f"| Critical | {critical} |",
+        f"| High | {high} |",
+        f"| Fixable (Fix verfuegbar) | {fixable} |",
+        f"| Ohne verfuegbaren Fix | {no_fix} |",
+        "",
+    ]
+    if artifact_name:
+        if artifact_url:
+            lines.append(f"Vollstaendiger Report (JSON + SARIF): [{artifact_name}]({artifact_url})")
+        else:
+            lines.append(f"Vollstaendiger Report (JSON + SARIF): Artefakt `{artifact_name}`")
+        lines.append("")
+
+    with open(summary_path, "a", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, help="Pfad zu trivy --format json Output")
@@ -75,6 +123,18 @@ def main() -> int:
         default=None,
         help="JSON-Liste freigegebener Ausnahme-IDs aus check-exception-approvals.py. "
         "Ohne diese Datei gilt fail-closed: keine Ausnahme wird angewendet.",
+    )
+    parser.add_argument(
+        "--artifact-name",
+        default=None,
+        help="Name des Workflow-Artefakts mit dem vollstaendigen JSON/SARIF-Report, "
+        "fuer die GitHub-Step-Summary.",
+    )
+    parser.add_argument(
+        "--artifact-url",
+        default=None,
+        help="URL des Workflow-Artefakts (z.B. steps.<id>.outputs.artifact-url), "
+        "fuer die GitHub-Step-Summary. Optional.",
     )
     args = parser.parse_args()
 
@@ -105,6 +165,7 @@ def main() -> int:
             cve = vuln.get("VulnerabilityID", "")
             pkg = vuln.get("PkgName", "")
             installed = vuln.get("InstalledVersion", "")
+            fixed_version = vuln.get("FixedVersion", "")
 
             covered = False
             covering_id = None
@@ -120,6 +181,7 @@ def main() -> int:
                 "severity": severity,
                 "package": pkg,
                 "installed_version": installed,
+                "fixed_version": fixed_version,
                 "covered_by_exception": covering_id if covered else None,
             }
             all_findings.append(entry)
@@ -132,6 +194,8 @@ def main() -> int:
     for f in all_findings:
         status = f"AUSGENOMMEN ({f['covered_by_exception']})" if f["covered_by_exception"] else "-"
         print(f"  - [{f['severity']}] {f['cve']} in {f['package']}@{f['installed_version']}  {status}")
+
+    write_step_summary(args.component, all_findings, args.artifact_name, args.artifact_url)
 
     if blocking_findings:
         print(

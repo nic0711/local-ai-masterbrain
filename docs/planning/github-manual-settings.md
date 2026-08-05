@@ -119,3 +119,53 @@ Siehe `docs/handbook/09-verantwortlichkeiten.md`. Solange nur `@nic0711` als
 Owner bekannt ist, kann "Require review from Code Owners" nicht sinnvoll
 aktiviert werden (Self-Approval-Deadlock) und die Freigabe-Matrix für
 Critical-Findings (2 unabhängige Freigaben) ist strukturell nicht erfüllbar.
+
+## Alte Code-Scanning-Kategorien löschen (manueller Nachschritt)
+
+Vor diesem Nachschritt hatte `main` 3.665 offene GitHub-Code-Scanning-Alerts
+(verifiziert via `gh api code-scanning/alerts`), fast ausschließlich aus den
+`trivy-image-*`-SARIF-Uploads — dieselben Critical/High-Container-Paket-Funde,
+die bereits über `check-trivy-findings.py`/die Workflow-Artefakte sichtbar
+sind, nur zusätzlich dauerhaft im Security-Tab dupliziert. Ein PR
+("CI: Trivy-Image-Scans als Artefakt statt Code-Scanning-Alert") hat den
+`upload-sarif`-Schritt für `trivy-image` entfernt (nur `trivy-fs` lädt
+weiterhin SARIF hoch) — dadurch werden **keine neuen** Alerts in diesen vier
+Kategorien mehr erzeugt, die **bereits vorhandenen** bleiben aber offen, bis
+sie manuell gelöscht werden:
+
+- `trivy-image-auth-gateway`
+- `trivy-image-python-nlp-service`
+- `trivy-image-ocr-service`
+- `trivy-image-tts-service`
+
+**Ausdrücklich nicht automatisiert ausgeführt** — das Löschen von
+Security-Alert-Historie wirkt auf geteilten Zustand und liegt beim Repo-Owner.
+
+### Weg 1: GitHub-UI
+
+Security-Tab → Code scanning → Filter `Tool: Trivy` und je Kategorie
+(`trivy-image-<service>`) → betroffene Alerts markieren → "Close" bzw. über
+die Repository-Einstellungen die jeweilige Analyse-Konfiguration entfernen.
+
+### Weg 2: GitHub-REST-API (löscht auch die Analyse-Historie der Kategorie)
+
+Für jede der vier Kategorien die jüngste Analyse ermitteln und mit
+`confirm_delete_dismissed_analyses=true` löschen — das entfernt automatisch
+auch alle älteren Analysen derselben Kategorie:
+
+```bash
+# 1. Analyse-IDs je Kategorie auflisten (neueste zuerst)
+gh api "/repos/nic0711/local-ai-masterbrain/code-scanning/analyses?tool_name=Trivy&per_page=100" \
+  --jq '.[] | select(.category=="trivy-image-auth-gateway") | {id, created_at}'
+
+# 2. Neueste Analyse-ID dieser Kategorie loeschen (Query-Param entfernt
+#    zugleich alle aelteren Analysen derselben Kategorie)
+gh api -X DELETE \
+  "/repos/nic0711/local-ai-masterbrain/code-scanning/analyses/<ANALYSIS_ID>?confirm_delete_dismissed_analyses=true"
+
+# Schritt 1+2 wiederholen fuer: trivy-image-python-nlp-service,
+# trivy-image-ocr-service, trivy-image-tts-service
+```
+
+Nach Abschluss sollte `gh api code-scanning/alerts?state=open --paginate --jq length`
+nur noch die `trivy-fs`- und CodeQL-Funde zeigen.
