@@ -20,7 +20,7 @@ python-json-logger==4.0.0
 
 # Performance und Utils
 # NumPy 2.x: Breaking Changes gegenüber 1.x, aber spacy 3.8.x ist kompatibel
-numpy==2.4.2
+numpy==2.5.1
 
 # Neo4j Graph-Datenbank (für GraphRAG)
 neo4j==5.27.0
