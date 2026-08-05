@@ -1,5 +1,5 @@
 # Stage 1: Builder - Abhängigkeiten installieren und Modelle laden
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN python -m spacy download de_core_news_md && \
 
 
 # Stage 2: Runner - Schlankes Laufzeit-Image
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # curl für HEALTHCHECK - kein build-essential benötigt
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
