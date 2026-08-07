@@ -31,7 +31,7 @@ python-json-logger==4.1.0
 numpy==2.5.1
 
 # Neo4j Graph-Datenbank (für GraphRAG)
-neo4j==5.27.0
+neo4j==6.2.0
 
 # Dokument- und PDF-Verarbeitung
 PyMuPDF==1.28.0           # PDF-Text-Extraktion und PDF→PNG (fitz)
