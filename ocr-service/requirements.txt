@@ -14,8 +14,8 @@ transformers>=4.36.0
 torch>=2.1.0
 torchvision>=0.16.0
 accelerate>=0.25.0
-sentencepiece>=0.1.99
-protobuf>=4.25.0
+sentencepiece>=0.2.2
+protobuf>=7.35.1
 tiktoken>=0.13.0
 
 # Tesseract OCR - Backup OCR engine
