@@ -91,15 +91,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build ${{ matrix.service }} (kein Push)
-        # auth-gateway (seit Phase 2A): Build-Context = Repo-Root, eigener
-        # Dockerfile-Pfad, GIT_COMMIT-Build-Arg (fuer /version) - siehe
-        # docker-compose.yml. Die anderen drei Services bauen weiterhin mit
-        # ihrem eigenen Verzeichnis als Context (Phase 2B/2C).
+        # auth-gateway (Phase 2A) und python-nlp-service (Phase 2B): Build-
+        # Context = Repo-Root, eigener Dockerfile-Pfad, GIT_COMMIT-Build-Arg
+        # (fuer /version) - siehe docker-compose.yml. ocr-service/tts-service
+        # bauen weiterhin mit ihrem eigenen Verzeichnis als Context (Phase 2C).
         run: |
-          if [ "${{ matrix.service }}" = "auth-gateway" ]; then
-            docker build -f auth-gateway/Dockerfile \
+          if [ "${{ matrix.service }}" = "auth-gateway" ] || [ "${{ matrix.service }}" = "python-nlp-service" ]; then
+            docker build -f "${{ matrix.service }}/Dockerfile" \
               --build-arg GIT_COMMIT="${{ github.sha }}" \
-              -t "ci-local/auth-gateway:${{ github.sha }}" .
+              -t "ci-local/${{ matrix.service }}:${{ github.sha }}" .
           else
             docker build -t "ci-local/${{ matrix.service }}:${{ github.sha }}" "./${{ matrix.service }}"
           fi
@@ -160,8 +160,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: masterbrain-common installieren (nur fuer auth-gateway noetig)
-        if: matrix.service == 'auth-gateway'
+      - name: masterbrain-common installieren (auth-gateway, python-nlp-service)
+        if: matrix.service == 'auth-gateway' || matrix.service == 'python-nlp-service'
         run: python3 -m pip install ./packages/python/masterbrain-common
       - name: Abhaengigkeiten installieren und Tests ausfuehren
         working-directory: ${{ matrix.service }}
@@ -170,11 +170,7 @@ jobs:
           # verlangt NEO4J_AUTH bereits beim Modul-Import (app.py).
           NEO4J_AUTH: "neo4j/test-dummy-password"
         run: |
-          if [ "${{ matrix.service }}" = "auth-gateway" ]; then
-            python3 -m pip install --require-hashes -r requirements.lock.txt -r requirements-test.lock.txt
-          else
-            python3 -m pip install --requirement requirements.txt pytest
-          fi
+          python3 -m pip install --require-hashes -r requirements.lock.txt -r requirements-test.lock.txt
           python3 -m pytest -q
 
   masterbrain-common-tests:
@@ -227,6 +223,52 @@ jobs:
       - name: Aufraeumen
         if: always()
         run: docker rm -f auth-gateway-smoke || true
+
+  python-nlp-service-smoke-test:
+    # Analog auth-gateway-smoke-test (s.o.). Kein Neo4j-Testcontainer in
+    # diesem Job - /ready wird deshalb bewusst NICHT auf status=ready
+    # geprueft (haette in CI legitim 503/not_ready zur Folge), sondern nur
+    # auf eine gueltige JSON-Antwortstruktur.
+    needs: [build-custom-images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: image-python-nlp-service
+      - name: Image laden
+        run: docker load -i python-nlp-service.tar
+      - name: Container starten
+        run: |
+          docker run -d --name python-nlp-service-smoke \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e NEO4J_AUTH=neo4j/ci-smoke-test-password-not-real \
+            -p 15000:5000 \
+            "ci-local/python-nlp-service:${{ github.sha }}"
+      - name: Warten bis Service healthy ist (spaCy-Modelle laden beim Start)
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:15000/health >/dev/null 2>&1; then
+              echo "Service healthy nach $((i * 2))s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Service nicht healthy nach 60s"
+          docker logs python-nlp-service-smoke
+          exit 1
+      - name: /health, /ready, /version pruefen
+        run: |
+          curl -sf http://localhost:15000/health
+          curl -s http://localhost:15000/ready | tee /dev/stderr | grep -qE '"status":"(ready|not_ready)"'
+          curl -sf http://localhost:15000/version | tee /dev/stderr | grep -q '"service":"python-nlp-service"'
+      - name: Container-Logs bei Fehlschlag zeigen
+        if: failure()
+        run: docker logs python-nlp-service-smoke
+      - name: Aufraeumen
+        if: always()
+        run: docker rm -f python-nlp-service-smoke || true
 
   secret-scan:
     runs-on: ubuntu-latest

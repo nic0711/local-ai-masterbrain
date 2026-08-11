@@ -1,0 +1,44 @@
+# Quelle fuer requirements.lock.txt (pip-compile --generate-hashes requirements.in).
+# python-json-logger direkt hier gepinnt, weil masterbrain-common als Wheel
+# mit --no-deps installiert wird - seine JSON-Logging-Laufzeit-Abhaengigkeit
+# muss deshalb ueber diesen Hash-Lock aufgeloest werden, nicht ueber das
+# Wheel (siehe auth-gateway/requirements.in fuer dasselbe Muster). PyJWT wird
+# NICHT benoetigt: python-nlp-service nutzt bewusst kein
+# masterbrain_common.jwt_verify (Trust-Modell unveraendert, nur internes
+# Docker-Netz, siehe docs/28_intune_inventory.md-Nachbar-Entscheidung in
+# Phase 2B - kein JWT-Pflicht-Zwang).
+flask==3.1.3
+werkzeug==3.1.8
+gunicorn==26.0.0
+
+# spacy 3.8.x ist kompatibel mit NumPy 2.x
+# Bewusst auf 3.8.13 gepinnt (nicht das neuere 3.8.14): 3.8.14 hat auf PyPI
+# weder ein cp314-Wheel noch ein Sdist (verifiziert via PyPI JSON API) - unter
+# Python 3.14 schlaegt `pip install` fehl ("No matching distribution").
+# 3.8.13 hat sowohl cp314-Wheels als auch ein Sdist und ist damit kompatibel;
+# kein CVE/Security-Advisory fuer spacy betrifft diesen Rueckschritt. Dependabot
+# schlaegt den Bump auf 3.8.14 wiederkehrend vor (offener PR #107, Build
+# schlaegt real fehl) - solange PyPI kein cp314-Wheel/Sdist fuer 3.8.14 hat,
+# bleibt dieser PR abzulehnen, nicht diesen Pin lockern.
+spacy==3.8.13
+spacy-lookups-data==1.0.5
+
+# HTTP Client (fuer Ollama-Calls)
+requests==2.34.2
+
+# Logging (masterbrain_common.logging nutzt pythonjsonlogger)
+python-json-logger==4.0.0
+
+# NumPy 2.x: Breaking Changes gegenueber 1.x, aber spacy 3.8.x ist kompatibel
+numpy==2.5.1
+
+# Neo4j Graph-Datenbank (fuer GraphRAG). 6.2.0 (Major-Bump von 5.27.0, bereits
+# auf main gemergt): Breaking-Changes-Liste gegen den tatsaechlich genutzten
+# Code geprueft (GraphDatabase.driver(), .session(), session.run(),
+# .verify_connectivity()) - keine davon betroffen. Min. Python 3.10 (erfuellt,
+# Image nutzt 3.14).
+neo4j==6.2.0
+
+# Dokument- und PDF-Verarbeitung
+PyMuPDF==1.28.0           # PDF-Text-Extraktion und PDF-zu-PNG (fitz)
+Pillow==12.3.0            # Bildverarbeitung fuer OCR-Vorbereitung

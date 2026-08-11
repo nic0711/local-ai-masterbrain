@@ -1,0 +1,3 @@
+# Nur fuer Tests/CI, NICHT im Runtime-Image installiert (reduziert
+# CVE-Flaeche im Produktivimage, siehe auth-gateway/requirements-test.in).
+pytest

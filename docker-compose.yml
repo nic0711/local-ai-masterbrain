@@ -138,11 +138,17 @@ services:
   python-nlp-service:
     container_name: python-nlp-service
     build:
-      context: ./python-nlp-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python-nlp-service/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     restart: unless-stopped
     expose:
       - 5000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

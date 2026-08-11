@@ -2,7 +2,6 @@ import os
 import re
 import base64
 import logging
-import sys
 import traceback
 
 import fitz  # PyMuPDF
@@ -11,7 +10,15 @@ import spacy
 from flask import Flask, jsonify, request
 from neo4j import GraphDatabase
 
+import masterbrain_common
+from masterbrain_common import logging as mbc_logging
+from masterbrain_common.health import ReadyCheck, ready_response, version_response
+
+# JSON-Logging mit Correlation-ID konfigurieren
+mbc_logging.configure_json_logging("python-nlp-service")
+
 app = Flask(__name__)
+mbc_logging.install_flask_correlation_id(app)
 
 # Schutz vor übermäßig großen Eingaben (DoS-Prävention)
 MAX_TEXT_LENGTH = 50_000  # ~50k Zeichen ≈ 10k Tokens
@@ -30,12 +37,6 @@ parts = neo4j_auth.split("/", 1)
 NEO4J_USER = parts[0]
 NEO4J_PASS = parts[1] if len(parts) > 1 else ""
 
-# Logging konfigurieren
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
 logger = logging.getLogger(__name__)
 
 # Globale Variablen
@@ -155,6 +156,35 @@ def health_check():
     return jsonify({"status": "starting", "service": "python-nlp-service", "ready": False}), 503
 
 
+_SERVICE_VERSION = "2.0.0"
+_GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
+
+
+def _neo4j_ready() -> bool:
+    try:
+        _get_neo4j().verify_connectivity()
+        return True
+    except Exception:
+        return False
+
+
+@app.route('/ready', methods=['GET'])
+def ready():
+    """Prueft externe Abhaengigkeiten (Neo4j). Nicht als Docker-HEALTHCHECK-
+    Ziel gedacht - siehe masterbrain_common.health."""
+    checks = [ReadyCheck("neo4j", _neo4j_ready)]
+    body, status_code = ready_response(checks)
+    return jsonify(body), status_code
+
+
+@app.route('/version', methods=['GET'])
+def version():
+    body, status_code = version_response(
+        "python-nlp-service", _SERVICE_VERSION, masterbrain_common.__version__, _GIT_COMMIT,
+    )
+    return jsonify(body), status_code
+
+
 @app.route('/status', methods=['GET'])
 def status():
     return jsonify({
@@ -165,7 +195,7 @@ def status():
         "ocr_model": OCR_MODEL,
         "ollama_host": OLLAMA_HOST,
         "endpoints": [
-            "/health", "/status",
+            "/health", "/status", "/ready", "/version",
             "/process",
             "/pdf/analyze-type", "/pdf/to-png-smart", "/pdf/extract",
             "/document/analyze",
