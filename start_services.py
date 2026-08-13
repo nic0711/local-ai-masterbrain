@@ -97,25 +97,38 @@ def _existing_pg_data_major_version():
 
     return version
 
+def get_pg15_override_files():
+    """PG15-Compose-Override als eigenstaendige -f-Argumente (nur der
+    Override, OHNE die Supabase-Basisdatei erneut zu spezifizieren).
+
+    Fuer Aufrufstellen, die Supabase bereits indirekt ueber die `include:`-
+    Direktive in docker-compose.yml bekommen (start_local_ai() und dessen
+    optionaler Autostart-Pfad) - dort darf die Supabase-Basisdatei nicht ein
+    zweites Mal explizit angegeben werden, das wuerde zu unklaren doppelten
+    Compose-Merges fuehren. Nutzt dieselbe zentrale Erkennung
+    (_existing_pg_data_major_version()) wie get_supabase_compose_files(),
+    keine parallele Logik.
+
+    Hinweis: docker-compose.override.public.supabase.yml pinnt db.image
+    zusaetzlich hart auf 15.8.1.085 (nur fuer environment=="public",
+    unabhaengig vom tatsaechlichen PGDATA-Zustand - kein Fail-Closed, wird
+    nach einem echten PG17-Upgrade der Daten falsch bleiben). Das ist eine
+    vorbestehende, separate Datei ausserhalb des Scopes dieser Aenderung
+    (Scope: ausschliesslich start_services.py). Diese Funktion liefert
+    unabhaengig davon die korrekte, erkennungsbasierte Antwort fuer alle
+    Environments, insbesondere fuer "private", das bisher ueberhaupt keinen
+    PG15-Schutz hatte."""
+    if _existing_pg_data_major_version() == _PG15_MAJOR_VERSION:
+        return ["-f", "supabase/docker/docker-compose.pg15.yml"]
+    return []
+
 def get_supabase_compose_files(environment=None):
-    """Zentrale Quelle fuer alle Supabase-bezogenen compose -f-Argumente.
-    Wird sowohl von get_all_compose_files() (fuer `down`) als auch von
-    start_supabase() (fuer `up`) verwendet, damit beide Befehle garantiert
-    dieselben Dateien in derselben Reihenfolge sehen.
-
-    Fuegt automatisch den offiziellen Supabase-PG15-Override
-    (supabase/docker/docker-compose.pg15.yml) hinzu, falls das persistente
-    Datenverzeichnis bereits mit PostgreSQL 15 initialisiert wurde - das
-    default docker-compose.yml zeigt inzwischen auf ein PG17-Image, das mit
-    einem bestehenden PG15-Datenverzeichnis binaerinkompatibel ist (siehe
-    docs/planning/future-work/pg15-to-pg17-upgrade.md). Nach einem
-    tatsaechlichen PG15->PG17-Upgrade der Daten entfaellt dieser Override
-    automatisch, ohne Codeaenderung noetig."""
+    """Zentrale Quelle fuer alle Supabase-bezogenen compose -f-Argumente,
+    inkl. der Supabase-Basisdatei selbst. Wird von get_all_compose_files()
+    (fuer `down`) und start_supabase() (fuer `up`) verwendet, damit beide
+    Befehle garantiert dieselben Dateien in derselben Reihenfolge sehen."""
     files = ["-f", "supabase/docker/docker-compose.yml"]
-
-    pg_major = _existing_pg_data_major_version()
-    if pg_major == _PG15_MAJOR_VERSION:
-        files.extend(["-f", "supabase/docker/docker-compose.pg15.yml"])
+    files.extend(get_pg15_override_files())
 
     if environment == "public" and os.path.exists("docker-compose.override.public.supabase.yml"):
         files.extend(["-f", "docker-compose.override.public.supabase.yml"])
@@ -344,6 +357,12 @@ def start_local_ai(profile=None, environment=None, compose_env=None, env_vars=No
 
     cmd.extend(["-f", "docker-compose.yml"])
 
+    # docker-compose.yml bindet Supabase bereits ueber `include:` ein (mit
+    # dem PG17-Default) - PG15-Override hier ergaenzen, damit dieser zweite
+    # `up`-Aufruf den von start_supabase() bereits laufenden db-Service nicht
+    # mit dem falschen Image neu aufloest/rebuilt. Siehe get_pg15_override_files().
+    cmd.extend(get_pg15_override_files())
+
     if environment == "private":
         cmd.extend(["-f", "docker-compose.override.private.yml"])
     elif environment == "public":
@@ -370,6 +389,7 @@ def start_local_ai(profile=None, environment=None, compose_env=None, env_vars=No
             "docker", "compose", "-p", "localai",
             "--profile", "optional",
             "-f", "docker-compose.yml",
+        ] + get_pg15_override_files() + [
             "up", "-d",
         ] + autostart
         run_command(opt_cmd, env=compose_env)
