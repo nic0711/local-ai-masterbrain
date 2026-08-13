@@ -12,15 +12,17 @@ werkzeug==3.1.8
 gunicorn==26.0.0
 
 # spacy 3.8.x ist kompatibel mit NumPy 2.x
-# Bewusst auf 3.8.13 gepinnt (nicht das neuere 3.8.14): 3.8.14 hat auf PyPI
-# weder ein cp314-Wheel noch ein Sdist (verifiziert via PyPI JSON API) - unter
-# Python 3.14 schlaegt `pip install` fehl ("No matching distribution").
+# Bewusst auf 3.8.13 gepinnt (nicht neuer): weder 3.8.14 noch 3.8.15 haben auf
+# PyPI ein cp314-Wheel oder ein Sdist (verifiziert via PyPI JSON API) - unter
+# Python 3.14 schlaegt `pip install` fehl ("No matching distribution"). Der
+# Dependabot-Bump auf 3.8.15 (PR #107) wurde versehentlich gemergt und hat
+# main gebrochen (Docker-Build von python-nlp-service schlaegt fehl); dieser
+# Pin setzt den Build wieder auf den zuletzt funktionierenden Stand zurueck.
 # 3.8.13 hat sowohl cp314-Wheels als auch ein Sdist und ist damit kompatibel;
 # kein CVE/Security-Advisory fuer spacy betrifft diesen Rueckschritt. Dependabot
-# schlaegt den Bump auf 3.8.14 wiederkehrend vor (offener PR #107, Build
-# schlaegt real fehl) - solange PyPI kein cp314-Wheel/Sdist fuer 3.8.14 hat,
-# bleibt dieser PR abzulehnen, nicht diesen Pin lockern.
-spacy==3.8.15
+# schlaegt Bumps auf 3.8.14/3.8.15 wiederkehrend vor - solange PyPI dafuer kein
+# cp314-Wheel/Sdist hat, bleiben solche PRs abzulehnen, nicht diesen Pin lockern.
+spacy==3.8.13
 spacy-lookups-data==1.0.5
 
 # HTTP Client (fuer Ollama-Calls)
