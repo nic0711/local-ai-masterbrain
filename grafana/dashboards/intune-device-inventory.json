@@ -1,0 +1,94 @@
+{
+  "uid": "intune-device-inventory",
+  "title": "Intune Geräte-Inventar",
+  "description": "OS-Version, RAM, CPU-Architektur und primärer Nutzer aller von Intune gemanagten Geräte. Quelle: n8n-Workflow intune-device-sync.json (täglich 06:00). Eigenständiges Reporting, siehe docs/28_intune_inventory.md.",
+  "tags": ["intune", "inventory"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Geräte gesamt",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "intune-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS \"Geräte gesamt\" FROM public.intune_devices;",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 2,
+      "type": "piechart",
+      "title": "Verteilung OS-Version",
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "intune-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(os_version, 'unbekannt') AS \"OS-Version\", COUNT(*) AS \"Anzahl\" FROM public.intune_devices GROUP BY os_version ORDER BY COUNT(*) DESC;",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }
+      }
+    },
+    {
+      "id": 3,
+      "type": "piechart",
+      "title": "Verteilung Compliance-Status",
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "intune-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(compliance_state, 'unbekannt') AS \"Compliance\", COUNT(*) AS \"Anzahl\" FROM public.intune_devices GROUP BY compliance_state ORDER BY COUNT(*) DESC;",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Geräte-Inventar",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "postgres", "uid": "intune-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT device_name AS \"Gerät\", operating_system AS \"OS\", os_version AS \"OS-Version\", processor_architecture AS \"CPU-Architektur\", ROUND(physical_memory_bytes / 1073741824.0, 1) AS \"RAM (GB)\", primary_user_upn AS \"Primärer Nutzer\", compliance_state AS \"Compliance\", synced_at AS \"Letzter Sync\" FROM public.intune_devices ORDER BY device_name;",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Letzter Sync" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsIso" }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Gerät", "desc": false }]
+      }
+    }
+  ]
+}
