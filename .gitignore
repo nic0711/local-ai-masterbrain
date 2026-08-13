@@ -51,6 +51,10 @@ __pycache__/
 .DS_Store
 
 *.sql
+# Ausnahme: projekteigene, versionierte Supabase-Migrationen (siehe
+# docs/29_supabase_migrations.md) - bewusst NICHT wie generierte DB-Dumps/
+# Backups behandelt.
+!infra/supabase/migrations/*.sql
 
 volumes/
 shared/

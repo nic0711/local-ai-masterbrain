@@ -168,6 +168,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Teams Bot + Asana-Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket KI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Wissensdatenbank (KB-Arbeitsabläufe) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
+| Supabase-Migrationen (projekteigenes Schema) | [29_supabase_migrations.md](docs/29_supabase_migrations.md) |
 | Zielarchitektur (Governance-Baseline) | [CONTEXT.md](CONTEXT.md) |
 | Architektur-Entscheidungen (ADRs)     | [docs/adr/](docs/adr/) |
 | Umsetzungsplan & Governance-Planung   | [docs/planning/](docs/planning/) |
@@ -686,6 +687,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | Teams Bot + Asana Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket AI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Knowledge Base (KB Workflows) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
+| Supabase migrations (project-owned schema) | [29_supabase_migrations.md](docs/29_supabase_migrations.md) |
 | Target architecture (governance baseline) | [CONTEXT.md](CONTEXT.md) |
 | Architecture decision records (ADRs) | [docs/adr/](docs/adr/) |
 | Implementation roadmap & governance planning | [docs/planning/](docs/planning/) |
