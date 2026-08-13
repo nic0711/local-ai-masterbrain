@@ -35,31 +35,114 @@ def get_env_vars(env_file=".env"):
         print(f"Warning: .env file not found at {env_file}")
     return variables
 
+_PG15_MAJOR_VERSION = "15"
+_PG_DEFAULT_MAJOR_VERSIONS = {"17"}  # aktueller docker-compose.yml-Default, kein Override noetig
+
+def _existing_pg_data_major_version():
+    """Prueft das persistente Postgres-Datenverzeichnis
+    (supabase/docker/volumes/db/data) und liefert dessen Major-Version
+    zurueck ("15", "17"), oder None wenn dort noch keine Installation
+    existiert (Erststart, PG17-Default zulaessig).
+
+    Fail-closed: Existiert das Verzeichnis bereits mit Inhalt (Erststart
+    ausgeschlossen), aber PG_VERSION fehlt, ist nicht lesbar, leer oder
+    meldet eine andere Major-Version als die hier bekannten (15, 17), bricht
+    der Aufruf hart ab (sys.exit) - es wird NIEMALS stillschweigend der
+    PG17-Default angenommen, wenn der tatsaechliche Zustand der
+    Bestandsinstallation unbekannt oder uneindeutig ist."""
+    data_dir = os.path.join("supabase", "docker", "volumes", "db", "data")
+    pg_version_file = os.path.join(data_dir, "PG_VERSION")
+
+    if not os.path.isdir(data_dir):
+        return None
+
+    # macOS kann von selbst ein .DS_Store in einem noch nie von Docker/
+    # Postgres initialisierten Verzeichnis anlegen - das zaehlt nicht als
+    # "hat bereits Inhalt".
+    entries = [e for e in os.listdir(data_dir) if e != ".DS_Store"]
+    if not entries:
+        return None
+
+    hinweis = (
+        "Manuelle Pruefung noetig, siehe "
+        "docs/planning/future-work/pg15-to-pg17-upgrade.md. "
+        "Es wird bewusst NICHT automatisch mit dem PG17-Default gestartet, "
+        "um keine inkompatible Datenbank zu riskieren."
+    )
+
+    if not os.path.isfile(pg_version_file):
+        sys.exit(
+            f"FEHLER: {data_dir} existiert bereits und enthaelt Daten, "
+            f"aber keine lesbare PG_VERSION-Datei ({pg_version_file}). "
+            + hinweis
+        )
+
+    try:
+        with open(pg_version_file) as f:
+            version = f.read().strip()
+    except OSError as e:
+        sys.exit(f"FEHLER: {pg_version_file} konnte nicht gelesen werden ({e}). " + hinweis)
+
+    if not version:
+        sys.exit(f"FEHLER: {pg_version_file} ist leer oder ungueltig. " + hinweis)
+
+    if version != _PG15_MAJOR_VERSION and version not in _PG_DEFAULT_MAJOR_VERSIONS:
+        sys.exit(
+            f"FEHLER: {pg_version_file} meldet PostgreSQL-Major-Version "
+            f"'{version}' - dafuer ist kein passender Compose-Pfad bekannt "
+            f"(bekannt: {_PG15_MAJOR_VERSION} mit Override, "
+            f"{', '.join(sorted(_PG_DEFAULT_MAJOR_VERSIONS))} als Default). "
+            + hinweis
+        )
+
+    return version
+
+def get_supabase_compose_files(environment=None):
+    """Zentrale Quelle fuer alle Supabase-bezogenen compose -f-Argumente.
+    Wird sowohl von get_all_compose_files() (fuer `down`) als auch von
+    start_supabase() (fuer `up`) verwendet, damit beide Befehle garantiert
+    dieselben Dateien in derselben Reihenfolge sehen.
+
+    Fuegt automatisch den offiziellen Supabase-PG15-Override
+    (supabase/docker/docker-compose.pg15.yml) hinzu, falls das persistente
+    Datenverzeichnis bereits mit PostgreSQL 15 initialisiert wurde - das
+    default docker-compose.yml zeigt inzwischen auf ein PG17-Image, das mit
+    einem bestehenden PG15-Datenverzeichnis binaerinkompatibel ist (siehe
+    docs/planning/future-work/pg15-to-pg17-upgrade.md). Nach einem
+    tatsaechlichen PG15->PG17-Upgrade der Daten entfaellt dieser Override
+    automatisch, ohne Codeaenderung noetig."""
+    files = ["-f", "supabase/docker/docker-compose.yml"]
+
+    pg_major = _existing_pg_data_major_version()
+    if pg_major == _PG15_MAJOR_VERSION:
+        files.extend(["-f", "supabase/docker/docker-compose.pg15.yml"])
+
+    if environment == "public" and os.path.exists("docker-compose.override.public.supabase.yml"):
+        files.extend(["-f", "docker-compose.override.public.supabase.yml"])
+
+    return files
+
 def get_all_compose_files(profile=None, environment=None):
     """Get all relevant compose files for the current configuration."""
     compose_files = []
-    
+
     # Main compose files
     compose_files.extend(["-f", "docker-compose.yml"])
-    
+
     # Environment-specific overrides
     if environment == "private":
         compose_files.extend(["-f", "docker-compose.override.private.yml"])
     elif environment == "public":
         compose_files.extend(["-f", "docker-compose.override.public.yml"])
-    
+
     # Profile-specific overrides
     if profile == "none":
         compose_files.extend(["-f", "docker-compose.override.none.yml"])
-    
-    # Supabase compose file
-    compose_files.extend(["-f", "supabase/docker/docker-compose.yml"])
-    
-    # Supabase environment overrides
-    if environment == "public":
-        if os.path.exists("docker-compose.override.public.supabase.yml"):
-            compose_files.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    
+
+    # Supabase compose file(s) - inkl. PG15-Override falls noetig, siehe
+    # get_supabase_compose_files()
+    compose_files.extend(get_supabase_compose_files(environment))
+
     return compose_files
 
 def clone_supabase_repo():
@@ -224,11 +307,7 @@ def start_supabase(environment=None, compose_env=None):
     """Start the Supabase services with proper health checks."""
     print("Starting Supabase services...")
     
-    cmd = ["docker", "compose", "-p", "localai", "-f", "supabase/docker/docker-compose.yml"]
-    
-    if environment == "public" and os.path.exists("docker-compose.override.public.supabase.yml"):
-        cmd.extend(["-f", "docker-compose.override.public.supabase.yml"])
-    
+    cmd = ["docker", "compose", "-p", "localai"] + get_supabase_compose_files(environment)
     cmd.extend(["up", "-d"])
     
     run_command(cmd, env=compose_env)
