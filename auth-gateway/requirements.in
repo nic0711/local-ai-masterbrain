@@ -10,5 +10,5 @@ gunicorn==26.0.0
 supabase==2.31.0
 flask-limiter==4.1.1
 PyJWT==2.13.0
-python-json-logger==4.0.0
+python-json-logger==4.1.0
 docker>=7.2.0

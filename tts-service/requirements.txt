@@ -1,8 +1,8 @@
-fastapi==0.104.1
+fastapi==0.141.1
 uvicorn[standard]==0.24.0
-python-multipart==0.0.31
+python-multipart==0.0.32
 pydantic>=2.13.4
-aiofiles>=23.2.1
+aiofiles>=25.1.0
 httpx>=0.25.0
 
 # Audio I/O
@@ -11,7 +11,7 @@ librosa>=0.11.0
 pydub>=0.25.1
 
 # TTS + Voice Cloning
-omnivoice>=0.1.0
+omnivoice>=0.2.1
 
 # Transkription (Dubbing)
 faster-whisper>=1.2.1
@@ -20,6 +20,6 @@ faster-whisper>=1.2.1
 yt-dlp>=2024.1.0
 
 # ML-Basis
-torch>=2.1.0
+torch>=2.13.0
 torchaudio>=2.11.0
 numpy>=1.24.3

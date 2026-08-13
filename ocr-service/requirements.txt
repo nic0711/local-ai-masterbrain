@@ -1,4 +1,4 @@
-fastapi==0.104.1
+fastapi==0.141.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.31
 Pillow>=12.3.0
@@ -6,11 +6,11 @@ opencv-python>=4.9.0.80
 numpy>=1.24.3
 pymupdf>=1.28.0
 pydantic>=2.5.0
-aiofiles>=23.2.1
+aiofiles>=25.1.0
 requests>=2.31.0
 
 # GOT-OCR 2.0 - State-of-the-art OCR from Hugging Face
-transformers>=4.36.0
+transformers>=5.14.1
 torch>=2.1.0
 torchvision>=0.16.0
 accelerate>=0.25.0

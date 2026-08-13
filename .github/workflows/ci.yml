@@ -327,7 +327,7 @@ jobs:
         run: python3 scripts/ci/check-trivy-findings.py --report trivy-fs-report.json --component repo-fs
       - name: SARIF hochladen
         if: always()
-        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
