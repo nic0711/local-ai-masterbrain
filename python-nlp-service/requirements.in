@@ -20,7 +20,7 @@ gunicorn==26.0.0
 # schlaegt den Bump auf 3.8.14 wiederkehrend vor (offener PR #107, Build
 # schlaegt real fehl) - solange PyPI kein cp314-Wheel/Sdist fuer 3.8.14 hat,
 # bleibt dieser PR abzulehnen, nicht diesen Pin lockern.
-spacy==3.8.13
+spacy==3.8.15
 spacy-lookups-data==1.0.5
 
 # HTTP Client (fuer Ollama-Calls)
