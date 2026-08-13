@@ -160,6 +160,60 @@ class TestStatus:
 
 
 # ===========================================================================
+# 2b. /ready endpoint (masterbrain_common.health)
+# ===========================================================================
+
+class TestReadyEndpoint:
+    def test_ready_ok_when_neo4j_reachable(self, client):
+        """200/ready when Neo4j connectivity check succeeds."""
+        driver = MagicMock()
+        with patch.object(app_module, "_get_neo4j", return_value=driver):
+            resp = client.get("/ready")
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["status"] == "ready"
+        assert body["checks"]["neo4j"] == "ok"
+
+    def test_ready_503_when_neo4j_unreachable(self, client):
+        """503/not_ready when Neo4j connectivity check raises."""
+        with patch.object(app_module, "_get_neo4j", side_effect=Exception("connection refused")):
+            resp = client.get("/ready")
+        assert resp.status_code == 503
+        body = resp.get_json()
+        assert body["status"] == "not_ready"
+        assert body["checks"]["neo4j"] == "down"
+
+    def test_ready_requires_no_auth(self, client):
+        """No Authorization header needed - python-nlp-service has no JWT check."""
+        driver = MagicMock()
+        with patch.object(app_module, "_get_neo4j", return_value=driver):
+            resp = client.get("/ready")
+        assert resp.status_code == 200
+
+
+# ===========================================================================
+# 2c. /version endpoint (masterbrain_common.health)
+# ===========================================================================
+
+class TestVersionEndpoint:
+    def test_version_structure(self, client):
+        """Version endpoint returns build provenance, no secrets."""
+        resp = client.get("/version")
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["service"] == "python-nlp-service"
+        assert "service_version" in body
+        assert "masterbrain_common_version" in body
+        assert "git_commit" in body
+
+    def test_version_has_no_secrets(self, client):
+        """NEO4J_AUTH (set for module import, see bootstrap above) must not leak."""
+        resp = client.get("/version")
+        body_text = resp.get_data(as_text=True)
+        assert "NEO4J_AUTH" not in body_text
+
+
+# ===========================================================================
 # 3. /process — NER endpoint
 # ===========================================================================
 
