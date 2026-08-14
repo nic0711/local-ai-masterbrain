@@ -301,22 +301,40 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Trivy-Output-Verzeichnis anlegen
+        # Ausgabe bewusst NICHT mehr nach /repo (Repo wird read-only
+        # gemountet, s.u.), sondern in ein separates Runner-Temp-Verzeichnis.
+        # chmod 777: der Trivy-Container laeuft intern als root, verliert
+        # durch --cap-drop=ALL aber CAP_DAC_OVERRIDE - ohne das koennte er
+        # sonst nicht in ein vom Runner-User (nicht root) angelegtes
+        # Verzeichnis schreiben (real auf dem GitHub-Runner reproduziert:
+        # "permission denied" ohne dieses chmod). Betrifft nur dieses
+        # fluechtige Runner-Temp-Verzeichnis, keine Repo-Dateien.
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-fs"
+          chmod 777 "$RUNNER_TEMP/trivy-fs"
       - name: Trivy Filesystem-Scan (JSON, fuer strukturierte Ausnahmepruefung)
         # hermes-agent/ und supabase/ sind Submodule mit eigener Upstream-CI
         # und -Governance (siehe docs/planning/documentation-inventory.md);
         # *_storage/, shared/, neo4j/, backups/, volumes/ sind Laufzeitdaten,
         # kein Repo-Code. Ausschluss deckt sich mit dem Phase-1-Scope.
+        # Repo read-only gemountet (:ro) - Trivy braucht fuer den fs-Scan
+        # keinen Schreibzugriff auf den gescannten Code, nur auf /out.
         run: |
-          docker run --rm -v "$PWD":/repo \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/trivy-fs:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            fs --format json --output /repo/trivy-fs-report.json --severity CRITICAL,HIGH \
+            fs --format json --output /out/trivy-fs-report.json --severity CRITICAL,HIGH \
             --skip-dirs /repo/hermes-agent,/repo/supabase,/repo/neo4j,/repo/shared,/repo/tts_storage,/repo/ocr_storage,/repo/backups,/repo/volumes \
             /repo
       - name: Trivy Filesystem-Scan (SARIF, fuer Code Scanning)
         run: |
-          docker run --rm -v "$PWD":/repo \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/trivy-fs:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            fs --format sarif --output /repo/trivy-fs.sarif --severity CRITICAL,HIGH \
+            fs --format sarif --output /out/trivy-fs.sarif --severity CRITICAL,HIGH \
             --skip-dirs /repo/hermes-agent,/repo/supabase,/repo/neo4j,/repo/shared,/repo/tts_storage,/repo/ocr_storage,/repo/backups,/repo/volumes \
             /repo
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -324,12 +342,12 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install pyyaml
       - name: Findings gegen strukturierte Ausnahmen bewerten (Critical/High sichtbar, blockierend ohne Ausnahme)
-        run: python3 scripts/ci/check-trivy-findings.py --report trivy-fs-report.json --component repo-fs
+        run: python3 scripts/ci/check-trivy-findings.py --report "$RUNNER_TEMP/trivy-fs/trivy-fs-report.json" --component repo-fs
       - name: SARIF hochladen
         if: always()
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
-          sarif_file: trivy-fs.sarif
+          sarif_file: ${{ runner.temp }}/trivy-fs/trivy-fs.sarif
           category: trivy-fs
 
   security-exception-approval:
@@ -381,28 +399,45 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: image-${{ matrix.service }}
-      - name: Image laden
+      - name: Image laden (nur fuer Digest-Ermittlung, Trivy scannt das TAR direkt)
         run: docker load -i "${{ matrix.service }}.tar"
       - name: Image-Digest ermitteln
         id: digest
         run: |
           digest=$(docker inspect --format='{{index .Id}}' "ci-local/${{ matrix.service }}:${{ github.sha }}")
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Trivy Image-Scan (JSON)
-        # WICHTIG: $PWD muss zusaetzlich zum Docker-Socket gemountet werden -
-        # sonst schreibt --output in das (nach --rm verworfene) Dateisystem
-        # des Trivy-Containers selbst, nicht auf den Runner-Host.
+      - name: Trivy-Output-Verzeichnis anlegen
+        # chmod 777: siehe Begruendung im trivy-fs-Job weiter oben (Trivy
+        # laeuft als root im Container, verliert durch --cap-drop=ALL aber
+        # CAP_DAC_OVERRIDE - ohne dieses chmod real "permission denied" auf
+        # dem GitHub-Runner reproduziert).
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
-            aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format json --output "/out/${{ matrix.service }}-image-report.json" \
-            --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
-      - name: Trivy Image-Scan (SARIF)
+          mkdir -p "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+          chmod 777 "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+      - name: Trivy Image-Scan (JSON) - direkt gegen das Build-TAR, kein Docker-Socket
+        # Scannt das bereits als Artefakt vorliegende ${{ matrix.service }}.tar
+        # per --input statt eine laufende Docker-Engine ueber den Socket
+        # anzusprechen. TAR read-only gemountet, Ausgabe in ein separates
+        # Runner-Temp-Verzeichnis (nicht das Repository).
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD/${{ matrix.service }}.tar:/input/image.tar:ro" \
+            -v "$RUNNER_TEMP/trivy-image-${{ matrix.service }}:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format sarif --output "/out/${{ matrix.service }}-image.sarif" \
-            --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
+            image --input /input/image.tar --format json \
+            --output "/out/${{ matrix.service }}-image-report.json" \
+            --severity CRITICAL,HIGH
+      - name: Trivy Image-Scan (SARIF) - direkt gegen das Build-TAR, kein Docker-Socket
+        run: |
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD/${{ matrix.service }}.tar:/input/image.tar:ro" \
+            -v "$RUNNER_TEMP/trivy-image-${{ matrix.service }}:/out" \
+            aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
+            image --input /input/image.tar --format sarif \
+            --output "/out/${{ matrix.service }}-image.sarif" \
+            --severity CRITICAL,HIGH
       - name: Vollstaendigen Report als Workflow-Artefakt sichern
         # Ersetzt den frueheren SARIF-Upload nach GitHub Code Scanning fuer
         # trivy-image (entfernt): Container-Paket-CVEs
@@ -415,8 +450,8 @@ jobs:
         with:
           name: trivy-report-${{ matrix.service }}
           path: |
-            ${{ matrix.service }}-image-report.json
-            ${{ matrix.service }}-image.sarif
+            ${{ runner.temp }}/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image-report.json
+            ${{ runner.temp }}/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image.sarif
           retention-days: 14
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -437,7 +472,7 @@ jobs:
         # Schritt schreibt zusaetzlich eine kompakte GitHub-Step-Summary mit
         # Critical/High/fixable-Zaehlung und Link zum Artefakt.
         run: |
-          args=(--report "${{ matrix.service }}-image-report.json"
+          args=(--report "$RUNNER_TEMP/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image-report.json"
                 --component "${{ matrix.service }}"
                 --image-digest "${{ steps.digest.outputs.digest }}"
                 --artifact-name "trivy-report-${{ matrix.service }}"
