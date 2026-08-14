@@ -1,0 +1,40 @@
+vulnerability_id,severity,status,class,target,package,installed_version,fixed_version,title
+GHSA-6v7p-g79w-8964,HIGH,fixed,lang-pkgs,Python,msgpack,1.1.2,1.2.1,MessagePack for Python: Out-of-bounds read / crash on Unpacker reuse after a caught error
+CVE-2025-47273,HIGH,fixed,lang-pkgs,Python,setuptools,70.3.0,78.1.1,setuptools: Path Traversal Vulnerability in setuptools PackageIndex
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),bsdutils,1:2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2026-12064,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),curl,7.88.1-10+deb12u15,,curl: curl: SSH host verification bypass when using schemeless URLs with SFTP/SCP
+CVE-2026-6276,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),curl,7.88.1-10+deb12u15,,curl: libcurl: Information disclosure due to cookie leak when reusing connections with custom Host headers
+CVE-2026-8286,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),curl,7.88.1-10+deb12u15,,curl: curl: Insecure connection establishment due to TLS configuration mismatch
+CVE-2026-8458,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),curl,7.88.1-10+deb12u15,,curl: libcurl: Unauthorized connection reuse due to a logical error
+CVE-2026-8927,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),curl,7.88.1-10+deb12u15,,curl: Information disclosure due to uncleared proxy authentication state
+CVE-2026-41992,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),gzip,1.12-1,,GNU gzip contains a global buffer overflow vulnerability in the LZH de ...
+CVE-2026-54369,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),libacl1,2.3.1-3,,acl: Symlink traversal privilege escalation via libacl functions
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libblkid1,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2026-12064,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),libcurl4,7.88.1-10+deb12u15,,curl: curl: SSH host verification bypass when using schemeless URLs with SFTP/SCP
+CVE-2026-6276,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libcurl4,7.88.1-10+deb12u15,,curl: libcurl: Information disclosure due to cookie leak when reusing connections with custom Host headers
+CVE-2026-8286,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),libcurl4,7.88.1-10+deb12u15,,curl: curl: Insecure connection establishment due to TLS configuration mismatch
+CVE-2026-8458,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),libcurl4,7.88.1-10+deb12u15,,curl: libcurl: Unauthorized connection reuse due to a logical error
+CVE-2026-8927,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),libcurl4,7.88.1-10+deb12u15,,curl: Information disclosure due to uncleared proxy authentication state
+CVE-2023-2953,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libldap-2.5-0,2.5.13+dfsg-5,,openldap: null pointer dereference in  ber_memalloc_x  function
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libmount1,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2025-69720,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libncursesw6,6.4-4,,ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libsmartcols1,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2025-7458,CRITICAL,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libsqlite3-0,3.40.1-2+deb12u2,,sqlite: SQLite integer overflow
+CVE-2026-58050,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libssh2-1,1.10.0-3+b1,,libssh2: libssh2: Heap buffer overflow via integer overflow in publickey attribute allocation
+CVE-2026-7598,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libssh2-1,1.10.0-3+b1,,libssh2: integer overflow via large username or password arguments
+CVE-2025-69720,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libtinfo6,6.4-4,,ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),libuuid1,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),mount,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2025-69720,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),ncurses-base,6.4-4,,ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.
+CVE-2025-69720,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),ncurses-bin,6.4-4,,ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.
+CVE-2026-13221,CRITICAL,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,Perl versions through 5.43.9 produce silently incorrect regular expres ...
+CVE-2026-42496,CRITICAL,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl-archive-tar: perl-archive-tar: Path traversal via crafted symlinks allows arbitrary file access
+CVE-2026-42497,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl-Archive-Tar: perl-Archive-Tar: Arbitrary file modification via crafted hardlinks during archive extraction
+CVE-2026-48962,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl-IO-Compress: perl-IO-Compress: Arbitrary code execution via attacker-controlled output glob
+CVE-2026-57432,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl: Perl: Information disclosure via integer overflow in pack/unpack operations
+CVE-2026-57433,CRITICAL,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,Storable versions before 3.41 for Perl have a signed integer overflow  ...
+CVE-2026-8376,CRITICAL,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl: Perl: Heap buffer overflow when compiling regular expressions on 32-bit builds
+CVE-2026-9538,HIGH,fix_deferred,os-pkgs,ci-local/python-nlp-service (debian 12.15),perl-base,5.36.0-7+deb12u3,,perl-Archive-Tar: perl-Archive-Tar: Denial of Service via crafted tar header with large entry size
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),util-linux,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2026-53615,HIGH,affected,os-pkgs,ci-local/python-nlp-service (debian 12.15),util-linux-extra,2.38.1-5+deb12u3,,[Integer Overflow or Wraparound in libblkid/src/partitions/dos.c]
+CVE-2023-45853,CRITICAL,will_not_fix,os-pkgs,ci-local/python-nlp-service (debian 12.15),zlib1g,1:1.2.13.dfsg-1,,zlib: integer overflow and resultant heap-based buffer overflow in zipOpenNewFileInZip4_6

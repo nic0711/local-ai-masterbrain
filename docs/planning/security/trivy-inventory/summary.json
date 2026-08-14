@@ -1,0 +1,135 @@
+{
+  "auth-gateway": {
+    "total": 43,
+    "unique_vulnerability_ids": 28,
+    "os_pkgs": 37,
+    "lang_pkgs": 6,
+    "status_counts": {
+      "fixed": 4,
+      "affected": 25,
+      "fix_deferred": 13,
+      "will_not_fix": 1
+    },
+    "fixable_language_findings": [
+      {
+        "id": "CVE-2026-34040",
+        "package": "github.com/docker/docker",
+        "installed_version": "v28.5.2+incompatible",
+        "fixed_version": "29.3.1"
+      },
+      {
+        "id": "GHSA-6v7p-g79w-8964",
+        "package": "msgpack",
+        "installed_version": "1.1.2",
+        "fixed_version": "1.2.1"
+      },
+      {
+        "id": "CVE-2025-47273",
+        "package": "setuptools",
+        "installed_version": "70.3.0",
+        "fixed_version": "78.1.1"
+      },
+      {
+        "id": "CVE-2026-39822",
+        "package": "stdlib",
+        "installed_version": "v1.26.4",
+        "fixed_version": "1.25.12, 1.26.5, 1.27.0-rc.2"
+      }
+    ],
+    "os_pkgs_with_fix": 0,
+    "base_target": "ci-local/auth-gateway (debian 12.15)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-auth-gateway"
+  },
+  "python-nlp-service": {
+    "total": 39,
+    "unique_vulnerability_ids": 24,
+    "os_pkgs": 37,
+    "lang_pkgs": 2,
+    "status_counts": {
+      "fixed": 2,
+      "affected": 23,
+      "fix_deferred": 13,
+      "will_not_fix": 1
+    },
+    "fixable_language_findings": [
+      {
+        "id": "GHSA-6v7p-g79w-8964",
+        "package": "msgpack",
+        "installed_version": "1.1.2",
+        "fixed_version": "1.2.1"
+      },
+      {
+        "id": "CVE-2025-47273",
+        "package": "setuptools",
+        "installed_version": "70.3.0",
+        "fixed_version": "78.1.1"
+      }
+    ],
+    "os_pkgs_with_fix": 0,
+    "base_target": "ci-local/python-nlp-service (debian 12.15)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-python-nlp-service"
+  },
+  "ocr-service": {
+    "total": 1770,
+    "unique_vulnerability_ids": 841,
+    "os_pkgs": 1768,
+    "lang_pkgs": 2,
+    "status_counts": {
+      "fixed": 1249,
+      "affected": 374,
+      "will_not_fix": 36,
+      "fix_deferred": 111
+    },
+    "fixable_language_findings": [
+      {
+        "id": "GHSA-6v7p-g79w-8964",
+        "package": "msgpack",
+        "installed_version": "1.1.2",
+        "fixed_version": "1.2.1"
+      },
+      {
+        "id": "CVE-2025-47273",
+        "package": "setuptools",
+        "installed_version": "70.3.0",
+        "fixed_version": "78.1.1"
+      }
+    ],
+    "os_pkgs_with_fix": 1247,
+    "base_target": "ci-local/ocr-service (debian 11.11)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-ocr-service"
+  },
+  "tts-service": {
+    "total": 1915,
+    "unique_vulnerability_ids": 866,
+    "os_pkgs": 1913,
+    "lang_pkgs": 2,
+    "status_counts": {
+      "fixed": 1249,
+      "affected": 501,
+      "will_not_fix": 36,
+      "fix_deferred": 125,
+      "end_of_life": 4
+    },
+    "fixable_language_findings": [
+      {
+        "id": "GHSA-6v7p-g79w-8964",
+        "package": "msgpack",
+        "installed_version": "1.1.2",
+        "fixed_version": "1.2.1"
+      },
+      {
+        "id": "CVE-2025-47273",
+        "package": "setuptools",
+        "installed_version": "70.3.0",
+        "fixed_version": "78.1.1"
+      }
+    ],
+    "os_pkgs_with_fix": 1247,
+    "base_target": "ci-local/tts-service (debian 11.11)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-tts-service"
+  }
+}
