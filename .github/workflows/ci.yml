@@ -304,7 +304,15 @@ jobs:
       - name: Trivy-Output-Verzeichnis anlegen
         # Ausgabe bewusst NICHT mehr nach /repo (Repo wird read-only
         # gemountet, s.u.), sondern in ein separates Runner-Temp-Verzeichnis.
-        run: mkdir -p "$RUNNER_TEMP/trivy-fs"
+        # chmod 777: der Trivy-Container laeuft intern als root, verliert
+        # durch --cap-drop=ALL aber CAP_DAC_OVERRIDE - ohne das koennte er
+        # sonst nicht in ein vom Runner-User (nicht root) angelegtes
+        # Verzeichnis schreiben (real auf dem GitHub-Runner reproduziert:
+        # "permission denied" ohne dieses chmod). Betrifft nur dieses
+        # fluechtige Runner-Temp-Verzeichnis, keine Repo-Dateien.
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-fs"
+          chmod 777 "$RUNNER_TEMP/trivy-fs"
       - name: Trivy Filesystem-Scan (JSON, fuer strukturierte Ausnahmepruefung)
         # hermes-agent/ und supabase/ sind Submodule mit eigener Upstream-CI
         # und -Governance (siehe docs/planning/documentation-inventory.md);
@@ -399,7 +407,13 @@ jobs:
           digest=$(docker inspect --format='{{index .Id}}' "ci-local/${{ matrix.service }}:${{ github.sha }}")
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Trivy-Output-Verzeichnis anlegen
-        run: mkdir -p "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+        # chmod 777: siehe Begruendung im trivy-fs-Job weiter oben (Trivy
+        # laeuft als root im Container, verliert durch --cap-drop=ALL aber
+        # CAP_DAC_OVERRIDE - ohne dieses chmod real "permission denied" auf
+        # dem GitHub-Runner reproduziert).
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+          chmod 777 "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
       - name: Trivy Image-Scan (JSON) - direkt gegen das Build-TAR, kein Docker-Socket
         # Scannt das bereits als Artefakt vorliegende ${{ matrix.service }}.tar
         # per --input statt eine laufende Docker-Engine ueber den Socket
