@@ -2,8 +2,8 @@
  {
   "RuleID": "generic-api-key",
   "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
-  "StartLine": 293,
-  "EndLine": 293,
+  "StartLine": 298,
+  "EndLine": 298,
   "StartColumn": 2,
   "EndColumn": 47,
   "Match": "OSTICKET_MINIO_SECRET=REDACTED",
@@ -17,7 +17,7 @@
   "Date": "",
   "Message": "",
   "Tags": [],
-  "Fingerprint": "/repo/.env.example:generic-api-key:293"
+  "Fingerprint": "/repo/.env.example:generic-api-key:298"
  },
  {
   "RuleID": "generic-api-key",

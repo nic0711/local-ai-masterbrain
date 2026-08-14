@@ -1,0 +1,154 @@
+{
+  "name": "Intune Device Sync – Geräte-Inventar",
+  "nodes": [
+    {
+      "id": "schedule",
+      "name": "Täglich 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-graph-token",
+      "name": "Graph Token holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://login.microsoftonline.com/{{ $vars.AZURE_TENANT_ID }}/oauth2/v2.0/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "={{ $vars.INTUNE_CLIENT_ID }}" },
+            { "name": "client_secret", "value": "={{ $vars.INTUNE_CLIENT_SECRET }}" },
+            { "name": "scope", "value": "https://graph.microsoft.com/.default" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "get-managed-devices",
+      "name": "Managed Devices abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Graph Token holen').first().json.access_token }}" }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body[\"@odata.nextLink\"] }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "split-devices",
+      "name": "Geräte auftrennen",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "parameters": {
+        "fieldToSplitOut": "value"
+      }
+    },
+    {
+      "id": "map-fields",
+      "name": "Mapping",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "jsCode": "// Graph managedDevice-Felder auf Tabellenspalten von public.intune_devices mappen.\n// Bekannte Datengrenze: processorArchitecture ist im v1.0-Endpoint das einzige\n// CPU-Feld (kein Modell/Kernanzahl), siehe docs/28_intune_inventory.md.\nconst KNOWN_FIELDS = new Set([\n  'id', 'deviceName', 'operatingSystem', 'osVersion', 'model', 'manufacturer',\n  'physicalMemoryInBytes', 'processorArchitecture', 'userPrincipalName',\n  'userDisplayName', 'complianceState', 'lastSyncDateTime'\n]);\n\nreturn $input.all().map(item => {\n  const d = item.json;\n  const rawMetadata = Object.fromEntries(\n    Object.entries(d).filter(([key]) => !KNOWN_FIELDS.has(key))\n  );\n\n  return {\n    json: {\n      intune_device_id: d.id,\n      device_name: d.deviceName || null,\n      operating_system: d.operatingSystem || null,\n      os_version: d.osVersion || null,\n      model: d.model || null,\n      manufacturer: d.manufacturer || null,\n      physical_memory_bytes: d.physicalMemoryInBytes ?? null,\n      processor_architecture: d.processorArchitecture || null,\n      primary_user_upn: d.userPrincipalName || null,\n      primary_user_display_name: d.userDisplayName || null,\n      compliance_state: d.complianceState || null,\n      last_sync_date_time: d.lastSyncDateTime || null,\n      raw_metadata: JSON.stringify(rawMetadata),\n      synced_at: new Date().toISOString()\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "upsert-devices",
+      "name": "Upsert intune_devices",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1340, 300],
+      "parameters": {
+        "operation": "upsert",
+        "schema": { "value": "public" },
+        "table": { "value": "intune_devices" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": ["intune_device_id"],
+          "value": {
+            "intune_device_id": "={{ $json.intune_device_id }}",
+            "device_name": "={{ $json.device_name }}",
+            "operating_system": "={{ $json.operating_system }}",
+            "os_version": "={{ $json.os_version }}",
+            "model": "={{ $json.model }}",
+            "manufacturer": "={{ $json.manufacturer }}",
+            "physical_memory_bytes": "={{ $json.physical_memory_bytes }}",
+            "processor_architecture": "={{ $json.processor_architecture }}",
+            "primary_user_upn": "={{ $json.primary_user_upn }}",
+            "primary_user_display_name": "={{ $json.primary_user_display_name }}",
+            "compliance_state": "={{ $json.compliance_state }}",
+            "last_sync_date_time": "={{ $json.last_sync_date_time }}",
+            "raw_metadata": "={{ $json.raw_metadata }}",
+            "synced_at": "={{ $json.synced_at }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "AXJoQJaFRsoL9Qk8", "name": "Intune Sync Writer (intune_sync_writer)" }
+      }
+    }
+  ],
+  "connections": {
+    "Täglich 06:00": {
+      "main": [[{ "node": "Graph Token holen", "type": "main", "index": 0 }]]
+    },
+    "Graph Token holen": {
+      "main": [[{ "node": "Managed Devices abrufen", "type": "main", "index": 0 }]]
+    },
+    "Managed Devices abrufen": {
+      "main": [[{ "node": "Geräte auftrennen", "type": "main", "index": 0 }]]
+    },
+    "Geräte auftrennen": {
+      "main": [[{ "node": "Mapping", "type": "main", "index": 0 }]]
+    },
+    "Mapping": {
+      "main": [[{ "node": "Upsert intune_devices", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Synchronisiert taeglich um 06:00 das Intune-Geraete-Inventar (OS-Version, RAM, CPU-Architektur, primaerer Nutzer) via Microsoft Graph API v1.0 nach public.intune_devices (Supabase), Basis fuer das Grafana-Dashboard intune-device-inventory. Eigenstaendiges Reporting-Werkzeug, NICHT Teil der Intune-Policy-Hub-Zielarchitektur (ADR-0001/0004/0005) - siehe docs/28_intune_inventory.md. Benoetigt n8n-Variablen AZURE_TENANT_ID, INTUNE_CLIENT_ID, INTUNE_CLIENT_SECRET sowie ein Postgres-Credential auf die Supabase-DB als dedizierte Least-Privilege-Rolle intune_sync_writer (SELECT/INSERT/UPDATE auf public.intune_devices, SELECT empirisch als noetig fuer ON CONFLICT DO UPDATE unter RLS verifiziert, siehe infra/supabase/migrations/06_intune_sync_writer_role.sql) - NICHT der postgres-Superuser. CPU-Datengrenze: nur processorArchitecture, kein Modell/Kernanzahl (v1.0-Endpoint).",
+    "templateCredsSetupCompleted": false
+  }
+}
