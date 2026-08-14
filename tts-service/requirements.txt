@@ -22,4 +22,4 @@ yt-dlp>=2024.1.0
 # ML-Basis
 torch>=2.13.0
 torchaudio>=2.11.0
-numpy>=1.24.3
+numpy>=2.5.2
