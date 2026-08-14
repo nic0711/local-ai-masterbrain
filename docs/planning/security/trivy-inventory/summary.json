@@ -37,7 +37,9 @@
       }
     ],
     "os_pkgs_with_fix": 0,
-    "base_target": "ci-local/auth-gateway:66157d1cf3ee097679789606b87af8185ed6bb5b (debian 12.15)"
+    "base_target": "ci-local/auth-gateway (debian 12.15)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-auth-gateway"
   },
   "python-nlp-service": {
     "total": 39,
@@ -65,7 +67,9 @@
       }
     ],
     "os_pkgs_with_fix": 0,
-    "base_target": "ci-local/python-nlp-service:66157d1cf3ee097679789606b87af8185ed6bb5b (debian 12.15)"
+    "base_target": "ci-local/python-nlp-service (debian 12.15)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-python-nlp-service"
   },
   "ocr-service": {
     "total": 1770,
@@ -93,7 +97,9 @@
       }
     ],
     "os_pkgs_with_fix": 1247,
-    "base_target": "ci-local/ocr-service:66157d1cf3ee097679789606b87af8185ed6bb5b (debian 11.11)"
+    "base_target": "ci-local/ocr-service (debian 11.11)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-ocr-service"
   },
   "tts-service": {
     "total": 1915,
@@ -122,6 +128,8 @@
       }
     ],
     "os_pkgs_with_fix": 1247,
-    "base_target": "ci-local/tts-service:66157d1cf3ee097679789606b87af8185ed6bb5b (debian 11.11)"
+    "base_target": "ci-local/tts-service (debian 11.11)",
+    "source_workflow_run_id": 31755814430,
+    "artifact_name": "trivy-report-tts-service"
   }
 }

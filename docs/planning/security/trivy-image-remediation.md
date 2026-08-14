@@ -20,10 +20,21 @@ Trivy-Findings (Vergleich pro Service: Package + InstalledVersion +
 VulnerabilityID identisch, 0 Abweichungen in allen vier Services) – die hier
 dokumentierten Findings sind nicht durch #121 verursacht.
 
-Datenquelle: `trivy-report-<service>` CI-Artefakte des PR-#121-Laufs (Commit
-`66157d1c`, entspricht `main`-Stand nach PR #122). Rohdaten je Service in
-[`trivy-inventory/<service>.csv`](trivy-inventory/), Zusammenfassung in
-[`trivy-inventory/summary.json`](trivy-inventory/summary.json).
+Datenquelle: CI-Workflow-Run `31755814430` (PR-#121-Lauf, entspricht
+`main`-Stand nach PR #122), Artefakte `trivy-report-<service>`. Rohdaten je
+Service in [`trivy-inventory/<service>.csv`](trivy-inventory/),
+Zusammenfassung in [`trivy-inventory/summary.json`](trivy-inventory/summary.json).
+
+**Normalisierung:** Die gespeicherten Trivy-Inventardaten sind normalisiert.
+Fluechtige CI-Merge-/Image-SHAs wurden aus den Target-Strings der
+OS-Package-Findings entfernt (`ci-local/<service>:<sha> (debian X.Y)` →
+`ci-local/<service> (debian X.Y)`), da sie keine fachliche Bedeutung fuer
+den CVE-Vergleich haben und bei jedem CI-Lauf wechseln (Gitleaks hatte den
+SHA im Trivy-Target faelschlich als `generic-api-key` erkannt). Statt des
+SHA dient `source_workflow_run_id` (in `summary.json`, siehe oben) und der
+jeweilige Artefaktname der Nachvollziehbarkeit. Language-Package-Targets
+(z. B. `Python`, `usr/libexec/docker/cli-plugins/docker-compose`) sind
+unveraendert, da sie keinen SHA enthalten.
 
 ## 1. Zahlen (verifiziert gegen die realen CI-Artefakte)
 
