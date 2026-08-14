@@ -6,12 +6,40 @@ import re
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import torch
 
 logger = logging.getLogger(__name__)
 
 VOICES_DIR = Path("/data/voices")
 _SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _audio_to_numpy(audio: object) -> np.ndarray:
+    """Konvertiert ein einzelnes Element aus OmniVoice.generate() zu numpy.
+
+    Die installierte omnivoice-Version (0.2.1) ist annotiert als
+    ``generate(...) -> list[np.ndarray]`` und liefert real bereits
+    numpy.ndarray-Elemente (verifiziert gegen das gebaute Image, siehe
+    Issue #142) - kein torch.Tensor mehr. Beide Faelle werden hier explizit
+    behandelt, damit ein spaeteres omnivoice-Update auf eine Tensor-
+    liefernde Version nicht erneut bricht.
+    """
+    if isinstance(audio, torch.Tensor):
+        arr = audio.squeeze().detach().cpu().numpy()
+    elif isinstance(audio, np.ndarray):
+        arr = audio.squeeze()
+    else:
+        raise TypeError(
+            f"Unerwarteter Audio-Rueckgabetyp von OmniVoice.generate(): {type(audio).__name__}"
+        )
+
+    if not np.issubdtype(arr.dtype, np.number):
+        raise TypeError(f"Audio-Array hat nicht-numerischen dtype: {arr.dtype}")
+    if arr.size == 0:
+        raise ValueError("OmniVoice.generate() lieferte ein leeres Audio-Array.")
+
+    return arr
 
 
 def _resolve_device() -> str:
@@ -58,7 +86,7 @@ class TTSEngine:
                 kwargs["ref_text"] = ref_text
             # ref_text optional – OmniVoice transkribiert intern via Whisper
         audio_list = self._model.generate(**kwargs)
-        wav = audio_list[0].squeeze().cpu().numpy()
+        wav = _audio_to_numpy(audio_list[0])
         buf = io.BytesIO()
         sf.write(buf, wav, 24000, format="WAV")
         return buf.getvalue()
