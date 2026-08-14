@@ -17,7 +17,22 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r requirements.txt
+        -r requirements.txt && \
+    pip uninstall -y pip
+
+# pip nach der letzten Paketinstallation entfernt, bevor das venv in die
+# Runtime-Stage kopiert wird (kein weiterer pip-Bedarf danach - anders als
+# bei auth-gateway/python-nlp-service gibt es hier keinen
+# masterbrain-common-Wheel-Install in der Runtime-Stage). Reines Build-/
+# Installationswerkzeug, zur Laufzeit von app/ nicht importiert. Behebt
+# zwei Trivy-Findings, die sich real gegen pips eigenes internes
+# CycloneDX-SBOM (pip/_vendor/bom.cdx.json) richteten, nicht gegen die
+# echten Anwendungs-Abhaengigkeiten: msgpack (GHSA-6v7p-g79w-8964) und
+# setuptools/pkg_resources (CVE-2025-47273) sind in pip/_vendor/ jeweils
+# als veraltete Kopien (1.1.2 bzw. 70.3.0) vorhanden, unabhaengig von den
+# echten, bereits sicheren Installationen msgpack==1.2.1 (Required-by
+# librosa) und setuptools==84.0.0 (Required-by ctranslate2, torch), die
+# beide unveraendert bestehen bleiben.
 
 # --- Runtime-Stage ---
 FROM python:3.13-slim-bookworm@sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1
@@ -49,6 +64,17 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
         && break || sleep 10; \
     done && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# python:3.13-slim-bookworm bringt in der Runtime-Stage (frische FROM-Stufe,
+# unabhaengig vom Builder) sein eigenes System-Python mit vorinstalliertem
+# pip 26.2.1 mit - dessen internes CycloneDX-SBOM (pip/_vendor/bom.cdx.json)
+# meldet ebenfalls die veralteten vendorten msgpack/setuptools-Kopien
+# (real verifiziert: das Entfernen von pip im Builder-Venv allein reichte
+# NICHT, dieses System-pip blieb unangetastet bestehen, weil die
+# Runtime-Stage eine eigene FROM-Stufe ist). Kein App-Code nutzt dieses
+# System-Python (die Anwendung laeuft ausschliesslich ueber /opt/venv,
+# PATH-Prioritaet s.u.) - Entfernung ist sicher.
+RUN python3 -m pip uninstall -y pip
 
 RUN useradd --create-home --uid 1001 appuser
 
