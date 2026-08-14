@@ -123,6 +123,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test-Verzeichnisse je Custom Service pruefen
+        # tts-service hat seit tts-service/tests/test_tts_engine.py (siehe
+        # Issue #142) ebenfalls ein tests/-Verzeichnis - keine Ausnahme mehr.
         run: |
           missing=0
           for svc in auth-gateway python-nlp-service ocr-service tts-service; do
@@ -130,11 +132,7 @@ jobs:
               echo "OK: $svc hat ein tests/-Verzeichnis"
             else
               echo "LUECKE: $svc hat KEIN tests/-Verzeichnis (siehe docs/planning/test-coverage-gaps.md)"
-              if [ "$svc" != "tts-service" ]; then
-                # tts-service ist die bekannte, dokumentierte Phase-2-Abweichung.
-                # Jede andere fehlende Testabdeckung waere ein neuer, ungeplanter Befund.
-                missing=1
-              fi
+              missing=1
             fi
           done
           exit "$missing"
@@ -269,6 +267,38 @@ jobs:
       - name: Aufraeumen
         if: always()
         run: docker rm -f python-nlp-service-smoke || true
+
+  tts-service-unit-tests:
+    # Regressionstests fuer die Audio-Ausgabekonvertierung in tts_engine.py
+    # (siehe Issue #142: AttributeError bei numpy.ndarray-Rueckgabe von
+    # OmniVoice.generate()) laufen direkt im fertigen Runtime-Image - testet
+    # exakt die Python-/Torch-/Soundfile-Versionen, die spaeter produktiv
+    # laufen. Kein Modell-Download, keine Secrets: tests/test_tts_engine.py
+    # ersetzt TTSEngine._model durch ein Fake-Objekt mit kontrollierten
+    # generate()-Rueckgaben. pytest ist bewusst NICHT im Runtime-Image
+    # installiert - unittest (Standardbibliothek) reicht aus.
+    needs: [build-custom-images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: image-tts-service
+      - name: Image laden
+        run: docker load -i tts-service.tar
+      - name: Unit-Tests im fertigen Runtime-Image ausfuehren
+        # tests/ read-only in das bereits vorhandene /app gemountet,
+        # PYTHONPATH=/app macht tts_engine.py als Top-Level-Modul
+        # importierbar (Dockerfile: WORKDIR /app, App-Code flach kopiert).
+        run: |
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e PYTHONPATH=/app \
+            -v "$PWD/tts-service/tests:/app/tests:ro" \
+            "ci-local/tts-service:${{ github.sha }}" \
+            python -m unittest discover -s /app/tests -v
 
   secret-scan:
     runs-on: ubuntu-latest
