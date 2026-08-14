@@ -16,7 +16,20 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r requirements.txt
+        -r requirements.txt && \
+    pip uninstall -y pip
+
+# pip nach der letzten Paketinstallation entfernt, bevor das venv in die
+# Runtime-Stage kopiert wird. Reines Build-/Installationswerkzeug, zur
+# Laufzeit von app/ nicht importiert. Behebt (zusammen mit der
+# System-pip-Entfernung in der Runtime-Stage, s.u.) zwei Trivy-Findings,
+# die sich real gegen pips eigenes internes CycloneDX-SBOM (pip/_vendor/
+# bom.cdx.json) richteten, nicht gegen echte Anwendungs-Abhaengigkeiten:
+# msgpack (GHSA-6v7p-g79w-8964, hier gar nicht als eigenes Paket
+# installiert) und setuptools/pkg_resources (CVE-2025-47273) sind in
+# pip/_vendor/ als veraltete Kopien (1.1.2 bzw. 70.3.0) vorhanden,
+# unabhaengig von der echten, bereits sicheren Installation
+# setuptools==84.0.0 (Required-by torch), die unveraendert bestehen bleibt.
 
 # --- Runtime-Stage ---
 FROM python:3.13-slim-bookworm@sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1
@@ -55,6 +68,16 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends && \
         && break || sleep 10; \
     done && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# python:3.13-slim-bookworm bringt in der Runtime-Stage (frische FROM-Stufe,
+# unabhaengig vom Builder) sein eigenes System-Python mit vorinstalliertem
+# pip 26.2.1 mit - dessen internes CycloneDX-SBOM (pip/_vendor/bom.cdx.json)
+# meldet ebenfalls die veralteten vendorten msgpack/setuptools-Kopien (real
+# verifiziert, identischer Effekt wie bei tts-service: das Entfernen von
+# pip im Builder-Venv allein reicht NICHT, dieses System-pip bleibt sonst
+# unangetastet bestehen). Kein App-Code nutzt dieses System-Python (die
+# Anwendung laeuft ausschliesslich ueber /opt/venv) - Entfernung ist sicher.
+RUN python3 -m pip uninstall -y pip
 
 RUN useradd --create-home --uid 1001 appuser
 
