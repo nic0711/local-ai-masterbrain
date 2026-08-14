@@ -1,0 +1,29 @@
+# Postgres-Datasource für das Intune-Geräte-Inventar (public.intune_devices).
+# Nutzt die dedizierte Read-only-Rolle grafana_intune_reader (angelegt in
+# infra/supabase/migrations/05_intune_devices.sql, Login/Passwort
+# manuell nachtragen - siehe docs/28_intune_inventory.md), NICHT den
+# postgres-Superuser: GF_USERS_AUTO_ASSIGN_ORG_ROLE=Admin gibt jedem
+# eingeloggten Nutzer Grafana-Explore-Zugriff auf jede Datasource.
+#
+# GRAFANA_PG_PASSWORD muss in .env gesetzt und im grafana-Service als
+# Environment-Variable durchgereicht sein (docker-compose.yml).
+
+apiVersion: 1
+
+datasources:
+  - name: Intune Devices (Postgres)
+    uid: intune-postgres
+    type: postgres
+    access: proxy
+    url: db:5432
+    database: postgres
+    user: grafana_intune_reader
+    jsonData:
+      sslmode: disable
+      # Reale Installation laeuft PostgreSQL 15 (siehe
+      # docs/planning/future-work/pg15-to-pg17-upgrade.md), NICHT 17 -
+      # muss bei einem echten PG15->17-Upgrade der Daten mit angepasst werden.
+      postgresVersion: 1500
+    secureJsonData:
+      password: $__env{GRAFANA_PG_PASSWORD}
+    editable: false
