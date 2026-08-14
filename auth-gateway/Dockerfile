@@ -61,7 +61,19 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=wheel-builder /wheels/ /wheels/
 RUN cd /wheels && sha256sum -c checksum.sha256 && \
     pip install --no-cache-dir --no-deps /wheels/*.whl && \
-    rm -rf /wheels
+    cd /app && rm -rf /wheels && \
+    pip uninstall -y pip
+
+# pip nach der letzten Paketinstallation entfernt (s.o.): reines Build-/
+# Installationswerkzeug, zur Laufzeit von app.py/masterbrain_common nicht
+# importiert. Behebt zugleich zwei Trivy-Findings, die sich real gegen
+# pips eigenes internes CycloneDX-SBOM (pip/_vendor/bom.cdx.json) und
+# nicht gegen echte Anwendungs-Abhaengigkeiten richteten: msgpack 1.1.2
+# (GHSA-6v7p-g79w-8964) und setuptools/pkg_resources 70.3.0
+# (CVE-2025-47273) sind beide nur als von pip vendorte Kopien vorhanden,
+# nicht als eigenstaendig installierte Pakete (verifiziert: `pip show
+# msgpack`/`pip show setuptools` fanden vor diesem Fix jeweils "not
+# found" bzw. gar keine setuptools-Installation in diesem Image).
 
 # App-Code kopieren
 COPY --chown=appuser:appuser auth-gateway/app.py .
