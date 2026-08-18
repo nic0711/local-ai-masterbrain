@@ -22,7 +22,7 @@ gunicorn==26.0.0
 # kein CVE/Security-Advisory fuer spacy betrifft diesen Rueckschritt. Dependabot
 # schlaegt Bumps auf 3.8.14/3.8.15 wiederkehrend vor - solange PyPI dafuer kein
 # cp314-Wheel/Sdist hat, bleiben solche PRs abzulehnen, nicht diesen Pin lockern.
-spacy==3.8.13
+spacy==3.8.15
 spacy-lookups-data==1.0.5
 
 # HTTP Client (fuer Ollama-Calls)
