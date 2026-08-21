@@ -4,7 +4,7 @@
 # Kompatibilitaet real geprueft (torch, torchaudio, omnivoice, faster-whisper,
 # librosa, soundfile) - alle Python-Abhaengigkeiten installieren als
 # vorgefertigte manylinux-Wheels, kein Compiler/Build-Toolchain im Image noetig.
-FROM python:3.13-slim-bookworm@sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1 AS builder
+FROM python:3.14-slim-bookworm@sha256:23c59390fc717bf09f9336908199a0ae75d9c4264bf296123f94ad772fea3b52 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
@@ -35,7 +35,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # beide unveraendert bestehen bleiben.
 
 # --- Runtime-Stage ---
-FROM python:3.13-slim-bookworm@sha256:00faa2debb87529f9f0764e9491d8ba400a3678976616c3bd7cb193745ac20d1
+FROM python:3.14-slim-bookworm@sha256:23c59390fc717bf09f9336908199a0ae75d9c4264bf296123f94ad772fea3b52
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
