@@ -1,0 +1,203 @@
+# Strukturierte Upstream-Blocker-Findings (Security Gate v2.1).
+#
+# Ein Eintrag hier ist KEINE Security-Exception (kein PR-Review-Approval
+# noetig, siehe docs/planning/security-exceptions/) - er dokumentiert einen
+# objektiven, real verifizierten technischen Zustand: Trivy meldet ein
+# Critical/High-Finding als "fixed" (FixedVersion gesetzt), aber der Fix
+# existiert nur in einer eingebetteten Dependency eines vendor-/distribution-
+# gelieferten Binaer-Pakets (z.B. eine Go-stdlib-Version, die docker-ce-cli
+# beim Bauen eingebettet hat) - und die neueste ueber die erlaubte offizielle
+# Quelle installierbare Version dieses Pakets enthaelt diesen Fix nachweislich
+# noch nicht. Es gibt aktuell KEINE regelkonforme Handlung (kein Fremdquellen-
+# Build, kein selbstgebauter Docker-Binary), die das Finding beseitigen
+# koennte - technisch identisch zur "kein Fix verfuegbar"-Kategorie, nur dass
+# Trivys Status-Feld "fixed" sagt (bezogen auf die Embedded Dependency).
+#
+# Matching in scripts/ci/check-trivy-findings.py: component + cve +
+# direct_package muessen exakt uebereinstimmen UND recheck_after darf noch
+# nicht erreicht sein. Nach recheck_after gilt der Eintrag automatisch nicht
+# mehr - das Finding wird wieder actionable/blockierend, bis jemand real neu
+# verifiziert (neuer apt-cache madison-Abgleich + Rebuild + Trivy-Rescan) und
+# das Datum bewusst weiterschiebt oder das Finding tatsaechlich behebt.
+#
+# direct_package wird intern anhand des Trivy-`Target`-Pfads aufgeloest
+# (usr/bin/docker -> docker-ce-cli, usr/libexec/docker/cli-plugins/
+# docker-compose -> docker-compose-plugin) - s. _TARGET_TO_DIRECT_PACKAGE im
+# Skript.
+
+entries:
+  # --- auth-gateway: docker-ce-cli 5:29.7.2 buendelt Go-stdlib go1.26.5 ---
+  # Verifiziert 2026-08-24 (frischer isolierter Clone von origin/main):
+  # - apt-cache madison docker-ce-cli (offizielles Docker-Debian-bookworm-
+  #   Repo, https://download.docker.com/linux/debian) zeigt
+  #   5:29.7.2-1~debian.12~bookworm als neueste verfuegbare Version.
+  # - auth-gateway frisch gebaut, `dpkg -l` bestaetigt 5:29.7.2 installiert.
+  # - `docker version` im gebauten Image: "Go version: go1.26.5".
+  # - `grep -aoE 'go1\.[0-9]+(\.[0-9]+)?' /usr/bin/docker` bestaetigt go1.26.5
+  #   als eingebettete Build-Toolchain (kein neueres go1.26.6/1.25.13/
+  #   1.27.0-rc.3 verfuegbar, das den Fix enthalten wuerde).
+  # - Frischer Trivy-Rescan (identische, gecachte Trivy-DB) zeigt das
+  #   jeweilige Finding unveraendert gegenueber dem Vorlauf mit der zuvor
+  #   installierten Version.
+  - component: auth-gateway
+    cve: CVE-2026-33818
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      apt-cache madison docker-ce-cli (neueste Version 5:29.7.2-1~debian.12~bookworm)
+      + frischer Rebuild + `docker version` (go1.26.5) +
+      `grep -aoE 'go1\.[0-9]+(\.[0-9]+)?' /usr/bin/docker` (go1.26.5) +
+      Trivy-Rescan mit identischer Trivy-DB, Finding unveraendert.
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-39821
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-46600
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56853
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56858
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56859
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56860
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56862
+    direct_package: docker-ce-cli
+    installed_package_version: "5:29.7.2-1~debian.12~bookworm"
+    upstream_component: stdlib
+    vulnerable_version: v1.26.5
+    fixed_version: "1.25.13, 1.26.6, 1.27.0-rc.3"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-33818 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
+
+  # --- auth-gateway: docker-compose-plugin 5.5.0 vendort github.com/docker/docker v28.5.2 ---
+  # Verifiziert 2026-08-24, analoge Methode: apt-cache madison
+  # docker-compose-plugin (neueste Version 5.5.0-1~debian.12~bookworm) +
+  # frischer Rebuild + `grep -aoE 'go1\.[0-9]+(\.[0-9]+)?'
+  # /usr/libexec/docker/cli-plugins/docker-compose` (go1.26.6, das Binary
+  # selbst ist bereits gegen einen neueren Go-Compiler gebaut - das aendert
+  # aber nichts an der separat vendorten github.com/docker/docker-Modul-
+  # version, die unabhaengig vom Compiler-Release ist) + Trivy-Rescan mit
+  # identischer Trivy-DB, Finding unveraendert.
+  - component: auth-gateway
+    cve: CVE-2026-34040
+    direct_package: docker-compose-plugin
+    installed_package_version: "5.5.0-1~debian.12~bookworm"
+    upstream_component: github.com/docker/docker
+    vulnerable_version: v28.5.2+incompatible
+    fixed_version: "29.3.1"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      apt-cache madison docker-compose-plugin (neueste Version
+      5.5.0-1~debian.12~bookworm) + frischer Rebuild + Trivy-Rescan mit
+      identischer Trivy-DB, Finding unveraendert (vendorte
+      github.com/docker/docker-Modulversion in
+      usr/libexec/docker/cli-plugins/docker-compose weiterhin v28.5.2).
+    recheck_after: "2026-09-24"
+
+  # --- auth-gateway: docker-compose-plugin 5.5.0 vendort golang.org/x/mod v0.38.0 ---
+  - component: auth-gateway
+    cve: CVE-2026-56864
+    direct_package: docker-compose-plugin
+    installed_package_version: "5.5.0-1~debian.12~bookworm"
+    upstream_component: golang.org/x/mod
+    vulnerable_version: v0.38.0
+    fixed_version: "0.40.0"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      apt-cache madison docker-compose-plugin (neueste Version
+      5.5.0-1~debian.12~bookworm) + frischer Rebuild + Trivy-Rescan mit
+      identischer Trivy-DB, Finding unveraendert (vendorte
+      golang.org/x/mod-Modulversion weiterhin v0.38.0).
+    recheck_after: "2026-09-24"
+  - component: auth-gateway
+    cve: CVE-2026-56865
+    direct_package: docker-compose-plugin
+    installed_package_version: "5.5.0-1~debian.12~bookworm"
+    upstream_component: golang.org/x/mod
+    vulnerable_version: v0.38.0
+    fixed_version: "0.40.0"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-08-24"
+    evidence: >
+      Siehe CVE-2026-56864 (identisches direct_package/upstream_component,
+      gleiche Verifikation).
+    recheck_after: "2026-09-24"
