@@ -62,7 +62,19 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=wheel-builder /wheels/ /wheels/
 RUN cd /wheels && sha256sum -c checksum.sha256 && \
     pip install --no-cache-dir --no-deps /wheels/*.whl && \
-    rm -rf /wheels
+    cd /app && rm -rf /wheels && \
+    pip uninstall -y pip
+
+# pip nach der letzten Paketinstallation entfernt (s.o.): reines Build-/
+# Installationswerkzeug, zur Laufzeit von app.py nicht importiert. setuptools
+# bleibt bewusst installiert - echte Laufzeit-Abhaengigkeit von
+# spacy/spacy-lookups-data/thinc, bereits auf einer sicheren Version
+# (verifiziert vor diesem Fix: setuptools 84.0.0 > FixedVersion 78.1.1 aus
+# CVE-2025-47273). Das zuvor gemeldete "setuptools 70.3.0"-Finding bezog
+# sich nachweislich nicht auf diese echte Installation, sondern auf eine
+# separate, von pip selbst vendorte pkg_resources-Kopie (pip/_vendor/
+# bom.cdx.json) - durch das Entfernen von pip ebenfalls behoben, ohne die
+# echte setuptools-Installation anzutasten.
 
 # App-Code kopieren und Rechte setzen
 COPY --chown=appuser:appuser python-nlp-service/app.py python-nlp-service/entrypoint.sh .

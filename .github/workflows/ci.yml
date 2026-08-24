@@ -79,6 +79,23 @@ jobs:
       - name: Pflicht-Ausschlussmuster in .dockerignore pruefen
         run: bash scripts/ci/check-dockerignore.sh
 
+  check-trivy-gate-scripts:
+    # Unit-Tests fuer die Security-Gate-Skripte selbst (Kategorisierung
+    # actionable/no-fix in check-trivy-findings.py, Push-Kontext-PR-
+    # Aufloesung in check-exception-approvals.py) - reines stdlib unittest
+    # mit gemockten Netzwerkaufrufen, kein echter GitHub-API-Zugriff noetig.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install pyyaml
+      - name: Security-Gate-Skript-Tests ausfuehren
+        run: python3 -m unittest discover -s scripts/ci/tests -v
+
   build-custom-images:
     runs-on: ubuntu-latest
     permissions:
@@ -123,6 +140,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test-Verzeichnisse je Custom Service pruefen
+        # tts-service hat seit tts-service/tests/test_tts_engine.py (siehe
+        # Issue #142) ebenfalls ein tests/-Verzeichnis - keine Ausnahme mehr.
         run: |
           missing=0
           for svc in auth-gateway python-nlp-service ocr-service tts-service; do
@@ -130,11 +149,7 @@ jobs:
               echo "OK: $svc hat ein tests/-Verzeichnis"
             else
               echo "LUECKE: $svc hat KEIN tests/-Verzeichnis (siehe docs/planning/test-coverage-gaps.md)"
-              if [ "$svc" != "tts-service" ]; then
-                # tts-service ist die bekannte, dokumentierte Phase-2-Abweichung.
-                # Jede andere fehlende Testabdeckung waere ein neuer, ungeplanter Befund.
-                missing=1
-              fi
+              missing=1
             fi
           done
           exit "$missing"
@@ -270,6 +285,38 @@ jobs:
         if: always()
         run: docker rm -f python-nlp-service-smoke || true
 
+  tts-service-unit-tests:
+    # Regressionstests fuer die Audio-Ausgabekonvertierung in tts_engine.py
+    # (siehe Issue #142: AttributeError bei numpy.ndarray-Rueckgabe von
+    # OmniVoice.generate()) laufen direkt im fertigen Runtime-Image - testet
+    # exakt die Python-/Torch-/Soundfile-Versionen, die spaeter produktiv
+    # laufen. Kein Modell-Download, keine Secrets: tests/test_tts_engine.py
+    # ersetzt TTSEngine._model durch ein Fake-Objekt mit kontrollierten
+    # generate()-Rueckgaben. pytest ist bewusst NICHT im Runtime-Image
+    # installiert - unittest (Standardbibliothek) reicht aus.
+    needs: [build-custom-images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: image-tts-service
+      - name: Image laden
+        run: docker load -i tts-service.tar
+      - name: Unit-Tests im fertigen Runtime-Image ausfuehren
+        # tests/ read-only in das bereits vorhandene /app gemountet,
+        # PYTHONPATH=/app macht tts_engine.py als Top-Level-Modul
+        # importierbar (Dockerfile: WORKDIR /app, App-Code flach kopiert).
+        run: |
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e PYTHONPATH=/app \
+            -v "$PWD/tts-service/tests:/app/tests:ro" \
+            "ci-local/tts-service:${{ github.sha }}" \
+            python -m unittest discover -s /app/tests -v
+
   secret-scan:
     runs-on: ubuntu-latest
     permissions:
@@ -301,22 +348,40 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Trivy-Output-Verzeichnis anlegen
+        # Ausgabe bewusst NICHT mehr nach /repo (Repo wird read-only
+        # gemountet, s.u.), sondern in ein separates Runner-Temp-Verzeichnis.
+        # chmod 777: der Trivy-Container laeuft intern als root, verliert
+        # durch --cap-drop=ALL aber CAP_DAC_OVERRIDE - ohne das koennte er
+        # sonst nicht in ein vom Runner-User (nicht root) angelegtes
+        # Verzeichnis schreiben (real auf dem GitHub-Runner reproduziert:
+        # "permission denied" ohne dieses chmod). Betrifft nur dieses
+        # fluechtige Runner-Temp-Verzeichnis, keine Repo-Dateien.
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-fs"
+          chmod 777 "$RUNNER_TEMP/trivy-fs"
       - name: Trivy Filesystem-Scan (JSON, fuer strukturierte Ausnahmepruefung)
         # hermes-agent/ und supabase/ sind Submodule mit eigener Upstream-CI
         # und -Governance (siehe docs/planning/documentation-inventory.md);
         # *_storage/, shared/, neo4j/, backups/, volumes/ sind Laufzeitdaten,
         # kein Repo-Code. Ausschluss deckt sich mit dem Phase-1-Scope.
+        # Repo read-only gemountet (:ro) - Trivy braucht fuer den fs-Scan
+        # keinen Schreibzugriff auf den gescannten Code, nur auf /out.
         run: |
-          docker run --rm -v "$PWD":/repo \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/trivy-fs:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            fs --format json --output /repo/trivy-fs-report.json --severity CRITICAL,HIGH \
+            fs --format json --output /out/trivy-fs-report.json --severity CRITICAL,HIGH \
             --skip-dirs /repo/hermes-agent,/repo/supabase,/repo/neo4j,/repo/shared,/repo/tts_storage,/repo/ocr_storage,/repo/backups,/repo/volumes \
             /repo
       - name: Trivy Filesystem-Scan (SARIF, fuer Code Scanning)
         run: |
-          docker run --rm -v "$PWD":/repo \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/trivy-fs:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            fs --format sarif --output /repo/trivy-fs.sarif --severity CRITICAL,HIGH \
+            fs --format sarif --output /out/trivy-fs.sarif --severity CRITICAL,HIGH \
             --skip-dirs /repo/hermes-agent,/repo/supabase,/repo/neo4j,/repo/shared,/repo/tts_storage,/repo/ocr_storage,/repo/backups,/repo/volumes \
             /repo
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -324,21 +389,23 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install pyyaml
       - name: Findings gegen strukturierte Ausnahmen bewerten (Critical/High sichtbar, blockierend ohne Ausnahme)
-        run: python3 scripts/ci/check-trivy-findings.py --report trivy-fs-report.json --component repo-fs
+        run: python3 scripts/ci/check-trivy-findings.py --report "$RUNNER_TEMP/trivy-fs/trivy-fs-report.json" --component repo-fs
       - name: SARIF hochladen
         if: always()
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
-          sarif_file: trivy-fs.sarif
+          sarif_file: ${{ runner.temp }}/trivy-fs/trivy-fs.sarif
           category: trivy-fs
 
   security-exception-approval:
-    # Prueft echte GitHub-PR-Reviews gegen den aktuellen head_sha, um
+    # Prueft echte GitHub-PR-Reviews gegen den massgeblichen head_sha, um
     # Security-Ausnahmen freizugeben - siehe scripts/ci/check-exception-approvals.py
     # fuer die Begruendung (ersetzt ein fruehers Feld-basiertes Modell, das
     # einen Freigabe-Deadlock durch Branch-Protection-Stale-Dismissal erzeugte).
-    # Nur im PR-Kontext sinnvoll (Reviews existieren nur auf einem offenen PR).
-    if: github.event_name == 'pull_request'
+    # Laeuft bewusst auch bei push (Post-Merge auf main): das Skript loest den
+    # zum push-SHA gehoerenden, bereits gemergten PR selbst auf - ohne das
+    # waere jede zur PR-Zeit erteilte Freigabe fuer den main-Branch-Status
+    # wirkungslos, weil main ausschliesslich per push gescannt wird.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -349,11 +416,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m pip install pyyaml
-      - name: Echte PR-Reviews gegen aktuellen head_sha pruefen
+      - name: Echte PR-Reviews gegen massgeblichen head_sha pruefen
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/ci/check-exception-approvals.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -363,10 +430,11 @@ jobs:
 
   trivy-image:
     needs: [build-custom-images, security-exception-approval]
-    # security-exception-approval laeuft nur bei pull_request (s.o.) - bei
-    # push/workflow_dispatch wird er uebersprungen. `always()` verhindert,
-    # dass dieser Job dadurch ebenfalls uebersprungen wird; der eigentliche
-    # Erfolg von build-custom-images bleibt Pflicht.
+    # security-exception-approval laeuft bei pull_request UND push (s.o.),
+    # kann aber bei workflow_dispatch ohne aufloesbaren PR trotzdem mit einer
+    # leeren Freigabeliste enden. `always()` verhindert, dass dieser Job
+    # dadurch uebersprungen wird; der eigentliche Erfolg von
+    # build-custom-images bleibt Pflicht.
     if: always() && needs.build-custom-images.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -381,28 +449,45 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: image-${{ matrix.service }}
-      - name: Image laden
+      - name: Image laden (nur fuer Digest-Ermittlung, Trivy scannt das TAR direkt)
         run: docker load -i "${{ matrix.service }}.tar"
       - name: Image-Digest ermitteln
         id: digest
         run: |
           digest=$(docker inspect --format='{{index .Id}}' "ci-local/${{ matrix.service }}:${{ github.sha }}")
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Trivy Image-Scan (JSON)
-        # WICHTIG: $PWD muss zusaetzlich zum Docker-Socket gemountet werden -
-        # sonst schreibt --output in das (nach --rm verworfene) Dateisystem
-        # des Trivy-Containers selbst, nicht auf den Runner-Host.
+      - name: Trivy-Output-Verzeichnis anlegen
+        # chmod 777: siehe Begruendung im trivy-fs-Job weiter oben (Trivy
+        # laeuft als root im Container, verliert durch --cap-drop=ALL aber
+        # CAP_DAC_OVERRIDE - ohne dieses chmod real "permission denied" auf
+        # dem GitHub-Runner reproduziert).
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
-            aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format json --output "/out/${{ matrix.service }}-image-report.json" \
-            --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
-      - name: Trivy Image-Scan (SARIF)
+          mkdir -p "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+          chmod 777 "$RUNNER_TEMP/trivy-image-${{ matrix.service }}"
+      - name: Trivy Image-Scan (JSON) - direkt gegen das Build-TAR, kein Docker-Socket
+        # Scannt das bereits als Artefakt vorliegende ${{ matrix.service }}.tar
+        # per --input statt eine laufende Docker-Engine ueber den Socket
+        # anzusprechen. TAR read-only gemountet, Ausgabe in ein separates
+        # Runner-Temp-Verzeichnis (nicht das Repository).
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/out \
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD/${{ matrix.service }}.tar:/input/image.tar:ro" \
+            -v "$RUNNER_TEMP/trivy-image-${{ matrix.service }}:/out" \
             aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
-            image --format sarif --output "/out/${{ matrix.service }}-image.sarif" \
-            --severity CRITICAL,HIGH "ci-local/${{ matrix.service }}:${{ github.sha }}"
+            image --input /input/image.tar --format json \
+            --output "/out/${{ matrix.service }}-image-report.json" \
+            --severity CRITICAL,HIGH
+      - name: Trivy Image-Scan (SARIF) - direkt gegen das Build-TAR, kein Docker-Socket
+        run: |
+          docker run --rm \
+            --cap-drop=ALL --security-opt no-new-privileges:true \
+            -v "$PWD/${{ matrix.service }}.tar:/input/image.tar:ro" \
+            -v "$RUNNER_TEMP/trivy-image-${{ matrix.service }}:/out" \
+            aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
+            image --input /input/image.tar --format sarif \
+            --output "/out/${{ matrix.service }}-image.sarif" \
+            --severity CRITICAL,HIGH
       - name: Vollstaendigen Report als Workflow-Artefakt sichern
         # Ersetzt den frueheren SARIF-Upload nach GitHub Code Scanning fuer
         # trivy-image (entfernt): Container-Paket-CVEs
@@ -415,18 +500,19 @@ jobs:
         with:
           name: trivy-report-${{ matrix.service }}
           path: |
-            ${{ matrix.service }}-image-report.json
-            ${{ matrix.service }}-image.sarif
+            ${{ runner.temp }}/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image-report.json
+            ${{ runner.temp }}/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image.sarif
           retention-days: 14
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - run: python3 -m pip install pyyaml
       - name: Freigegebene Ausnahmen laden (falls vorhanden)
-        # continue-on-error: das Artifact existiert nur, wenn
-        # security-exception-approval tatsaechlich gelaufen ist (pull_request).
-        # Fehlt es (push/workflow_dispatch), bleibt check-trivy-findings.py
-        # fail-closed - keine Ausnahme wird angewendet.
+        # continue-on-error: das Artifact existiert immer (security-exception-
+        # approval laeuft jetzt auch bei push), enthaelt aber eine leere Liste,
+        # wenn kein PR aufloesbar war. Fehlt es dennoch (z.B. alter Lauf ohne
+        # diesen Job), bleibt check-trivy-findings.py fail-closed - keine
+        # Ausnahme wird angewendet.
         continue-on-error: true
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -437,7 +523,7 @@ jobs:
         # Schritt schreibt zusaetzlich eine kompakte GitHub-Step-Summary mit
         # Critical/High/fixable-Zaehlung und Link zum Artefakt.
         run: |
-          args=(--report "${{ matrix.service }}-image-report.json"
+          args=(--report "$RUNNER_TEMP/trivy-image-${{ matrix.service }}/${{ matrix.service }}-image-report.json"
                 --component "${{ matrix.service }}"
                 --image-digest "${{ steps.digest.outputs.digest }}"
                 --artifact-name "trivy-report-${{ matrix.service }}"
@@ -485,3 +571,59 @@ jobs:
       - run: python3 -m pip install pyyaml
       - name: Struktur/Ablauf/Scope der Security-Ausnahmen pruefen (keine Freigabe-Ersetzung)
         run: python3 scripts/ci/validate-exceptions.py
+
+  ci-required:
+    # Stabiler, einzelner Required-Status-Check fuer Branch Protection: statt
+    # 20+ Einzeljobnamen zu pflegen (die sich mit jeder Matrix-Aenderung
+    # verschieben wuerden), haengt Branch Protection nur noch von diesem einen
+    # Jobnamen ab. `ci-required` bleibt dauerhaft stabil - neue Jobs werden
+    # hier in `needs` ergaenzt, der extern sichtbare Name aendert sich nie.
+    #
+    # `if: always()` ist zwingend: ohne dieses Flag wuerde GitHub Actions
+    # diesen Job automatisch SKIPPEN (nicht fehlschlagen), sobald irgendeine
+    # der `needs`-Abhaengigkeiten fehlschlaegt - ein uebersprungener Required
+    # Check waere fuer Branch Protection nicht eindeutig blockierend. Der
+    # Job laeuft deshalb immer und prueft explizit selbst, ob wirklich JEDE
+    # Abhaengigkeit mit `success` abgeschlossen hat (nicht nur "kein failure"
+    # - `skipped`/`cancelled` zaehlen ebenfalls als nicht bestanden, z.B. wenn
+    # trivy-image uebersprungen wird, weil build-custom-images fehlschlug).
+    name: ci-required
+    if: always()
+    needs:
+      - lint-yaml
+      - compose-config
+      - check-image-pinning
+      - check-dockerignore
+      - check-trivy-gate-scripts
+      - build-custom-images
+      - test-presence-check
+      - component-tests
+      - masterbrain-common-tests
+      - auth-gateway-smoke-test
+      - python-nlp-service-smoke-test
+      - tts-service-unit-tests
+      - secret-scan
+      - trivy-fs
+      - security-exception-approval
+      - trivy-image
+      - sbom-cyclonedx
+      - validate-exceptions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Alle merge-kritischen Jobs erfolgreich?
+        env:
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS_CONTEXT" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          not_successful = {name: info.get('result') for name, info in needs.items() if info.get('result') != 'success'}
+          for name, result in sorted(needs.items()):
+              print(f'  - {name}: {result[\"result\"]}')
+          if not_successful:
+              print(f'\n{len(not_successful)} merge-kritische(r) Job(s) nicht erfolgreich: {not_successful}')
+              sys.exit(1)
+          print(f'\nAlle {len(needs)} merge-kritischen Jobs erfolgreich.')
+          "
