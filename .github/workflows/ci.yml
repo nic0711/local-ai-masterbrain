@@ -571,3 +571,59 @@ jobs:
       - run: python3 -m pip install pyyaml
       - name: Struktur/Ablauf/Scope der Security-Ausnahmen pruefen (keine Freigabe-Ersetzung)
         run: python3 scripts/ci/validate-exceptions.py
+
+  ci-required:
+    # Stabiler, einzelner Required-Status-Check fuer Branch Protection: statt
+    # 20+ Einzeljobnamen zu pflegen (die sich mit jeder Matrix-Aenderung
+    # verschieben wuerden), haengt Branch Protection nur noch von diesem einen
+    # Jobnamen ab. `ci-required` bleibt dauerhaft stabil - neue Jobs werden
+    # hier in `needs` ergaenzt, der extern sichtbare Name aendert sich nie.
+    #
+    # `if: always()` ist zwingend: ohne dieses Flag wuerde GitHub Actions
+    # diesen Job automatisch SKIPPEN (nicht fehlschlagen), sobald irgendeine
+    # der `needs`-Abhaengigkeiten fehlschlaegt - ein uebersprungener Required
+    # Check waere fuer Branch Protection nicht eindeutig blockierend. Der
+    # Job laeuft deshalb immer und prueft explizit selbst, ob wirklich JEDE
+    # Abhaengigkeit mit `success` abgeschlossen hat (nicht nur "kein failure"
+    # - `skipped`/`cancelled` zaehlen ebenfalls als nicht bestanden, z.B. wenn
+    # trivy-image uebersprungen wird, weil build-custom-images fehlschlug).
+    name: ci-required
+    if: always()
+    needs:
+      - lint-yaml
+      - compose-config
+      - check-image-pinning
+      - check-dockerignore
+      - check-trivy-gate-scripts
+      - build-custom-images
+      - test-presence-check
+      - component-tests
+      - masterbrain-common-tests
+      - auth-gateway-smoke-test
+      - python-nlp-service-smoke-test
+      - tts-service-unit-tests
+      - secret-scan
+      - trivy-fs
+      - security-exception-approval
+      - trivy-image
+      - sbom-cyclonedx
+      - validate-exceptions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Alle merge-kritischen Jobs erfolgreich?
+        env:
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS_CONTEXT" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          not_successful = {name: info.get('result') for name, info in needs.items() if info.get('result') != 'success'}
+          for name, result in sorted(needs.items()):
+              print(f'  - {name}: {result[\"result\"]}')
+          if not_successful:
+              print(f'\n{len(not_successful)} merge-kritische(r) Job(s) nicht erfolgreich: {not_successful}')
+              sys.exit(1)
+          print(f'\nAlle {len(needs)} merge-kritischen Jobs erfolgreich.')
+          "
