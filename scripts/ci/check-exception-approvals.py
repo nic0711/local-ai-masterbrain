@@ -21,9 +21,22 @@ Regeln:
 Ausgabe: approved-exceptions.json (Liste der `id`-Werte freigegebener
 Ausnahmen) im aktuellen Verzeichnis, fuer nachgelagerte Jobs (trivy-image).
 
-Ohne PR-Kontext (z.B. push-Event nach Merge, workflow_dispatch) gibt es keine
-PR-Reviews zu pruefen - das Skript schreibt dann eine leere Freigabeliste und
-beendet sich mit Exit 0 (informativ, kein Fehler).
+Push-Kontext (Post-Merge auf main): Ohne PR_NUMBER (z.B. push-Event nach
+Merge) loest dieses Skript den zum push-SHA gehoerenden, bereits gemergten
+PR ueber GET /repos/{repo}/commits/{sha}/pulls auf und prueft dessen Reviews
+genauso wie im direkten PR-Fall. Ohne diese Aufloesung waere jede Exception
+fuer den main-Branch-Status wirkungslos: main wird ausschliesslich per push
+gescannt (kein PR-Kontext), eine zur PR-Zeit erteilte Freigabe wuerde den
+Post-Merge-Lauf nie erreichen. Der Squash-Merge-Commit selbst wurde nie
+reviewed - massgeblich sind die Reviews auf dem letzten PR-Branch-Commit vor
+dem Squash (`pull.head.sha`), nicht auf dem Merge-Commit. Zur Absicherung
+wird zusaetzlich `pull.merge_commit_sha == head_sha` verifiziert, damit
+wirklich nur der PR geprueft wird, der genau diesen Commit erzeugt hat.
+
+Wird weder ein direkter PR-Kontext noch ein aufloesbarer gemergter PR
+gefunden (z.B. workflow_dispatch auf einem Commit ohne zugehoerigen PR),
+schreibt das Skript eine leere Freigabeliste und beendet sich mit Exit 0
+(informativ, kein Fehler - fail-closed: keine Ausnahme gilt als freigegeben).
 """
 from __future__ import annotations
 
@@ -78,7 +91,7 @@ def fetch_reviews(repo: str, pr_number: int, token: str) -> list[dict]:
     return reviews
 
 
-def fetch_pr_author(repo: str, pr_number: int, token: str) -> str:
+def fetch_pr(repo: str, pr_number: int, token: str) -> dict:
     url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
     req = urllib.request.Request(
         url,
@@ -90,11 +103,34 @@ def fetch_pr_author(repo: str, pr_number: int, token: str) -> str:
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
+            return json.loads(resp.read())
     except urllib.error.HTTPError as e:
         print(f"FEHLER: GitHub-API-Aufruf fehlgeschlagen ({e.code}): {e.reason}", file=sys.stderr)
         sys.exit(2)
-    return data.get("user", {}).get("login", "")
+
+
+def fetch_prs_for_commit(repo: str, sha: str, token: str) -> list[dict]:
+    """Loest ueber die GitHub-API auf, welche(r) PR(s) zu einem Commit
+    gehoeren - fuer den Push-Kontext (kein direkter PR-Event), s. Modul-
+    Docstring. Liefert eine leere Liste, wenn der Commit zu keinem PR gehoert
+    (z.B. direkter Push ausserhalb des ueblichen Merge-Flows)."""
+    url = f"https://api.github.com/repos/{repo}/commits/{sha}/pulls"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return []
+        print(f"FEHLER: GitHub-API-Aufruf fehlgeschlagen ({e.code}): {e.reason}", file=sys.stderr)
+        sys.exit(2)
 
 
 def qualifying_approvers(
@@ -149,24 +185,66 @@ def main() -> int:
             json.dump([], fh)
         return 0
 
-    if not args.pr_number or not args.head_sha:
-        print(
-            "Kein PR-Kontext (z.B. push-Event nach Merge oder workflow_dispatch) - "
-            "PR-Reviews koennen nicht geprueft werden. Keine Ausnahme gilt als freigegeben."
-        )
-        with open(args.output, "w", encoding="utf-8") as fh:
-            json.dump([], fh)
-        return 0
-
     if not args.token:
         print("FEHLER: kein GITHUB_TOKEN uebergeben.", file=sys.stderr)
         return 2
 
-    pr_author = fetch_pr_author(args.repo, args.pr_number, args.token)
-    reviews = fetch_reviews(args.repo, args.pr_number, args.token)
+    pr_number = args.pr_number
+    review_head_sha = args.head_sha
+
+    if not pr_number:
+        # Kein direkter PR-Event (push nach Merge oder workflow_dispatch) -
+        # versuchen, den gemergten PR ueber den push-SHA aufzuloesen, s.
+        # Modul-Docstring.
+        push_sha = args.head_sha or os.environ.get("GITHUB_SHA", "")
+        if not push_sha:
+            print(
+                "Kein PR-Kontext und kein SHA verfuegbar - PR-Reviews koennen nicht "
+                "geprueft werden. Keine Ausnahme gilt als freigegeben."
+            )
+            with open(args.output, "w", encoding="utf-8") as fh:
+                json.dump([], fh)
+            return 0
+
+        candidates = fetch_prs_for_commit(args.repo, push_sha, args.token)
+        merged = [p for p in candidates if p.get("merged_at")]
+        if len(merged) != 1:
+            print(
+                f"Kein eindeutiger gemergter PR fuer Commit {push_sha} gefunden "
+                f"({len(merged)} Kandidat(en)) - keine Ausnahme gilt als freigegeben."
+            )
+            with open(args.output, "w", encoding="utf-8") as fh:
+                json.dump([], fh)
+            return 0
+
+        pr = merged[0]
+        if pr.get("merge_commit_sha") != push_sha:
+            print(
+                f"merge_commit_sha des aufgeloesten PR #{pr.get('number')} stimmt nicht mit "
+                f"{push_sha} ueberein - Sicherheitsabbruch, keine Ausnahme freigegeben."
+            )
+            with open(args.output, "w", encoding="utf-8") as fh:
+                json.dump([], fh)
+            return 0
+
+        pr_number = pr["number"]
+        review_head_sha = pr["head"]["sha"]
+        pr_author = pr.get("user", {}).get("login", "")
+        print(
+            f"Push-Kontext: Commit {push_sha} aufgeloest zu PR #{pr_number} "
+            f"(letzter reviewter Commit vor Squash: {review_head_sha})"
+        )
+    else:
+        pr_author = fetch_pr(args.repo, pr_number, args.token).get("user", {}).get("login", "")
+
+    if not review_head_sha:
+        print("FEHLER: kein head_sha fuer die Review-Pruefung ermittelbar.", file=sys.stderr)
+        return 2
+
+    reviews = fetch_reviews(args.repo, pr_number, args.token)
 
     approved_ids: list[str] = []
-    print(f"PR #{args.pr_number} ({args.repo}), head_sha={args.head_sha}, Autor={pr_author}")
+    print(f"PR #{pr_number} ({args.repo}), review_head_sha={review_head_sha}, Autor={pr_author}")
     for exc in exceptions:
         severity = str(exc.get("severity", "")).lower()
         required = REQUIRED_APPROVALS.get(severity)
@@ -177,7 +255,7 @@ def main() -> int:
             print(f"  - {exc_id}: ungueltige severity '{exc.get('severity')}' - uebersprungen")
             continue
 
-        qualifying = qualifying_approvers(reviews, args.head_sha, pr_author, requested_by)
+        qualifying = qualifying_approvers(reviews, review_head_sha, pr_author, requested_by)
         status = "FREIGEGEBEN" if len(qualifying) >= required else "NICHT freigegeben"
         print(
             f"  - {exc_id} (severity={severity}, benoetigt={required}): "
