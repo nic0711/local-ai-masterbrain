@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
 """Bewertet einen Trivy-JSON-Report gegen strukturierte Security-Ausnahmen.
 
-Bestehende Critical/High-Findings werden IMMER vollstaendig ausgegeben
-(sichtbar, keine pauschale Unterdrueckung). Ein Fund blockiert (Exit 1) nur
-dann NICHT, wenn eine passende, nicht abgelaufene Ausnahme unter
-docs/planning/security-exceptions/*.yml existiert UND deren `id` in der von
-scripts/ci/check-exception-approvals.py erzeugten approved-exceptions.json
-(via --approved-exceptions-file) auftaucht - d.h. zur Laufzeit echte,
-unabhaengige GitHub-PR-Reviews auf den aktuellen head_sha erhalten hat. Ohne
-uebergebene Freigabedatei gilt KEINE Ausnahme als freigegeben (fail-closed),
-nicht "alles erlaubt".
+Security Gate v2: Ein Critical/High-Finding blockiert (Exit 1) nur noch, wenn
+es tatsaechlich behebbar ist ("actionable" - FixedVersion nicht leer ODER
+Status == "fixed") UND keine passende, freigegebene Ausnahme existiert.
+Findings ohne jede Handlungsoption (Status affected/fix_deferred/
+will_not_fix/end_of_life/unknown ohne FixedVersion - typischerweise Debian-
+Stable-Pakete, fuer die es upstream schlicht noch keinen Patch gibt) sind
+durch keinen Rebuild und keine Code-Aenderung zu beheben und wuerden das Gate
+sonst dauerhaft und ohne jede Handlungsoption rot halten. Sie werden
+weiterhin VOLLSTAENDIG angezeigt und in der Zusammenfassung gezaehlt, aber
+nicht mehr blockierend gewertet.
 
-Schreibt zusaetzlich eine kompakte Zusammenfassung (Critical/High/fixable/
-ohne Fix + Link zum vollstaendigen Report-Artefakt) nach
-$GITHUB_STEP_SUMMARY, falls gesetzt - der volle Report wird nicht mehr per
-SARIF nach GitHub Code Scanning hochgeladen (siehe ci.yml), sondern nur noch
-als Workflow-Artefakt bereitgestellt.
+Der Exception-Mechanismus bleibt fuer actionable Findings unveraendert: eine
+passende, nicht abgelaufene Ausnahme unter docs/planning/security-exceptions/
+*.yml, deren `id` in der von scripts/ci/check-exception-approvals.py
+erzeugten approved-exceptions.json (via --approved-exceptions-file) auftaucht
+- d.h. zur Laufzeit echte, unabhaengige GitHub-PR-Reviews auf den aktuellen
+head_sha erhalten hat - haelt ein sonst blockierendes Finding weiterhin vom
+Exit 1 ab. Ohne uebergebene Freigabedatei gilt KEINE Ausnahme als freigegeben
+(fail-closed), nicht "alles erlaubt".
+
+Schreibt zusaetzlich eine erweiterte Zusammenfassung (Critical/High/
+Actionable/Kategorien ohne Fix + Link zum vollstaendigen Report-Artefakt)
+nach $GITHUB_STEP_SUMMARY, falls gesetzt - der volle Report wird nicht mehr
+per SARIF nach GitHub Code Scanning hochgeladen (siehe ci.yml), sondern nur
+noch als Workflow-Artefakt bereitgestellt.
 """
 from __future__ import annotations
 
@@ -34,6 +44,33 @@ except ImportError:
 
 BLOCKING_SEVERITIES = {"CRITICAL", "HIGH"}
 EXCEPTIONS_GLOB = "docs/planning/security-exceptions/*.yml"
+
+# Trivy-Status-Werte ohne existierenden Fix, gemappt auf die Kategorienamen
+# der Zusammenfassung - unabhaengig davon bleibt "actionable" primaer an
+# FixedVersion/"fixed" festgemacht, s. classify_finding().
+_STATUS_TO_CATEGORY = {
+    "affected": "no_fix_available",
+    "fix_deferred": "fix_deferred",
+    "will_not_fix": "will_not_fix",
+    "end_of_life": "end_of_life",
+}
+
+
+def classify_finding(status: str, fixed_version: str) -> str:
+    """Ordnet ein Finding einer der folgenden Kategorien zu:
+
+    - "actionable": FixedVersion vorhanden ODER Status == "fixed" - ein
+      Rebuild/Upgrade koennte das Finding tatsaechlich beheben.
+    - "no_fix_available": Status == "affected", kein Fix bekannt.
+    - "fix_deferred": Upstream hat den Fix bewusst verschoben.
+    - "will_not_fix": Upstream wird nicht patchen (z.B. abgekuendigte Distro-Version).
+    - "end_of_life": das Paket selbst ist EOL - typischerweise Migrations-/
+      Plattformthema, kein Patch-Thema.
+    - "unknown": kein erkannter Status und keine FixedVersion.
+    """
+    if fixed_version or status == "fixed":
+        return "actionable"
+    return _STATUS_TO_CATEGORY.get(status, "unknown")
 
 
 def load_active_exceptions(approved_ids: set[str]) -> list[dict]:
@@ -88,8 +125,12 @@ def write_step_summary(
 
     critical = sum(1 for f in all_findings if f["severity"] == "CRITICAL")
     high = sum(1 for f in all_findings if f["severity"] == "HIGH")
-    fixable = sum(1 for f in all_findings if f["fixed_version"])
-    no_fix = sum(1 for f in all_findings if not f["fixed_version"])
+    actionable = sum(1 for f in all_findings if f["category"] == "actionable")
+    no_fix_available = sum(1 for f in all_findings if f["category"] == "no_fix_available")
+    fix_deferred = sum(1 for f in all_findings if f["category"] == "fix_deferred")
+    will_not_fix = sum(1 for f in all_findings if f["category"] == "will_not_fix")
+    end_of_life = sum(1 for f in all_findings if f["category"] == "end_of_life")
+    unknown = sum(1 for f in all_findings if f["category"] == "unknown")
 
     lines = [
         f"### Trivy Image-Scan: `{component}`",
@@ -98,10 +139,20 @@ def write_step_summary(
         "|---|---|",
         f"| Critical | {critical} |",
         f"| High | {high} |",
-        f"| Fixable (Fix verfuegbar) | {fixable} |",
-        f"| Ohne verfuegbaren Fix | {no_fix} |",
+        f"| Actionable (Fix verfuegbar) | {actionable} |",
+        f"| No fix available | {no_fix_available} |",
+        f"| Fix deferred | {fix_deferred} |",
+        f"| Will not fix | {will_not_fix} |",
+        f"| End of life | {end_of_life} |",
+        f"| Unknown | {unknown} |",
         "",
     ]
+    if end_of_life:
+        lines.append(
+            f"**{end_of_life} End-of-Life-Finding(s):** kein Patch-Thema, sondern "
+            "Migration/Plattformwechsel pruefen (Paket selbst wird nicht mehr gepflegt)."
+        )
+        lines.append("")
     if artifact_name:
         if artifact_url:
             lines.append(f"Vollstaendiger Report (JSON + SARIF): [{artifact_name}]({artifact_url})")
@@ -166,10 +217,13 @@ def main() -> int:
             pkg = vuln.get("PkgName", "")
             installed = vuln.get("InstalledVersion", "")
             fixed_version = vuln.get("FixedVersion", "")
+            status = vuln.get("Status", "")
+            category = classify_finding(status, fixed_version)
+            actionable = category == "actionable"
 
             covered = False
             covering_id = None
-            if severity in BLOCKING_SEVERITIES:
+            if severity in BLOCKING_SEVERITIES and actionable:
                 for exc in active_exceptions:
                     if exception_covers(exc, cve, args.component, args.image_digest):
                         covered = True
@@ -182,29 +236,39 @@ def main() -> int:
                 "package": pkg,
                 "installed_version": installed,
                 "fixed_version": fixed_version,
+                "status": status,
+                "category": category,
                 "covered_by_exception": covering_id if covered else None,
             }
             all_findings.append(entry)
 
-            if severity in BLOCKING_SEVERITIES and not covered:
+            if severity in BLOCKING_SEVERITIES and actionable and not covered:
                 blocking_findings.append(entry)
 
     print(f"Komponente: {args.component}" + (f" (Image-Digest: {args.image_digest})" if args.image_digest else ""))
     print(f"Gesamtzahl Findings: {len(all_findings)} (alle Severities, vollstaendig sichtbar):")
     for f in all_findings:
-        status = f"AUSGENOMMEN ({f['covered_by_exception']})" if f["covered_by_exception"] else "-"
-        print(f"  - [{f['severity']}] {f['cve']} in {f['package']}@{f['installed_version']}  {status}")
+        if f["covered_by_exception"]:
+            note = f"AUSGENOMMEN ({f['covered_by_exception']})"
+        elif f["category"] != "actionable":
+            note = f"nicht blockierend ({f['category']})"
+        else:
+            note = "-"
+        print(
+            f"  - [{f['severity']}] {f['cve']} in {f['package']}@{f['installed_version']} "
+            f"(status={f['status'] or 'unknown'}, fixed={f['fixed_version'] or '-'})  {note}"
+        )
 
     write_step_summary(args.component, all_findings, args.artifact_name, args.artifact_url)
 
     if blocking_findings:
         print(
-            f"\n{len(blocking_findings)} Critical/High-Finding(s) OHNE gueltige, freigegebene Ausnahme "
-            "-> blockiert diesen Check."
+            f"\n{len(blocking_findings)} actionable(s) Critical/High-Finding(s) OHNE gueltige, "
+            "freigegebene Ausnahme -> blockiert diesen Check."
         )
         return 1
 
-    print("\nKeine blockierenden (nicht ausgenommenen) Critical/High-Findings.")
+    print("\nKeine blockierenden (actionable, nicht ausgenommenen) Critical/High-Findings.")
     return 0
 
 
