@@ -32,7 +32,7 @@ requests==2.34.2
 python-json-logger==4.2.0
 
 # NumPy 2.x: Breaking Changes gegenueber 1.x, aber spacy 3.8.x ist kompatibel
-numpy==2.5.1
+numpy==2.5.2
 
 # Neo4j Graph-Datenbank (fuer GraphRAG). 6.2.0 (Major-Bump von 5.27.0, bereits
 # auf main gemergt): Breaking-Changes-Liste gegen den tatsaechlich genutzten
@@ -42,5 +42,5 @@ numpy==2.5.1
 neo4j==6.2.0
 
 # Dokument- und PDF-Verarbeitung
-PyMuPDF==1.28.0           # PDF-Text-Extraktion und PDF-zu-PNG (fitz)
+PyMuPDF==1.28.2           # PDF-Text-Extraktion und PDF-zu-PNG (fitz)
 Pillow==12.3.0            # Bildverarbeitung fuer OCR-Vorbereitung
