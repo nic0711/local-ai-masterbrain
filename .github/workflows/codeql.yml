@@ -1,0 +1,96 @@
+# CodeQL Advanced Setup (ersetzt das GitHub-verwaltete Default Setup fuer
+# dieses Repository). Grund: Default Setup entscheidet intern selbst, wann
+# eine Sprache neu analysiert wird - fuer PRs, die ausschliesslich
+# .github/workflows/*-Dateien aendern, hat es die Analyse real komplett
+# uebersprungen (kein Analyze-Check-Run wurde gepostet). Da main-Branch-
+# Protection "Analyze (actions)"/"Analyze (javascript-typescript)"/
+# "Analyze (python)" als Required Status Checks fuehrt, blockiert ein
+# uebersprungener Check den Merge dauerhaft, ohne dass irgendeine Aktion das
+# beheben kann. Diese Workflow-Datei laeuft stattdessen bei JEDEM
+# pull_request/push auf main, ohne path/paths-ignore-Filter - explizit auch
+# fuer reine Workflow-Datei-Aenderungen.
+#
+# Bewusst KEIN Ersatz der Branch-Protection-Contexts in diesem PR (s.
+# PR-Beschreibung) - Default Setup ist aktuell noch aktiv und muesste separat
+# in den Repo-Settings auf Advanced umgestellt werden, bevor diese Datei
+# tatsaechlich wirksam CodeQL-Ergebnisse liefert.
+
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: CodeQL initialisieren
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: CodeQL-Analyse ausfuehren
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  codeql-required:
+    # Stabiler, einzelner Required-Status-Check fuer Branch Protection -
+    # analog zu ci-required in ci.yml. Ersetzt die drei dynamischen
+    # "Analyze (...)"-Kontexte, die sich mit jeder Sprachaenderung
+    # verschieben wuerden UND (s.o.) unter Default Setup unzuverlaessig
+    # gepostet wurden.
+    #
+    # if: always() ist zwingend: ohne dieses Flag wuerde GitHub Actions
+    # diesen Job SKIPPEN (nicht fehlschlagen), sobald der Analyze-Job
+    # fehlschlaegt - ein uebersprungener Required Check waere fuer Branch
+    # Protection nicht eindeutig blockierend. Der Job prueft deshalb explizit
+    # selbst, ob der (matrixed) analyze-Job wirklich mit success
+    # abgeschlossen hat - failure/cancelled/skipped zaehlen alle als nicht
+    # bestanden.
+    name: codeql-required
+    if: always()
+    needs: [analyze]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Alle CodeQL-Sprachen erfolgreich?
+        env:
+          NEEDS_CONTEXT: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS_CONTEXT" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          not_successful = {name: info.get('result') for name, info in needs.items() if info.get('result') != 'success'}
+          for name, info in sorted(needs.items()):
+              print(f'  - {name}: {info[\"result\"]}')
+          if not_successful:
+              print(f'\n{len(not_successful)} CodeQL-Job(s) nicht erfolgreich: {not_successful}')
+              sys.exit(1)
+          print('\nAlle CodeQL-Sprachen erfolgreich.')
+          "
