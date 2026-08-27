@@ -63,18 +63,27 @@ COPY --from=wheel-builder /wheels/ /wheels/
 RUN cd /wheels && sha256sum -c checksum.sha256 && \
     pip install --no-cache-dir --no-deps /wheels/*.whl && \
     cd /app && rm -rf /wheels && \
-    pip uninstall -y pip
+    pip uninstall -y pip && \
+    /usr/local/bin/python -m pip uninstall -y pip
 
-# pip nach der letzten Paketinstallation entfernt (s.o.): reines Build-/
-# Installationswerkzeug, zur Laufzeit von app.py nicht importiert. setuptools
-# bleibt bewusst installiert - echte Laufzeit-Abhaengigkeit von
-# spacy/spacy-lookups-data/thinc, bereits auf einer sicheren Version
-# (verifiziert vor diesem Fix: setuptools 84.0.0 > FixedVersion 78.1.1 aus
-# CVE-2025-47273). Das zuvor gemeldete "setuptools 70.3.0"-Finding bezog
-# sich nachweislich nicht auf diese echte Installation, sondern auf eine
-# separate, von pip selbst vendorte pkg_resources-Kopie (pip/_vendor/
-# bom.cdx.json) - durch das Entfernen von pip ebenfalls behoben, ohne die
-# echte setuptools-Installation anzutasten.
+# Sowohl das Venv-pip (Zeile darueber, via PATH=/opt/venv/bin) als auch
+# das globale Base-Image-pip unter /usr/local (separate Installation,
+# von PATH unabhaengig) werden nach der letzten Paketinstallation
+# entfernt: reines Build-/Installationswerkzeug, zur Laufzeit von app.py
+# nicht importiert. Ohne den zweiten, expliziten Aufruf bliebe das
+# globale pip unangetastet und wuerde seine vendorten Abhaengigkeiten
+# weiterhin fuer Trivy sichtbar machen (analog zum auth-gateway-Fix).
+#
+# setuptools im Venv bleibt bewusst installiert - echte Laufzeit-
+# Abhaengigkeit von spacy/spacy-lookups-data/thinc, bereits auf einer
+# sicheren Version (verifiziert vor diesem Fix: setuptools 84.0.0 >
+# FixedVersion 78.1.1 aus CVE-2025-47273). Das zuvor gemeldete
+# "setuptools 70.3.0"-Finding bezog sich nachweislich nicht auf diese
+# echte Installation, sondern auf eine separate, von pip selbst
+# vendorte pkg_resources-Kopie (pip/_vendor/bom.cdx.json bzw.
+# vendor.txt) - durch das Entfernen beider pip-Installationen ebenfalls
+# behoben, ohne die echte, benoetigte setuptools-Installation im Venv
+# anzutasten.
 
 # App-Code kopieren und Rechte setzen
 COPY --chown=appuser:appuser python-nlp-service/app.py python-nlp-service/entrypoint.sh .
