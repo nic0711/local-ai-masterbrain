@@ -62,18 +62,26 @@ COPY --from=wheel-builder /wheels/ /wheels/
 RUN cd /wheels && sha256sum -c checksum.sha256 && \
     pip install --no-cache-dir --no-deps /wheels/*.whl && \
     cd /app && rm -rf /wheels && \
-    pip uninstall -y pip
+    pip uninstall -y pip && \
+    /usr/local/bin/python -m pip uninstall -y pip
 
-# pip nach der letzten Paketinstallation entfernt (s.o.): reines Build-/
-# Installationswerkzeug, zur Laufzeit von app.py/masterbrain_common nicht
-# importiert. Behebt zugleich zwei Trivy-Findings, die sich real gegen
-# pips eigenes internes CycloneDX-SBOM (pip/_vendor/bom.cdx.json) und
-# nicht gegen echte Anwendungs-Abhaengigkeiten richteten: msgpack 1.1.2
+# Sowohl das Venv-pip (Zeile darueber, via PATH=/opt/venv/bin) als auch
+# das globale Base-Image-pip unter /usr/local (separate Installation,
+# von PATH unabhaengig) werden nach der letzten Paketinstallation
+# entfernt: reines Build-/Installationswerkzeug, zur Laufzeit von
+# app.py/masterbrain_common nicht importiert. Ohne den zweiten,
+# expliziten Aufruf bliebe das globale pip unangetastet und wuerde seine
+# vendorten Abhaengigkeiten weiterhin fuer Trivy sichtbar machen.
+#
+# Behebt zugleich zwei Trivy-Findings, die sich real gegen pips eigenes
+# internes CycloneDX-SBOM (pip/_vendor/bom.cdx.json) und nicht gegen
+# echte Anwendungs-Abhaengigkeiten richteten: msgpack 1.1.2
 # (GHSA-6v7p-g79w-8964) und setuptools/pkg_resources 70.3.0
 # (CVE-2025-47273) sind beide nur als von pip vendorte Kopien vorhanden,
-# nicht als eigenstaendig installierte Pakete (verifiziert: `pip show
-# msgpack`/`pip show setuptools` fanden vor diesem Fix jeweils "not
-# found" bzw. gar keine setuptools-Installation in diesem Image).
+# nicht als eigenstaendig installierte Pakete (verifiziert: importlib.metadata
+# fand vor diesem Fix weder msgpack noch setuptools als installierte
+# Runtime-Pakete - die Vendored-Kopien blieben unabhaengig davon fuer
+# Trivy sichtbar, solange irgendeine pip-Installation im Image vorhanden war).
 
 # App-Code kopieren
 COPY --chown=appuser:appuser auth-gateway/app.py .
