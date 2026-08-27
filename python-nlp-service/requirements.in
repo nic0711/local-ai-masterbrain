@@ -29,7 +29,7 @@ spacy-lookups-data==1.0.5
 requests==2.34.2
 
 # Logging (masterbrain_common.logging nutzt pythonjsonlogger)
-python-json-logger==4.0.0
+python-json-logger==4.2.0
 
 # NumPy 2.x: Breaking Changes gegenueber 1.x, aber spacy 3.8.x ist kompatibel
 numpy==2.5.2
