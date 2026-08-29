@@ -203,6 +203,24 @@ jobs:
           python3 -m pip install -e . pytest
           python3 -m pytest -q
 
+  start-services-unit-tests:
+    # Security-Regressionstests fuer clone_supabase_repo() in
+    # start_services.py: verhindern, dass die Supabase-Submodule-Erkennung
+    # jemals wieder eine mutierende Git-Operation (insb. `git pull` im
+    # falschen Repo, siehe Vorfall-Historie) ausfuehrt. Merge-kritisch.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: pytest installieren und start_services-Tests ausfuehren
+        run: |
+          python3 -m pip install pytest
+          python3 -m pytest tests/test_start_services.py -q
+
   auth-gateway-smoke-test:
     # Leichtgewichtiger Container-Smoke-Test (kein ML, echte Container-
     # Importtests statt vollem Modell-Boot): Image starten, /health, /ready,
@@ -599,6 +617,7 @@ jobs:
       - test-presence-check
       - component-tests
       - masterbrain-common-tests
+      - start-services-unit-tests
       - auth-gateway-smoke-test
       - python-nlp-service-smoke-test
       - tts-service-unit-tests

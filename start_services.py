@@ -159,25 +159,115 @@ def get_all_compose_files(profile=None, environment=None):
     return compose_files
 
 def clone_supabase_repo():
-    """Clone the Supabase repository using sparse checkout if not already present."""
-    supabase_docker_dir = os.path.join("supabase", "docker")
-    if os.path.exists(supabase_docker_dir):
-        print("Supabase repository already exists, updating...")
-        # Use -C to run git command in supabase directory without changing current dir
-        run_command(["git", "-C", "supabase", "pull"])
-    else:
-        if os.path.exists("supabase"):
-            print("Incomplete Supabase directory found, re-cloning...")
-            shutil.rmtree("supabase")
+    """Verifiziert, dass 'supabase/' ein korrekt initialisiertes Git-Submodule
+    ist (siehe .gitmodules) und dessen HEAD exakt dem im Parent-Repo
+    gepinnten Gitlink entspricht. Nimmt NIEMALS automatisch Aenderungen am
+    Submodule vor - kein `git pull`, kein `git clone`, kein `git checkout`,
+    kein `git submodule update`, kein `sparse-checkout`, kein Loeschen von
+    Dateien. Bei jeder Abweichung: fail-closed (sys.exit) mit einem rein
+    informativen Reparaturhinweis, keine automatische Reparatur.
 
-        print("Cloning Supabase repository (sparse checkout for 'docker' directory)...")
-        run_command([
-            "git", "clone", "--filter=blob:none", "--no-checkout",
-            "https://github.com/supabase/supabase.git"
-        ])
-        run_command(["git", "-C", "supabase", "sparse-checkout", "init", "--cone"])
-        run_command(["git", "-C", "supabase", "sparse-checkout", "set", "docker"])
-        run_command(["git", "-C", "supabase", "checkout", "master"])
+    Grund: `git -C supabase <cmd>` findet ohne eigenes Git-Metadatum in
+    supabase/ keine Repo-Grenze und laeuft dann versehentlich im PARENT-Repo
+    (mit dessen aktuellem Branch und uncommitteten Aenderungen) - das hat
+    frueher ein reales `git -C supabase pull` ausgeloest, das eigentlich das
+    Submodule aktualisieren sollte."""
+    supabase_docker_dir = os.path.join("supabase", "docker")
+    repair_hint = (
+        "  git submodule update --init -- supabase\n"
+        "(Automatische Reparatur wird bewusst nicht durchgefuehrt.)"
+    )
+
+    # A. supabase/docker muss existieren.
+    if not os.path.isdir(supabase_docker_dir):
+        sys.exit(
+            f"FEHLER: '{supabase_docker_dir}' fehlt. supabase/ ist als "
+            f"Git-Submodule registriert (.gitmodules) und muss manuell "
+            f"initialisiert werden:\n{repair_hint}"
+        )
+
+    # B. supabase/ muss sein eigenes Git-Repository sein (eigenes
+    # Git-Metadatum), nicht das Parent-Repo (das per Verzeichnis-Aufwaertslauf
+    # antworten wuerde, wenn supabase/ kein eigenes .git hat).
+    expected_supabase_root = os.path.normcase(os.path.realpath("supabase"))
+
+    toplevel = run_command(
+        ["git", "-C", "supabase", "rev-parse", "--show-toplevel"],
+        check=False, capture_output=True,
+    )
+    actual_toplevel = (
+        os.path.normcase(os.path.realpath(toplevel.stdout.strip()))
+        if toplevel.returncode == 0 and toplevel.stdout.strip()
+        else None
+    )
+
+    if actual_toplevel != expected_supabase_root:
+        sys.exit(
+            "FEHLER: 'supabase/' ist kein eigenstaendiges Git-Repository "
+            f"(git -C supabase rev-parse --show-toplevel lieferte "
+            f"{actual_toplevel!r} statt {expected_supabase_root!r} - "
+            "vermutlich fehlt das Git-Metadatum in supabase/ und der Aufruf "
+            f"wird vom Parent-Repo beantwortet).\n{repair_hint}"
+        )
+
+    # C. supabase/ muss tatsaechlich als Submodule DIESES Parent-Repos
+    # bekannt sein - ein unabhaengiger, eigener Clone unter supabase/ (mit
+    # eigenem .git, aber ohne Superprojekt-Bezug) darf hier NICHT als
+    # korrektes Submodule durchgehen.
+    expected_parent_root = os.path.normcase(os.path.realpath("."))
+
+    superproject = run_command(
+        ["git", "-C", "supabase", "rev-parse", "--show-superproject-working-tree"],
+        check=False, capture_output=True,
+    )
+    actual_superproject = (
+        os.path.normcase(os.path.realpath(superproject.stdout.strip()))
+        if superproject.returncode == 0 and superproject.stdout.strip()
+        else None
+    )
+
+    if actual_superproject != expected_parent_root:
+        sys.exit(
+            "FEHLER: 'supabase/' ist kein Submodule dieses Repositorys "
+            f"(git -C supabase rev-parse --show-superproject-working-tree "
+            f"lieferte {actual_superproject!r} statt {expected_parent_root!r} "
+            "- vermutlich ein unabhaengiger Git-Clone anstelle eines "
+            f"initialisierten Submodules).\n{repair_hint}"
+        )
+
+    # D. Erwarteten Gitlink (Parent-Commit) und tatsaechlichen Submodule-HEAD
+    # ermitteln.
+    expected_head = run_command(
+        ["git", "rev-parse", "HEAD:supabase"],
+        check=False, capture_output=True,
+    )
+    actual_head = run_command(
+        ["git", "-C", "supabase", "rev-parse", "HEAD"],
+        check=False, capture_output=True,
+    )
+
+    if (
+        expected_head.returncode != 0 or not expected_head.stdout.strip()
+        or actual_head.returncode != 0 or not actual_head.stdout.strip()
+    ):
+        sys.exit(
+            "FEHLER: Submodule-HEAD von 'supabase/' oder der im Parent-Repo "
+            f"gepinnte Gitlink konnte nicht ermittelt werden.\n{repair_hint}"
+        )
+
+    # E. SHA vergleichen - nur bei exakter Uebereinstimmung weiterlaufen.
+    expected_sha = expected_head.stdout.strip()
+    actual_sha = actual_head.stdout.strip()
+
+    if actual_sha != expected_sha:
+        sys.exit(
+            "FEHLER: supabase/-Submodule steht auf Commit "
+            f"{actual_sha}, das Parent-Repo erwartet aber {expected_sha}.\n"
+            f"{repair_hint}"
+        )
+
+    # F. Erfolgsfall.
+    print("Supabase-Submodule verifiziert (initialisiert, HEAD == Gitlink).")
 
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
