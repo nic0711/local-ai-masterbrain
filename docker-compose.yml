@@ -22,7 +22,13 @@ volumes:
   prometheus_data:
 
 x-n8n: &service-n8n
-  image: n8nio/n8n:latest
+  # Bewusst exakt gepinnt (nicht :latest, s. ADR 0007): n8n v3.0 (geplant
+  # Oktober 2026, https://docs.n8n.io/changelog/v30-breaking-changes) entfernt
+  # Legacy-Nodes (Function/Function Item/Item Lists) und AI Agent v1 und
+  # aendert Kompressions-Sicherheitsdefaults. Version bewusst und geprueft
+  # anheben, sobald bestehende Workflows in n8n-tool-workflows/ dagegen
+  # verifiziert wurden - kein automatisches Nachziehen ueber :latest.
+  image: n8nio/n8n:2.31.7
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=db
