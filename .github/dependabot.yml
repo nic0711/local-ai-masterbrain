@@ -2,56 +2,67 @@ version: 2
 updates:
   # GitHub Actions selbst (Workflow-Referenzen), damit gepinnte Commit-SHAs
   # sichtbar veraltet werden, statt still hinter aktuellen Releases zurueckzubleiben.
+  # codeql-action init und analyze muessen immer im selben Commit gemeinsam
+  # bumpen, sonst bricht CodeQL mit einer Versions-Fehlermeldung hart ab -
+  # deshalb gruppiert, nicht als Automerge-Regel, sondern damit Dependabot
+  # beide in einem PR liefert.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
 
   - package-ecosystem: "pip"
     directory: "/auth-gateway"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "pip"
     directory: "/python-nlp-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
+  # Ueberwiegend >=-Constraints statt reproduzierbarer Locks - bewusst noch
+  # keine breiten Update-Gruppen, Major-/grosse Versionsspruenge sollen
+  # einzeln sichtbar bleiben statt in einer Sammel-PR unterzugehen.
   - package-ecosystem: "pip"
     directory: "/ocr-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "pip"
     directory: "/tts-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "docker"
     directory: "/auth-gateway"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "docker"
     directory: "/python-nlp-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "docker"
     directory: "/ocr-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
 
   - package-ecosystem: "docker"
     directory: "/tts-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
