@@ -1,0 +1,28 @@
+# Quelle fuer requirements.lock.txt:
+# pip-compile --generate-hashes requirements.in
+fastapi==0.141.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.32
+Pillow==12.3.0
+opencv-python==5.0.0.93
+numpy==2.5.2
+pymupdf==1.28.2
+pydantic==2.13.5
+aiofiles==25.1.0
+requests==2.34.2
+
+# GOT-OCR 2.0 - State-of-the-art OCR from Hugging Face
+transformers==5.16.1
+torch==2.13.0+cpu
+torchvision==0.28.0+cpu
+accelerate==1.14.0
+sentencepiece==0.2.2
+protobuf==7.36.0
+tiktoken==0.14.0
+
+# Tesseract OCR - Backup OCR engine
+pytesseract==0.3.13
+
+# Additional ML dependencies
+datasets==5.0.1
+tokenizers==0.23.1
