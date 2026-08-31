@@ -12,11 +12,12 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY requirements.lock.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
+        --require-hashes \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        -r requirements.txt && \
+        -r requirements.lock.txt && \
     pip uninstall -y pip
 
 # pip nach der letzten Paketinstallation entfernt, bevor das venv in die

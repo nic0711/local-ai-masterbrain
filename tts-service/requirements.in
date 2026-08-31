@@ -1,0 +1,27 @@
+# Quelle fuer requirements.lock.txt:
+# pip-compile --generate-hashes requirements.in
+fastapi==0.141.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.32
+pydantic==2.13.5
+aiofiles==25.1.0
+httpx==0.28.1
+
+# Audio I/O
+soundfile==0.14.0
+librosa==1.0.0
+pydub==0.25.1
+
+# TTS + Voice Cloning
+omnivoice==0.2.1
+
+# Transkription (Dubbing)
+faster-whisper==1.2.1
+
+# YouTube-Download
+yt-dlp==2026.8.19
+
+# ML-Basis
+torch==2.13.0+cpu
+torchaudio==2.11.0+cpu
+numpy==2.5.2
