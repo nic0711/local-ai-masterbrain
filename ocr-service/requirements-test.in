@@ -1,0 +1,2 @@
+# Nur fuer Tests/CI, NICHT im Runtime-Image installiert.
+pytest==9.1.1

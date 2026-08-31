@@ -34,30 +34,25 @@
   keine Secrets) - testet damit exakt die Python-/Torch-/Soundfile-Versionen,
   die spaeter produktiv laufen.
 
-## `ocr-service`: vorhandene Tests koennen aktuell nicht ausgefuehrt werden
+## `ocr-service`: Tests laufen wieder, aber nur als Unit-Test-Suite mit gemockten Engines
 
-- **Fund (waehrend Phase-1-Validierung tatsaechlich reproduziert, sowohl lokal
-  in einem frischen venv als auch im per `docker build` erzeugten Custom
-  Image `ci-local/ocr-service:test`):** `ocr-service/requirements.txt` pinnt
-  `fastapi==0.104.1` (zieht `starlette==0.27.0`), laesst `httpx` aber
-  ungepinnt. Ein frischer `pip install` installiert `httpx==0.28.1`, dessen
-  `Client.__init__` das von `starlette==0.27.0`s `TestClient` verwendete
-  Schluesselwortargument `app=` nicht mehr akzeptiert. Ergebnis:
-  ```
-  tests/test_app.py:101: in <module>
-      client = TestClient(app_module.app)
-  TypeError: Client.__init__() got an unexpected keyword argument 'app'
-  ```
-  Exit-Code: `2` (Pytest-Collection-Fehler, kein einziger Test lief).
-- **Status:** befristete Phase-2-Abweichung (Dependency-Pinning-Haertung),
-  nicht Gegenstand der Behebung in diesem PR — `ocr-service/requirements.txt`
-  gehoert laut Plan nicht zu den in Phase 1 zu aendernden Dateien.
-- **Owner:** `@nic0711` (Platzhalter, zu bestaetigen).
-- **Zieltermin:** spaetestens mit Abschluss von Phase 2.
-- **Sichtbarmachung in CI:** `ocr-service` ist bewusst nicht Teil der
-  `component-tests`-Matrix in `.github/workflows/ci.yml` (mit Kommentar, der
-  auf diesen Abschnitt verweist), damit der Pflicht-Check nicht dauerhaft an
-  einem bereits bekannten, unabhaengig von diesem PR bestehenden Fund
-  scheitert. `test-presence-check` bestaetigt weiterhin, dass ein
-  `tests/`-Verzeichnis fuer `ocr-service` existiert — nur die Ausfuehrbarkeit
-  ist betroffen.
+- **Status:** Die fruehere `fastapi`/`httpx`-Versionskollision ist durch das
+  reproduzierbare Dependency-Pinning (`ocr-service/requirements.in` +
+  `requirements.lock.txt`, hash-verifiziert) beseitigt. `ocr-service` hat
+  wieder eine laufende, merge-kritische Testsuite: 34 Tests in
+  `ocr-service/tests/test_app.py`.
+- **Wie getestet wird:** Alle schweren OCR-Engines (GOT-OCR/`transformers`,
+  `torch`, Tesseract) sind gemockt - die Suite prueft die FastAPI-Anwendung
+  selbst (Routing, Validierung, Fehlerbehandlung), nicht die tatsaechliche
+  OCR-Erkennungsqualitaet. Kein Modell-Download, kein GPU-Bedarf.
+- **Sichtbarmachung in CI:** ein dedizierter `ocr-service-unit-tests`-Job in
+  `.github/workflows/ci.yml` fuehrt die Suite direkt gegen das fertige
+  Runtime-Image aus (analog zu `tts-service-unit-tests`) - testet damit die
+  real installierten Python-/Torch-/OpenCV-Versionen. `pytest` wird dafuer
+  ausschliesslich in einem ephemeren Test-Image installiert
+  (`ocr-service/requirements-test.lock.txt`), das produktive
+  `ci-local/ocr-service`-Image bleibt unveraendert. Der Job ist Teil von
+  `ci-required`.
+- **Weiterhin nicht abgedeckt:** ein echter End-to-End-Test gegen die realen
+  OCR-Engines (Modell-Inferenz, Bildqualitaet, Tesseract-Erkennungsraten)
+  bleibt weiterhin nicht Bestandteil dieser Unit-Test-Suite.
