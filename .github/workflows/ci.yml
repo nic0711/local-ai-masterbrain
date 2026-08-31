@@ -42,17 +42,37 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Supabase-Docker-Compose per Sparse-Checkout holen (wie start_services.py)
+      - name: Gepinnte Supabase-Compose-Datei bereitstellen
         # docker-compose.yml inkludiert ./supabase/docker/docker-compose.yml.
-        # Dieses Verzeichnis ist kein Teil des Repos (siehe start_services.py:
-        # clone_supabase_repo()), sondern wird zur Laufzeit per Sparse-Checkout
-        # aus dem offiziellen Supabase-Repo geholt - hier read-only fuer die
-        # reine Syntax-/Struktur-Pruefung repliziert.
+        # supabase ist ein echtes Git-Submodule (.gitmodules) - CI liest den
+        # Gitlink direkt aus dem ausgecheckten Parent-Commit (git ls-tree
+        # HEAD supabase), NICHT aus .gitmodules und NICHT hardcodiert, und
+        # laedt fuer die reine Syntax-/Struktur-Pruefung ausschliesslich die
+        # tatsaechlich benoetigte Compose-Datei exakt dieses Commits - kein
+        # voller Submodule-Checkout (~1,3 GB fuer 632 KB Nutzinhalt waere
+        # unverhaeltnismaessig), kein master/main-Floating-Ref, kein
+        # Submodule-Checkout ueberhaupt noetig. Dieselbe Fail-Closed-Haltung
+        # wie start_services.py:clone_supabase_repo(), das denselben Gitlink
+        # produktiv gegen den echten Submodule-HEAD verifiziert.
         run: |
-          git clone --filter=blob:none --no-checkout https://github.com/supabase/supabase.git supabase
-          git -C supabase sparse-checkout init --cone
-          git -C supabase sparse-checkout set docker
-          git -C supabase checkout master
+          read -r mode type sha path <<< "$(git ls-tree HEAD supabase)"
+
+          if [ "$mode" != "160000" ] || [ "$type" != "commit" ] || [ -z "$sha" ] || [ "$path" != "supabase" ]; then
+            echo "FEHLER: supabase ist im Parent-Commit kein gueltiger Gitlink."
+            exit 1
+          fi
+
+          echo "Supabase Gitlink: $sha"
+
+          mkdir -p supabase/docker
+
+          curl --fail --silent --show-error \
+            --location \
+            --retry 3 \
+            "https://raw.githubusercontent.com/supabase/supabase/${sha}/docker/docker-compose.yml" \
+            --output supabase/docker/docker-compose.yml
+
+          test -s supabase/docker/docker-compose.yml
       - name: Temporaere, nicht-produktive .env.ci erzeugen
         run: cp .env.example .env.ci
       - name: docker compose config
@@ -202,6 +222,24 @@ jobs:
         run: |
           python3 -m pip install -e . pytest
           python3 -m pytest -q
+
+  start-services-unit-tests:
+    # Security-Regressionstests fuer clone_supabase_repo() in
+    # start_services.py: verhindern, dass die Supabase-Submodule-Erkennung
+    # jemals wieder eine mutierende Git-Operation (insb. `git pull` im
+    # falschen Repo, siehe Vorfall-Historie) ausfuehrt. Merge-kritisch.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: pytest installieren und start_services-Tests ausfuehren
+        run: |
+          python3 -m pip install pytest
+          python3 -m pytest tests/test_start_services.py -q
 
   auth-gateway-smoke-test:
     # Leichtgewichtiger Container-Smoke-Test (kein ML, echte Container-
@@ -392,7 +430,7 @@ jobs:
         run: python3 scripts/ci/check-trivy-findings.py --report "$RUNNER_TEMP/trivy-fs/trivy-fs-report.json" --component repo-fs
       - name: SARIF hochladen
         if: always()
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: ${{ runner.temp }}/trivy-fs/trivy-fs.sarif
           category: trivy-fs
@@ -599,6 +637,7 @@ jobs:
       - test-presence-check
       - component-tests
       - masterbrain-common-tests
+      - start-services-unit-tests
       - auth-gateway-smoke-test
       - python-nlp-service-smoke-test
       - tts-service-unit-tests
