@@ -66,3 +66,18 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+
+  # docker-compose.yml (Root-Stack-Definition). n8n bleibt bewusst unter
+  # v3.0 (Breaking Changes: entfernte Legacy-Nodes, AI Agent v1, geaenderte
+  # Kompressions-Sicherheitsdefaults, siehe
+  # https://docs.n8n.io/changelog/v30-breaking-changes) - 2.x-Patch-/Minor-
+  # Updates werden weiterhin normal vorgeschlagen und durchlaufen dieselbe
+  # Pruefung (CI, Smoke-Test, Review) wie jeder andere Dependabot-Bump.
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "n8nio/n8n"
+        versions: [">= 3.0.0"]
