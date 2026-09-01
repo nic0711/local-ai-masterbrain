@@ -1,7 +1,7 @@
 # Quelle fuer requirements.lock.txt:
 # pip-compile --generate-hashes requirements.in
 fastapi==0.141.1
-uvicorn[standard]==0.24.0
+uvicorn[standard]==0.52.4
 python-multipart==0.0.32
 Pillow==12.3.0
 opencv-python==5.0.0.93
