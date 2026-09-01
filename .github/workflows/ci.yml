@@ -398,7 +398,7 @@ jobs:
             -f "$RUNNER_TEMP/Dockerfile.ocr-tests" \
             -t "ci-test/ocr-service:${{ github.sha }}" \
             .
-      - name: 34 OCR-Tests im Test-Image ausfuehren
+      - name: 38 OCR-Tests im Test-Image ausfuehren
         run: |
           docker run --rm \
             --cap-drop=ALL --security-opt no-new-privileges:true \

@@ -39,7 +39,7 @@
 - **Status:** Die fruehere `fastapi`/`httpx`-Versionskollision ist durch das
   reproduzierbare Dependency-Pinning (`ocr-service/requirements.in` +
   `requirements.lock.txt`, hash-verifiziert) beseitigt. `ocr-service` hat
-  wieder eine laufende, merge-kritische Testsuite: 34 Tests in
+  wieder eine laufende, merge-kritische Testsuite: 38 Tests in
   `ocr-service/tests/test_app.py`.
 - **Wie getestet wird:** Alle schweren OCR-Engines (GOT-OCR/`transformers`,
   `torch`, Tesseract) sind gemockt - die Suite prueft die FastAPI-Anwendung
