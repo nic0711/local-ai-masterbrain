@@ -5,6 +5,7 @@ Advanced OCR Engines - TrOCR (Primary) + Surya OCR (Fallback) + Tesseract (Backu
 import time
 import logging
 import asyncio
+import threading
 from typing import Optional, Dict, Any, List, Tuple
 import os
 from PIL import Image, ImageEnhance, ImageFilter
@@ -67,11 +68,62 @@ class OCREngineManager:
         self.surya_rec_model = None
         self.surya_rec_processor = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        logger.info("Initializing OCR engines...")
-        self._initialize_engines()
-        logger.info("OCR engines initialization completed")
-    
+
+        # Engines werden NICHT hier geladen (kein Netzwerkzugriff beim Import/Start).
+        # Siehe _ensure_engines_loaded() fuer den lazy Load beim ersten Request.
+        self._engines_loaded = False
+        self._load_lock = asyncio.Lock()
+
+    async def _ensure_engines_loaded(self):
+        """
+        Laedt die OCR-Engines lazy beim ersten Request statt beim Modul-Import.
+
+        Verhindert, dass ein blockierender Modell-Download (TrOCR/Surya) den
+        Uvicorn-Start haengen laesst, wenn Hugging Face nicht erreichbar ist.
+        Begrenzt durch OCR_ENGINE_LOAD_TIMEOUT_SECONDS (Default 30s); bei
+        Timeout bleibt trocr_model/surya_det_model None und der bestehende
+        Tesseract-Fallback greift.
+        """
+        if self._engines_loaded:
+            return
+
+        async with self._load_lock:
+            if self._engines_loaded:
+                return
+
+            timeout = float(os.environ.get("OCR_ENGINE_LOAD_TIMEOUT_SECONDS", "30"))
+            done = threading.Event()
+
+            def _run():
+                try:
+                    self._initialize_engines()
+                finally:
+                    done.set()
+
+            logger.info("Initializing OCR engines (lazy, first request)...")
+            # Daemon-Thread statt loop.run_in_executor()/ThreadPoolExecutor:
+            # huggingface_hub kann bei Netzwerkfehlern minutenlang mit
+            # Backoff retryen. concurrent.futures joint seine Worker-Threads
+            # beim Prozess-Exit (atexit) - ein haengender Thread wuerde einen
+            # sauberen Uvicorn-Shutdown (SIGTERM) blockieren und zu SIGKILL
+            # fuehren. Ein Daemon-Thread wird beim Exit einfach verworfen.
+            thread = threading.Thread(target=_run, daemon=True)
+            thread.start()
+
+            deadline = time.monotonic() + timeout
+            while not done.is_set() and time.monotonic() < deadline:
+                await asyncio.sleep(0.1)
+
+            if done.is_set():
+                logger.info("OCR engines initialization completed")
+            else:
+                logger.error(
+                    f"OCR engine initialization timed out after {timeout}s "
+                    "(kein Netzwerkzugriff auf huggingface.co?) - "
+                    "falle auf Tesseract zurueck"
+                )
+            self._engines_loaded = True
+
     def _initialize_engines(self):
         """Initialize all available OCR engines"""
         
@@ -82,9 +134,16 @@ class OCREngineManager:
                 
                 # Use TrOCR large model for best quality
                 model_name = "microsoft/trocr-large-printed"
-                
-                self.trocr_processor = TrOCRProcessor.from_pretrained(model_name)
-                self.trocr_model = VisionEncoderDecoderModel.from_pretrained(model_name)
+
+                try:
+                    # Fast Path: lokal gecachtes Modell, garantiert kein Netzwerkzugriff
+                    self.trocr_processor = TrOCRProcessor.from_pretrained(model_name, local_files_only=True)
+                    self.trocr_model = VisionEncoderDecoderModel.from_pretrained(model_name, local_files_only=True)
+                    logger.info("TrOCR aus lokalem Cache geladen (kein Netzwerkzugriff)")
+                except Exception:
+                    logger.info(f"TrOCR nicht lokal gecacht, versuche Download von {model_name}...")
+                    self.trocr_processor = TrOCRProcessor.from_pretrained(model_name)
+                    self.trocr_model = VisionEncoderDecoderModel.from_pretrained(model_name)
                 
                 if self.device == "cuda":
                     self.trocr_model = self.trocr_model.to(self.device)
@@ -245,7 +304,9 @@ class OCREngineManager:
             Dict with extracted text and metadata
         """
         start_time = time.time()
-        
+
+        await self._ensure_engines_loaded()
+
         try:
             # Check if file is PDF
             if file_path.lower().endswith('.pdf'):
@@ -643,7 +704,3 @@ class OCREngineManager:
         except Exception as e:
             logger.error(f"Image optimization failed: {e}")
             return image  # Return original if optimization fails
-
-
-# Globale Instanz
-ocr_processor = OCREngineManager()

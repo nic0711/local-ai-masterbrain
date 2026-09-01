@@ -5,9 +5,11 @@ All OCR engine calls are mocked so tests run without GPU/model downloads.
 The FastAPI app is tested via TestClient from httpx (starlette).
 """
 
+import asyncio
 import io
 import os
 import sys
+import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -406,3 +408,74 @@ class TestOCREngineErrorMessages:
             result = manager._analyze_pdf_type("/nonexistent/file.pdf")
         assert result["analysis_method"] == "error"
         assert result["error"] == "PDF-Analyse fehlgeschlagen"
+
+
+# ---------------------------------------------------------------------------
+# Tests: Lazy engine loading (no model download at import/startup, see #181)
+# ---------------------------------------------------------------------------
+
+class TestLazyEngineLoading:
+    """
+    Regression tests for eager model downloads blocking service startup.
+
+    No network is ever reachable in this suite (transformers/surya/torch are
+    stubbed at module import, see top of file), so these tests double as the
+    offline proof required by issue #181 - they run green with zero access
+    to huggingface.co.
+    """
+
+    def test_construction_does_not_initialize_engines(self):
+        """OCREngineManager() must return instantly without loading models."""
+        from ocr_engines import OCREngineManager
+        with patch.object(OCREngineManager, "_initialize_engines") as mock_init:
+            manager = OCREngineManager()
+        mock_init.assert_not_called()
+        assert manager._engines_loaded is False
+        assert manager.trocr_model is None
+        assert manager.surya_det_model is None
+
+    def test_ensure_engines_loaded_initializes_exactly_once(self):
+        """Repeated calls (e.g. concurrent requests) must not reload engines."""
+        from ocr_engines import OCREngineManager
+        manager = OCREngineManager()
+        with patch.object(manager, "_initialize_engines") as mock_init:
+            asyncio.run(manager._ensure_engines_loaded())
+            asyncio.run(manager._ensure_engines_loaded())
+        mock_init.assert_called_once()
+        assert manager._engines_loaded is True
+
+    def test_ensure_engines_loaded_fails_fast_on_timeout(self):
+        """
+        Simulates an unreachable huggingface.co (e.g. --network none):
+        loading must respect OCR_ENGINE_LOAD_TIMEOUT_SECONDS and return
+        instead of blocking the event loop / Uvicorn startup indefinitely.
+        """
+        from ocr_engines import OCREngineManager
+        manager = OCREngineManager()
+
+        def _blocks_much_longer_than_timeout():
+            time.sleep(5)
+
+        with patch.object(manager, "_initialize_engines", side_effect=_blocks_much_longer_than_timeout), \
+             patch.dict(os.environ, {"OCR_ENGINE_LOAD_TIMEOUT_SECONDS": "0.2"}):
+            start = time.time()
+            asyncio.run(manager._ensure_engines_loaded())
+            elapsed = time.time() - start
+
+        assert elapsed < 2.0, "loader did not fail fast on timeout"
+        assert manager._engines_loaded is True  # marked done, no retry storm on next request
+        assert manager.trocr_model is None  # TrOCR never actually finished loading
+
+    def test_extract_text_triggers_lazy_load(self):
+        """The public entrypoint must ensure engines are loaded before use."""
+        from ocr_engines import OCREngineManager
+        manager = OCREngineManager()
+
+        tmp_path = os.path.join(tempfile.mkdtemp(), "probe.png")
+        with open(tmp_path, "wb") as f:
+            f.write(_png_bytes())
+
+        with patch.object(manager, "_ensure_engines_loaded", new=AsyncMock()) as mock_ensure, \
+             patch.object(manager, "_process_image", new=AsyncMock(return_value="text")):
+            asyncio.run(manager.extract_text(tmp_path))
+        mock_ensure.assert_awaited_once()
