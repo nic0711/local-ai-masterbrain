@@ -898,6 +898,7 @@ services:
     build:
       context: ./hermes-agent
     image: hermes-agent:local
+    pull_policy: never
     container_name: hermes-gateway
     restart: unless-stopped
     profiles: [optional]
@@ -929,6 +930,7 @@ services:
 
   hermes-dashboard:
     image: hermes-agent:local
+    pull_policy: never
     container_name: hermes-dashboard
     restart: unless-stopped
     profiles: [optional]
