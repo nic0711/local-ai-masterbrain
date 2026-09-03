@@ -34,7 +34,7 @@ numpy==2.5.2
 # Code geprueft (GraphDatabase.driver(), .session(), session.run(),
 # .verify_connectivity()) - keine davon betroffen. Min. Python 3.10 (erfuellt,
 # Image nutzt 3.14).
-neo4j==6.2.0
+neo4j==6.3.0
 
 # Dokument- und PDF-Verarbeitung
 PyMuPDF==1.28.2           # PDF-Text-Extraktion und PDF-zu-PNG (fitz)
