@@ -503,7 +503,7 @@ services:
         max-file: "3"
 
   langfuse-web:
-    image: langfuse/langfuse:3
+    image: langfuse/langfuse:4
     restart: always
     profiles: [optional]
     depends_on: *langfuse-depends-on
