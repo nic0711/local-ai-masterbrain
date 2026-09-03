@@ -221,3 +221,25 @@ entries:
       Trivy-Rescan mit Target
       usr/libexec/docker/cli-plugins/docker-compose.
     recheck_after: "2026-09-07"
+
+  # --- auth-gateway: docker-compose-plugin 5.5.0 vendort
+  #     google.golang.org/grpc v1.83.0 ---
+  - component: auth-gateway
+    cve: CVE-2026-84304
+    direct_package: docker-compose-plugin
+    installed_package_version: "5.5.0-1~debian.12~bookworm"
+    upstream_component: google.golang.org/grpc
+    vulnerable_version: v1.83.0
+    fixed_version: "1.83.1"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-09-03"
+    evidence: >
+      apt-cache madison docker-compose-plugin (neueste offiziell
+      verfuegbare Version weiterhin 5.5.0-1~debian.12~bookworm, keine
+      neuere Paketversion verfuegbar) + frischer auth-gateway-Rebuild +
+      docker compose version v5.5.0 + Docker-Compose-v5.5.0-go.mod mit
+      google.golang.org/grpc v1.83.0 (main-Branch von docker/compose
+      bereits mit grpc v1.83.2, aber noch in keinem getaggten
+      Release/installierbaren Paket) + Trivy-Rescan mit Target
+      usr/libexec/docker/cli-plugins/docker-compose.
+    recheck_after: "2026-09-10"
