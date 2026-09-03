@@ -433,7 +433,7 @@ services:
         max-file: "1"
 
   langfuse-worker:
-    image: langfuse/langfuse-worker:3
+    image: langfuse/langfuse-worker:4
     restart: always
     profiles: [optional]
     depends_on: &langfuse-depends-on
