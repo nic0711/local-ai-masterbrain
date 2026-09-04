@@ -1,5 +1,19 @@
 version: 2
 updates:
+  # Automatische Dependabot-Versions-PRs sind bewusst deaktiviert
+  # (open-pull-requests-limit: 0 = laut GitHub-Doku der offizielle Weg,
+  # Versions-Updates fuer ein Ecosystem ganz abzuschalten, ohne den
+  # Ecosystem-Eintrag zu entfernen). Grund: Repository-Stabilisierungslauf
+  # 2026-09-03/04 - main soll nur noch ueber getestete PRs working -> main
+  # aktualisiert werden, nicht durch einzeln aufploppende Dependabot-PRs.
+  # Updates werden stattdessen gesammelt und kontrolliert auf dem Branch
+  # `working` durchgefuehrt. Sicherheits-Updates (Dependabot Security
+  # Updates) sind hiervon unabhaengig - die laufen ueber die
+  # Repo-Sicherheitseinstellungen, nicht ueber diese Datei.
+  #
+  # Wieder aktivieren: open-pull-requests-limit auf den vorherigen Wert (2)
+  # zuruecksetzen, sobald wieder direkt gegen main gearbeitet werden soll.
+
   # GitHub Actions selbst (Workflow-Referenzen), damit gepinnte Commit-SHAs
   # sichtbar veraltet werden, statt still hinter aktuellen Releases zurueckzubleiben.
   # codeql-action init und analyze muessen immer im selben Commit gemeinsam
@@ -10,7 +24,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
     groups:
       codeql:
         patterns:
@@ -20,13 +34,13 @@ updates:
     directory: "/auth-gateway"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "pip"
     directory: "/python-nlp-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   # Ueberwiegend >=-Constraints statt reproduzierbarer Locks - bewusst noch
   # keine breiten Update-Gruppen, Major-/grosse Versionsspruenge sollen
@@ -35,49 +49,50 @@ updates:
     directory: "/ocr-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "pip"
     directory: "/tts-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "docker"
     directory: "/auth-gateway"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "docker"
     directory: "/python-nlp-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "docker"
     directory: "/ocr-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "docker"
     directory: "/tts-service"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
 
   # docker-compose.yml (Root-Stack-Definition). n8n bleibt bewusst unter
   # v3.0 (Breaking Changes: entfernte Legacy-Nodes, AI Agent v1, geaenderte
   # Kompressions-Sicherheitsdefaults, siehe
   # https://docs.n8n.io/changelog/v30-breaking-changes) - 2.x-Patch-/Minor-
-  # Updates werden weiterhin normal vorgeschlagen und durchlaufen dieselbe
-  # Pruefung (CI, Smoke-Test, Review) wie jeder andere Dependabot-Bump.
+  # Updates wuerden regulaer dieselbe Pruefung (CI, Smoke-Test, Review)
+  # durchlaufen wie jeder andere Dependabot-Bump, sind aber wie alle
+  # anderen Ecosystems hier vorerst pausiert (siehe Kommentar oben).
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: "n8nio/n8n"
         versions: [">= 3.0.0"]
