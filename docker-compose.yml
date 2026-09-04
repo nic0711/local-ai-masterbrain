@@ -28,7 +28,7 @@ x-n8n: &service-n8n
   # aendert Kompressions-Sicherheitsdefaults. Version bewusst und geprueft
   # anheben, sobald bestehende Workflows in n8n-tool-workflows/ dagegen
   # verifiziert wurden - kein automatisches Nachziehen ueber :latest.
-  image: n8nio/n8n:2.37.6
+  image: n8nio/n8n:2.37.9
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=db
