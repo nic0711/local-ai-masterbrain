@@ -35,8 +35,6 @@ dashboard/config.js
 # Ignoriere die Daten von Crawl4AI.
 /crawl4ai-data/
 
-# Ignoriere die Daten von Flowise (falls es in das Projektverzeichnis schreibt).
-/.flowise/
 
 # ################# #
 #  Abhängigkeiten   #

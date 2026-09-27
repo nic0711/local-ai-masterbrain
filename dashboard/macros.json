@@ -7,10 +7,7 @@
       "actions": [
         {"action": "start",  "service": "open-webui"},
         {"action": "start",  "service": "n8n"},
-        {"action": "stop",   "service": "neo4j"},
-        {"action": "stop",   "service": "flowise"},
-        {"action": "stop",   "service": "langfuse-web"},
-        {"action": "stop",   "service": "langfuse-worker"}
+        {"action": "stop",   "service": "neo4j"}
       ]
     },
     {
@@ -37,38 +34,21 @@
       ]
     },
     {
-      "id": "langfuse-start",
-      "label": "Langfuse starten",
-      "description": "LLM Observability: MinIO + ClickHouse + Langfuse",
-      "actions": [
-        {"action": "start",  "service": "minio"},
-        {"action": "start",  "service": "clickhouse"},
-        {"action": "start",  "service": "langfuse-web"},
-        {"action": "start",  "service": "langfuse-worker"}
-      ]
-    },
-    {
       "id": "save-resources",
       "label": "Ressourcen sparen",
       "description": "Schwere Dienste stoppen",
       "actions": [
         {"action": "stop",   "service": "neo4j"},
-        {"action": "stop",   "service": "flowise"},
-        {"action": "stop",   "service": "crawl4ai"},
-        {"action": "stop",   "service": "langfuse-web"},
-        {"action": "stop",   "service": "langfuse-worker"},
-        {"action": "stop",   "service": "minio"},
-        {"action": "stop",   "service": "clickhouse"}
+        {"action": "stop",   "service": "crawl4ai"}
       ]
     },
     {
       "id": "restart-core",
       "label": "Core neustarten",
-      "description": "n8n + Open WebUI + Flowise neustarten",
+      "description": "n8n + Open WebUI neustarten",
       "actions": [
         {"action": "restart", "service": "n8n"},
-        {"action": "restart", "service": "open-webui"},
-        {"action": "restart", "service": "flowise"}
+        {"action": "restart", "service": "open-webui"}
       ]
     },
     {

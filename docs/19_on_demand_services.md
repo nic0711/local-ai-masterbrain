@@ -9,11 +9,6 @@ Ressourcenintensive Services starten beim Stack-Boot nicht automatisch. Sie kön
 | Service | Funktion | Warum optional |
 |---|---|---|
 | `neo4j` | Knowledge Graph | RAM-intensiv, nur für RAG-Workflows |
-| `flowise` | AI Agent Builder | Selten täglich genutzt |
-| `minio` | S3-Objektspeicher | Nur für Langfuse-Traces nötig |
-| `clickhouse` | Analytics-DB | Nur für Langfuse-Traces nötig |
-| `langfuse-web` | LLM Observability UI | Nur beim Debugging |
-| `langfuse-worker` | Trace-Verarbeitung | Abhängig von minio + clickhouse |
 
 **Immer laufend:** `n8n`, `open-webui`, `qdrant`, `searxng`, `crawl4ai`, `python-nlp-service`, `uptime-kuma`, `grafana`, `postgres`, `redis` (Basisinfrastruktur).
 
@@ -40,8 +35,6 @@ Der subprocess-Aufruf im auth-gateway verwendet `HOST_PROJECT_DIR` (per Env-Var 
 
 Neo4j-Volumes nutzen `${HOST_PROJECT_DIR:-.}/neo4j/...` statt `./ neo4j/...`, damit der Docker-Daemon (der Host-Pfade verlangt) die richtigen Pfade erhält wenn compose aus dem Container aufgerufen wird.
 
-Flowise nutzt ein **named volume** (`flowise:/root/.flowise` statt `~/.flowise:/root/.flowise`), da `~` im Container-Kontext auf das Container-Home zeigt, nicht auf das Host-Home.
-
 ---
 
 ## Control-Interfaces
@@ -66,7 +59,7 @@ curl -X POST https://brain.local/_control/services/neo4j/start \
   -H "Authorization: Bearer $TOKEN"
 
 # Macro ausführen
-curl -X POST https://brain.local/_control/macro/langfuse-start \
+curl -X POST https://brain.local/_control/macro/rag-mode \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -109,9 +102,8 @@ Definiert in `dashboard/macros.json`:
 | `light-mode` | Leicht-Modus | Open WebUI + n8n starten, optionale stoppen |
 | `research` | Research-Modus | SearXNG + Crawl4AI + Open WebUI + n8n |
 | `rag-mode` | RAG-Modus | Qdrant + Neo4j + NLP + Open WebUI + n8n |
-| `langfuse-start` | Langfuse starten | MinIO + ClickHouse + Langfuse-Web + Worker |
 | `save-resources` | Ressourcen sparen | Alle optionalen Services stoppen |
-| `restart-core` | Core neustarten | n8n + Open WebUI + Flowise neu starten |
+| `restart-core` | Core neustarten | n8n + Open WebUI neu starten |
 
 **Stop-Verhalten:** Wenn ein Container bei einem Stop-Befehl nicht gefunden wird (schon gestoppt/nie gestartet), gilt dies als Erfolg — kein Fehler.
 
@@ -123,8 +115,6 @@ Beim allerersten Start (Container existiert noch nicht) wird `docker compose --p
 - Lädt das Image (falls nicht gecacht) — kann einige Minuten dauern
 - Erstellt den Container mit korrekter Konfiguration
 - Startet ihn
-
-Bei `langfuse-web` werden automatisch `minio`, `clickhouse` und `langfuse-worker` mitgestartet (`depends_on` in compose).
 
 ---
 

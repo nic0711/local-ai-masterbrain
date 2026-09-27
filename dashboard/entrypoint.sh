@@ -7,17 +7,13 @@
 N8N_LOCAL_URL="http://localhost:5678"
 WEBUI_LOCAL_URL="http://localhost:8080"
 SEARXNG_LOCAL_URL="http://localhost:8081"
-FLOWISE_LOCAL_URL="http://localhost:3001"
 SUPABASE_LOCAL_URL="http://localhost:8000"
-LANGFUSE_LOCAL_URL="http://localhost:3000"
 NEO4J_LOCAL_URL="http://localhost:7474"
 QDRANT_LOCAL_URL="http://localhost:6333"
-MINIO_LOCAL_URL="http://localhost:9011" # Console port
 CRAWL4AI_LOCAL_URL="http://localhost:8082"
 PYTHON_NLP_LOCAL_URL="http://localhost:5050"
 OCR_LOCAL_URL="http://localhost:8002"
 TTS_LOCAL_URL="http://localhost:8003"
-CLICKHOUSE_URL="http://localhost:8123"
 GRAFANA_LOCAL_URL="http://localhost:3000"
 
 # Environment variables
@@ -31,18 +27,14 @@ if [ "${IS_PUBLIC_PROFILE}" = "true" ]; then
     N8N_URL="${PROTOCOL}://${N8N_HOSTNAME}"
     WEBUI_URL="${PROTOCOL}://${WEBUI_HOSTNAME}"
     SEARXNG_URL="${PROTOCOL}://${SEARXNG_HOSTNAME}"
-    FLOWISE_URL="${PROTOCOL}://${FLOWISE_HOSTNAME}"
     SUPABASE_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
-    LANGFUSE_URL="${PROTOCOL}://${LANGFUSE_HOSTNAME}"
     NEO4J_URL="${PROTOCOL}://${NEO4J_HOSTNAME}"
     QDRANT_URL="${PROTOCOL}://${QDRANT_HOSTNAME}"
-    MINIO_URL="${PROTOCOL}://${MINIO_HOSTNAME}"
     CRAWL4AI_URL="${PROTOCOL}://${CRAWL4AI_HOSTNAME}"
     PYTHON_NLP_URL="${NLP_HOSTNAME:+${PROTOCOL}://${NLP_HOSTNAME}}"
     OCR_URL="${OCR_HOSTNAME:+${PROTOCOL}://${OCR_HOSTNAME}}"
     TTS_URL="${TTS_HOSTNAME:+${PROTOCOL}://${TTS_HOSTNAME}}"
     SUPABASE_FINAL_URL="${PROTOCOL}://${SUPABASE_HOSTNAME}"
-    CLICKHOUSE_URL=""
     UPTIME_KUMA_URL="${PROTOCOL}://${UPTIME_KUMA_HOSTNAME}"
     GRAFANA_URL="${GRAFANA_HOSTNAME:+${PROTOCOL}://${GRAFANA_HOSTNAME}}"
     HERMES_URL="${HERMES_HOSTNAME:+${PROTOCOL}://${HERMES_HOSTNAME}}"
@@ -51,18 +43,14 @@ else
     N8N_URL="$N8N_LOCAL_URL"
     WEBUI_URL="$WEBUI_LOCAL_URL"
     SEARXNG_URL="$SEARXNG_LOCAL_URL"
-    FLOWISE_URL="$FLOWISE_LOCAL_URL"
     SUPABASE_URL="$SUPABASE_LOCAL_URL"
-    LANGFUSE_URL="$LANGFUSE_LOCAL_URL"
     NEO4J_URL="$NEO4J_LOCAL_URL"
     QDRANT_URL="$QDRANT_LOCAL_URL/dashboard"
-    MINIO_URL="$MINIO_LOCAL_URL"
     CRAWL4AI_URL="$CRAWL4AI_LOCAL_URL"
     PYTHON_NLP_URL="$PYTHON_NLP_LOCAL_URL/health"
     OCR_URL="${OCR_HOSTNAME:+https://${OCR_HOSTNAME}}"
     TTS_URL="$TTS_LOCAL_URL"
     SUPABASE_FINAL_URL="$SUPABASE_LOCAL_URL"
-    CLICKHOUSE_URL="$CLICKHOUSE_URL"
     UPTIME_KUMA_URL="http://localhost:3002"
     GRAFANA_URL="$GRAFANA_LOCAL_URL"
     HERMES_URL=""
@@ -82,17 +70,13 @@ window.APP_CONFIG = {
     n8nHostname: "${N8N_URL}",
     openWebuiHostname: "${WEBUI_URL}",
     searxngHostname: "${SEARXNG_URL}",
-    flowiseHostname: "${FLOWISE_URL}",
     supabaseHostname: "${SUPABASE_URL}",
-    langfuseHostname: "${LANGFUSE_URL}",
     neo4jHostname: "${NEO4J_URL}",
     qdrantHostname: "${QDRANT_URL}",
-    minioHostname: "${MINIO_URL}",
     crawl4aiHostname: "${CRAWL4AI_URL}",
     pythonNlpHostname: "${PYTHON_NLP_URL}",
     ocrHostname: "${OCR_URL}",
     ttsHostname: "${TTS_URL}",
-    clickhouseHostname: "${CLICKHOUSE_URL}",
     uptimeKumaHostname: "${UPTIME_KUMA_URL}",
     grafanaHostname: "${GRAFANA_URL}",
     hermesHostname: "${HERMES_URL}",

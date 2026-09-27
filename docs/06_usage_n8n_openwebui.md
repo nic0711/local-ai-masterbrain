@@ -10,12 +10,9 @@ Das Dashboard verlinkt direkt auf alle Services.
 | Dashboard     | https://brain.local          |
 | n8n           | https://n8n.brain.local      |
 | Open WebUI    | https://webui.brain.local    |
-| Flowise       | https://flowise.brain.local  |
-| Langfuse      | https://langfuse.brain.local |
 | SearXNG       | https://search.brain.local   |
 | Neo4j         | https://neo4j.brain.local    |
 | Qdrant        | https://qdrant.brain.local   |
-| Minio         | https://minio.brain.local    |
 
 ---
 

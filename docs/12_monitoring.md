@@ -51,9 +51,7 @@ Die öffentliche Status Page zeigt Kunden und Team den aktuellen Systemstatus.
 |---|---|---|
 | n8n | `https://n8n.brain.local` | HTTP |
 | Open WebUI | `https://webui.brain.local` | HTTP |
-| Flowise | `https://flowise.brain.local` | HTTP |
 | Supabase | `https://supabase.brain.local` | HTTP |
-| Langfuse | `https://langfuse.brain.local` | HTTP |
 | Qdrant | `https://qdrant.brain.local` | HTTP |
 | SearXNG | `https://searxng.brain.local` | HTTP |
 

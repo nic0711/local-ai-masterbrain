@@ -71,7 +71,6 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ [**Ollama**](https://ollama.com/) – Cross-platform LLM-Plattform zum Installieren und Ausführen der neuesten lokalen LLMs
 - ✅ [**Open WebUI**](https://openwebui.com/) – ChatGPT-artige Schnittstelle zur privaten Interaktion mit Ihren lokalen Modellen und N8N-Agenten
 - ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) – Autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard und Microsoft Teams Gateway; läuft auf lokalem Ollama, startet standardmäßig automatisch mit dem Stack
-- ✅ [**Flowise**](https://flowiseai.com/) – No-/Low-Code KI-Agent Builder, der sehr gut zu n8n passt
 - ✅ [**Crawl4ai**](https://crawl4ai.com/) - Scraping / Crawling für LLM-Nutzung oder Datenaggregation, Screenshots usw.
 - ✅ [**TTS Service / Voice Cloning / Video Dubbing**] – Lokaler Text-zu-Sprache-Container mit [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ Sprachen, RTF 0.025). Zero-Shot Voice Cloning aus 5–15s Referenz-Audio, Voice Design via Attributbeschreibung (Geschlecht, Akzent, Tonlage), asynchrones Video-Dubbing mit Whisper-Transkription und Ollama-Übersetzung.
 - ✅ [**Python NLP / Document Service**] – Produktionsreifer Dokumentenverarbeitungscontainer mit Flask/Gunicorn. Extrahiert Text aus PDFs und Bildern, führt OCR via **Ollama glm-ocr** durch (kein lokaler Tesseract erforderlich) und führt Named Entity Recognition (NER) auf Deutsch und Englisch via SpaCy durch. Bietet eine einzelne `/document/analyze`-Endpunkt, der Text + Entitäten in einem Aufruf zurückgibt – ideal als Vorverarbeitungspipeline für Neo4j Knowledge Graphs und n8n-Arbeitsabläufe.
@@ -85,7 +84,6 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
 - ✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
 - ✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente oder Web-Research per Webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
-- ✅ [**Langfuse**](https://langfuse.com/) - Open Source LLM Engineering Plattform für Agent-Observability
 
 ---
 
@@ -96,7 +94,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ JWT-Authentifizierung via Caddy `forward_auth` – alle Services geschützt
 - ✅ TOTP/2FA über Supabase GoTrue (kein extra Container), serverseitig via `aal2`-Check im auth-gateway erzwungen
 - ✅ Supabase mit Vector Store & Authentifizierung
-- ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Dokumentenservice (OCR + NER, DE+EN), MinIO, Open WebUI, ...
+- ✅ Crawl4AI, Qdrant, Neo4j, Python NLP/Dokumentenservice (OCR + NER, DE+EN), Open WebUI, ...
 - ✅ TTS Service: Voice Cloning (OmniVoice, 600+ Sprachen), Video-Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
 - ✅ Grafana Monitoring mit Caddy-Routing + Auth-Proxy-Header
 - ✅ On-Demand Service Control: Dashboard Admin-Tab, REST API, n8n Toolcall
@@ -288,7 +286,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 |-----|---------|
 | `grafana` | Grafana in Stack integriert (`grafana.{DOMAIN}`), mit Caddy Routing und Auth Proxy Header |
 | `n8n-tool-workflows/stack-service-control.json` | n8n-Arbeitsablauf zum Starten/Stoppen von Stack Services per KI Agent Toolcall |
-| `dashboard/macros.json` | Macros erweitert (light-mode, research, rag-mode, langfuse-start, save-resources, restart-core) |
+| `dashboard/macros.json` | Macros erweitert (light-mode, research, rag-mode, save-resources, restart-core) |
 | `docs/19_on_demand_services.md` | Neue Doku: Service Control (Dashboard, REST API, n8n Toolcall, Macros) |
 | `docs/20_resource_optimization.md` | Neue Doku: Memory Limits, Logging, Disk Maintenance, Custom Image Updates |
 
@@ -344,12 +342,12 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | `dashboard/login.html` | Zweistufiges Login Formular (Passwort → TOTP), initialer TOTP Schritt versteckt |
 | `dashboard/index.html` | „2FA einrichten"-Button + Modal mit QR Code und Enrollment Flow |
 | `Caddyfile` | `(protected)` Snippet: `forward_auth auth-gateway:5001` mit Cookie Weitergabe als Bearer Header; Dashboard ohne `forward_auth` (verhindert Redirect Loop) |
-| `Caddyfile` | SearXNG, Qdrant (`qdrant:6333`), Minio (`minio:9001`) als neue geschützte vHosts |
+| `Caddyfile` | SearXNG, Qdrant (`qdrant:6333`) als neue geschützte vHosts |
 | `Caddyfile` | Crawl4AI Port korrigiert: `8082` → `11235` |
 | `docker-compose.yml` | auth-gateway: Profil `public` → `auth` (wird via `--profile auth` aktiviert) |
 | `start_services.py` | `--environment public` ist neuer Standard; `--profile auth` + `public.supabase.yml` automatisch bei `--environment public` |
 | `docker-compose.override.public.supabase.yml` | GoTrue TOTP aktiviert: `GOTRUE_MFA_ENABLED=true`, `GOTRUE_MFA_TOTP_ENABLED=true` |
-| `.env.example` | `QDRANT_HOSTNAME`, `MINIO_HOSTNAME` ergänzt; Produktions Beispiel auf `yourdomain.com` |
+| `.env.example` | `QDRANT_HOSTNAME` ergänzt; Produktions Beispiel auf `yourdomain.com` |
 
 ### 2026-03 – Python NLP/Dokumentenservice v2.0
 
@@ -506,7 +504,6 @@ Selektive Übernahme von 13 Upstream Commits. Unsere Ergänzungen (auth-gateway,
 | Neue Supabase Storage Env Vars | `57c194a` | ✅ In `.env.example` ergänzt |
 | Neue n8n Workflow Dateien (V1/V2/V3 RAG Agent) | `5c55af2` | ✅ In `n8n/backup/workflows/` kopiert |
 | shared Volume Pfad: `:/home/node/.n8n-files/shared` → `:/data/shared` | `8d02114` | ✅ Übernommen |
-| `LANGFUSE_ENCRYPTION_KEY` → `ENCRYPTION_KEY` | — | ✅ In `docker-compose.yml` + `.env.example` |
 | Caddy Hostnames ohne `${DOMAIN}` | — | ⏭️ Nicht übernommen (unser Setup nutzt `${DOMAIN}`) |
 | `open-webui:latest` → `:main` | — | ⏭️ Nicht übernommen (`:latest` stabiler) |
 | `crawl4ai` entfernt | — | ⏭️ Nicht übernommen (Teil unseres Stacks) |
@@ -591,7 +588,6 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ [**Ollama**](https://ollama.com/) - Cross-platform LLM platform to install and run the latest local LLMs
 - ✅ [**Open WebUI**](https://openwebui.com/) - ChatGPT-like interface to privately interact with your local models and N8N agents
 - ✅ [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) - Autonomous AI agent (NousResearch, MIT) with web dashboard and Microsoft Teams gateway; runs on local Ollama, starts automatically with the stack by default
-- ✅ [**Flowise**](https://flowiseai.com/) - No/low code AI agent builder that pairs very well with n8n
 - ✅ [**Crawl4ai**](https://crawl4ai.com/) - scraping / crawling for LLM usage or data aggregation, screenshots, etc.
 - ✅ [**TTS Service / Voice Cloning / Video Dubbing**] - Local Text-to-Speech container with [OmniVoice](https://github.com/k2-fsa/OmniVoice) (600+ languages, RTF 0.025). Zero-Shot Voice Cloning from 5–15s reference audio, voice design via attribute description (gender, accent, tone), asynchronous video dubbing with Whisper transcription and Ollama translation.
 - ✅ [**Python NLP / Document Service**] - Production-ready document processing container with Flask/Gunicorn. Extracts text from PDFs and images, runs OCR via **Ollama glm-ocr** (no local Tesseract needed), and performs Named Entity Recognition (NER) in German and English via SpaCy. Provides a single `/document/analyze` endpoint that returns text + entities in one call – ideal as preprocessing pipeline for Neo4j Knowledge Graphs and n8n workflows.
@@ -605,7 +601,6 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
 - ✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
 - ✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents or web research via webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
-- ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
 ---
 
@@ -616,7 +611,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ JWT Auth via Caddy `forward_auth` – all services protected
 - ✅ TOTP/2FA via Supabase GoTrue (no extra container), enforced server-side via `aal2` check in the auth-gateway
 - ✅ Supabase with Vector Store & Authentication
-- ✅ Crawl4AI, Qdrant, Neo4j, Langfuse, Python NLP/Document Service (OCR + NER, DE+EN), MinIO, Open WebUI, ...
+- ✅ Crawl4AI, Qdrant, Neo4j, Python NLP/Document Service (OCR + NER, DE+EN), Open WebUI, ...
 - ✅ TTS Service: Voice Cloning (OmniVoice, 600+ languages), Video Dubbing (Whisper + Ollama + ffmpeg), Apple Silicon MPS
 - ✅ Grafana Monitoring with Caddy Routing + Auth Proxy Header
 - ✅ On-Demand Service Control: Dashboard Admin Tab, REST API, n8n Toolcall
@@ -808,7 +803,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 |-----|---------|
 | `grafana` | Grafana integrated in stack (`grafana.{DOMAIN}`), with Caddy routing and auth proxy header |
 | `n8n-tool-workflows/stack-service-control.json` | n8n workflow to start/stop stack services via AI agent toolcall |
-| `dashboard/macros.json` | Macros extended (light-mode, research, rag-mode, langfuse-start, save-resources, restart-core) |
+| `dashboard/macros.json` | Macros extended (light-mode, research, rag-mode, save-resources, restart-core) |
 | `docs/19_on_demand_services.md` | New docs: Service Control (Dashboard, REST API, n8n Toolcall, Macros) |
 | `docs/20_resource_optimization.md` | New docs: Memory limits, logging, disk maintenance, custom image updates |
 
@@ -864,12 +859,12 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | `dashboard/login.html` | Two-step login form (password → TOTP), initial TOTP step hidden |
 | `dashboard/index.html` | "Set up 2FA" button + modal with QR code and enrollment flow |
 | `Caddyfile` | `(protected)` snippet: `forward_auth auth-gateway:5001` with cookie forwarding as Bearer header; dashboard without `forward_auth` (prevents redirect loop) |
-| `Caddyfile` | SearXNG, Qdrant (`qdrant:6333`), Minio (`minio:9001`) as new protected vHosts |
+| `Caddyfile` | SearXNG, Qdrant (`qdrant:6333`) as new protected vHosts |
 | `Caddyfile` | Crawl4AI port corrected: `8082` → `11235` |
 | `docker-compose.yml` | auth-gateway: profile `public` → `auth` (activated via `--profile auth`) |
 | `start_services.py` | `--environment public` is new default; `--profile auth` + `public.supabase.yml` automatically with `--environment public` |
 | `docker-compose.override.public.supabase.yml` | GoTrue TOTP enabled: `GOTRUE_MFA_ENABLED=true`, `GOTRUE_MFA_TOTP_ENABLED=true` |
-| `.env.example` | `QDRANT_HOSTNAME`, `MINIO_HOSTNAME` added; production example on `yourdomain.com` |
+| `.env.example` | `QDRANT_HOSTNAME` added; production example on `yourdomain.com` |
 
 ### 2026-03 – Python NLP/Document Service v2.0
 
@@ -1030,7 +1025,6 @@ Selective adoption of 13 upstream commits. Our additions (auth-gateway, dashboar
 | New Supabase Storage Env Vars | `57c194a` | ✅ Added to `.env.example` |
 | New n8n workflow files (V1/V2/V3 RAG Agent) | `5c55af2` | ✅ Copied into `n8n/backup/workflows/` |
 | Shared volume path: `:/home/node/.n8n-files/shared` → `:/data/shared` | `8d02114` | ✅ Adopted |
-| `LANGFUSE_ENCRYPTION_KEY` → `ENCRYPTION_KEY` | — | ✅ In `docker-compose.yml` + `.env.example` |
 | Caddy hostnames without `${DOMAIN}` | — | ⏭️ Not adopted (our setup uses `${DOMAIN}`) |
 | `open-webui:latest` → `:main` | — | ⏭️ Not adopted (`:latest` more stable) |
 | `crawl4ai` removed | — | ⏭️ Not adopted (part of our stack) |

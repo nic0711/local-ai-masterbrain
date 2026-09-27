@@ -35,9 +35,8 @@ waren größtenteils Mehrfach-Vorkommen desselben Inhalts über verschiedene,
 mittlerweile überschriebene historische Commits hinweg, die im **aktuellen**
 Dateiinhalt gar nicht mehr in dieser Form vorkommen.
 
-## Aktuelle Baseline (3 Funde, aktueller Dateiinhalt)
+## Aktuelle Baseline (2 Funde, aktueller Dateiinhalt)
 
-- `.env.example:298` (`OSTICKET_MINIO_SECRET`, Regel `generic-api-key`)
 - `docs/16_scraping_configurator.md:157` (`NEO4J_BASIC_AUTH`, Regel `generic-api-key`)
 - `docs/11_obsidian_integration.md:80` (Curl-Auth-Header, Regel `curl-auth-header`)
 

@@ -41,7 +41,7 @@ docker logs auth-gateway
   python3 start_services.py --profile none   # startet auth-gateway automatisch
   ```
 
-**Problem: n8n/Flowise etc. zeigt 502**
+**Problem: n8n/Open WebUI etc. zeigt 502**
 
 - auth-gateway läuft nicht:
   ```bash
@@ -173,7 +173,7 @@ SpaCy-Modelle laden beim ersten Start 30–60s. Warten und `docker logs python-n
 
 **Problem: Services laden sehr langsam oder zeigen "429 Too many requests"**
 
-Ursache: Caddy's `forward_auth` ruft `/verify` für jeden Asset-Request auf. Bei großen Frontends (Langfuse, Supabase Studio) sind das 50–150 parallele Requests.
+Ursache: Caddy's `forward_auth` ruft `/verify` für jeden Asset-Request auf. Bei großen Frontends (z.B. Supabase Studio) sind das 50–150 parallele Requests.
 
 Lösung (bereits implementiert ab diesem Release):
 - Lokale JWT-Verifikation via PyJWT (kein Supabase-HTTP-Call)
@@ -249,10 +249,6 @@ Für eine echte Migration: `pg_dump` mit PG15-Container, dann `pg_restore` in fr
 ---
 
 ## Migration / Upstream-Update
-
-**Problem: `LANGFUSE_ENCRYPTION_KEY` fehlt nach Update**
-
-In `.env` umbenennen: `LANGFUSE_ENCRYPTION_KEY` → `ENCRYPTION_KEY`
 
 **Problem: Workflows nach Update verschwunden**
 

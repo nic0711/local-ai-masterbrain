@@ -2,7 +2,7 @@
 
 ## Authentifizierungs-Architektur
 
-Alle Services (n8n, Open WebUI, Flowise, etc.) sind durch Caddy's `forward_auth` geschützt.
+Alle Services (n8n, Open WebUI, etc.) sind durch Caddy's `forward_auth` geschützt.
 
 **Flow:**
 1. Browser ruft `https://brain.local` auf → Login mit Email + Passwort, danach TOTP-Schritt (siehe [2FA / TOTP](#2fa--totp) – standardmäßig erzwungen)
@@ -161,7 +161,7 @@ Browser → Caddy → forward_auth → auth-gateway /verify
 ```
 
 **Warum lokal statt Supabase-API:**
-Caddy ruft `/verify` für **jeden** Asset-Request auf (HTML, JS, CSS, Fonts...). Ein großes Frontend (Langfuse, Supabase Studio) lädt 50–150 Assets – das wären 50–150 Supabase-HTTP-Calls (~30ms each = mehrere Sekunden Wartezeit).
+Caddy ruft `/verify` für **jeden** Asset-Request auf (HTML, JS, CSS, Fonts...). Ein großes Frontend (z.B. Supabase Studio) lädt 50–150 Assets – das wären 50–150 Supabase-HTTP-Calls (~30ms each = mehrere Sekunden Wartezeit).
 
 Mit lokaler Verifikation: <1ms pro Check, alle Assets laden parallel.
 
@@ -289,7 +289,7 @@ Content-Security-Policy:
   frame-ancestors 'none'                         # kein iFrame-Embedding
 ```
 
-Andere Services (n8n, Grafana, Langfuse) senden ihre eigenen CSP-Header – kein globaler Override durch Caddy.
+Andere Services (n8n, Grafana) senden ihre eigenen CSP-Header – kein globaler Override durch Caddy.
 
 ---
 

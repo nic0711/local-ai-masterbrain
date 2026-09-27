@@ -39,14 +39,11 @@ Folgende Zeilen hinzufügen:
 127.0.0.1  brain.local
 127.0.0.1  n8n.brain.local
 127.0.0.1  webui.brain.local
-127.0.0.1  flowise.brain.local
 127.0.0.1  supabase.brain.local
-127.0.0.1  langfuse.brain.local
 127.0.0.1  neo4j.brain.local
 127.0.0.1  crawl.brain.local
 127.0.0.1  search.brain.local
 127.0.0.1  qdrant.brain.local
-127.0.0.1  minio.brain.local
 ```
 
 > Auf dem Server entfällt dieser Schritt – DNS-A-Records übernehmen die Auflösung.
@@ -117,11 +114,8 @@ DISABLE_SIGNUP=true
 | Dashboard      | https://brain.local              |
 | n8n            | https://n8n.brain.local          |
 | Open WebUI     | https://webui.brain.local        |
-| Flowise        | https://flowise.brain.local      |
 | Supabase       | https://supabase.brain.local     |
-| Langfuse       | https://langfuse.brain.local     |
 | Neo4j          | https://neo4j.brain.local        |
 | Crawl4AI       | https://crawl.brain.local        |
 | SearXNG        | https://search.brain.local       |
 | Qdrant         | https://qdrant.brain.local       |
-| Minio Console  | https://minio.brain.local        |

@@ -81,18 +81,18 @@ Content-Type: application/json
 }
 ```
 
-### Payload: per interner URL (PDF auf MinIO)
+### Payload: per interner URL (PDF auf dem Host)
 
 ```json
 {
   "doc_id": "handbuch-vpn-2026",
   "title": "VPN-Konfigurationshandbuch",
-  "source": "minio",
-  "file_url": "http://minio:9000/documents/handbuch-vpn.pdf"
+  "source": "internal",
+  "file_url": "http://host.docker.internal:8090/handbuch-vpn.pdf"
 }
 ```
 
-`file_url` ist auf interne Hosts beschränkt (`python-nlp-service`, `minio`, `host.docker.internal`) – kein SSRF möglich.
+`file_url` ist auf interne Hosts beschränkt (`python-nlp-service`, `host.docker.internal`) – kein SSRF möglich.
 
 ### Verarbeitungsablauf
 

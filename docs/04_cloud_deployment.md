@@ -70,14 +70,11 @@ Für jede Subdomain einen A-Record anlegen, der auf die Server-IP zeigt:
 | `brain.yourdomain.com` | A | `<Server-IP>` |
 | `n8n.yourdomain.com` | A | `<Server-IP>` |
 | `webui.yourdomain.com` | A | `<Server-IP>` |
-| `flowise.yourdomain.com` | A | `<Server-IP>` |
 | `supabase.yourdomain.com` | A | `<Server-IP>` |
-| `langfuse.yourdomain.com` | A | `<Server-IP>` |
 | `neo4j.yourdomain.com` | A | `<Server-IP>` |
 | `crawl.yourdomain.com` | A | `<Server-IP>` |
 | `search.yourdomain.com` | A | `<Server-IP>` |
 | `qdrant.yourdomain.com` | A | `<Server-IP>` |
-| `minio.yourdomain.com` | A | `<Server-IP>` |
 
 ## Schritt 6: Ersten Benutzer anlegen
 

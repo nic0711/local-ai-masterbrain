@@ -79,14 +79,6 @@ for archive in "$BACKUP_DIR"/bind_mount_*.tar.gz; do
     tar xzf "$archive" -C "$(dirname "${PROJECT_DIR}/${original_path}")"
 done
 
-# --- Special Case: ~/.flowise ---
-FLOWISE_ARCHIVE="${BACKUP_DIR}/flowise_home_config.tar.gz"
-if [[ -f "$FLOWISE_ARCHIVE" ]]; then
-    echo "Restoring ~/.flowise..."
-    tar xzf "$FLOWISE_ARCHIVE" -C "$HOME"
-else
-    echo "INFO: Backup for ~/.flowise not found. Skipping."
-fi
 
 echo "Recovery finished successfully!"
 echo "You can now start your services with: docker-compose up -d"

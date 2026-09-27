@@ -14,12 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'n8n': config.n8nHostname,
         'openWebui': config.openWebuiHostname,
         'searxng': config.searxngHostname,
-        'flowise': config.flowiseHostname,
         'supabase': config.supabaseHostname,
-        'langfuse': config.langfuseHostname,
         'neo4j': config.neo4jHostname,
         'qdrant': config.qdrantHostname,
-        'minio': config.minioHostname,
         'crawl4ai': config.crawl4aiHostname,
         'pythonNlp': null,  // API-only – kein direkter Browser-Link
         'ocr': null,        // API-only – Zugriff via ocr.brain.local/docs

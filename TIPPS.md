@@ -32,7 +32,7 @@
   DASHBOARD_PASSWORD=deinDashboardPasswort
   POOLER_TENANT_ID=irgendeinWert
   ```
-  *(Weitere Variablen für Caddy, n8n, Langfuse etc. ergänzen.)*
+  *(Weitere Variablen für Caddy, n8n etc. ergänzen.)*
 
 ### 3. Supabase-Ports & Netzwerk prüfen
 - Standardmäßig läuft Supabase auf Port 8000 (API Gateway/Kong).
