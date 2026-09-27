@@ -45,22 +45,6 @@ Supabase `ANON_KEY` und `SERVICE_ROLE_KEY` über den offiziellen Generator:
 |---|---|
 | `NEO4J_AUTH` | Format: `neo4j/passwort` (z.B. `neo4j/$(openssl rand -hex 16)`) |
 
-### Langfuse
-| Variable | Beschreibung |
-|---|---|
-| `MINIO_ROOT_USER` | Minio-Benutzername (z.B. `minio`) |
-| `MINIO_ROOT_PASSWORD` | `openssl rand -hex 32` |
-| `CLICKHOUSE_PASSWORD` | `openssl rand -hex 32` |
-| `LANGFUSE_SALT` | `openssl rand -hex 32` |
-| `NEXTAUTH_SECRET` | `openssl rand -hex 32` |
-| `ENCRYPTION_KEY` | `openssl rand -hex 32` |
-
-### Flowise
-| Variable | Beschreibung |
-|---|---|
-| `FLOWISE_USERNAME` | Login-Benutzername |
-| `FLOWISE_PASSWORD` | `openssl rand -hex 16` |
-
 ### S3 Storage (für Supabase Storage)
 | Variable | Beschreibung |
 |---|---|
@@ -79,14 +63,11 @@ DOMAIN=brain.local
 DASHBOARD_HOSTNAME=brain.local
 N8N_HOSTNAME=n8n.brain.local
 WEBUI_HOSTNAME=webui.brain.local
-FLOWISE_HOSTNAME=flowise.brain.local
 SUPABASE_HOSTNAME=supabase.brain.local
-LANGFUSE_HOSTNAME=langfuse.brain.local
 NEO4J_HOSTNAME=neo4j.brain.local
 CRAWL4AI_HOSTNAME=crawl.brain.local
 SEARXNG_HOSTNAME=search.brain.local
 QDRANT_HOSTNAME=qdrant.brain.local
-MINIO_HOSTNAME=minio.brain.local
 
 LETSENCRYPT_EMAIL=internal
 ```
@@ -101,14 +82,11 @@ DOMAIN=yourdomain.com
 DASHBOARD_HOSTNAME=brain.yourdomain.com
 N8N_HOSTNAME=n8n.yourdomain.com
 WEBUI_HOSTNAME=webui.yourdomain.com
-FLOWISE_HOSTNAME=flowise.yourdomain.com
 SUPABASE_HOSTNAME=supabase.yourdomain.com
-LANGFUSE_HOSTNAME=langfuse.yourdomain.com
 NEO4J_HOSTNAME=neo4j.yourdomain.com
 CRAWL4AI_HOSTNAME=crawl.yourdomain.com
 SEARXNG_HOSTNAME=search.yourdomain.com
 QDRANT_HOSTNAME=qdrant.yourdomain.com
-MINIO_HOSTNAME=minio.yourdomain.com
 
 LETSENCRYPT_EMAIL=info@yourdomain.com
 ```

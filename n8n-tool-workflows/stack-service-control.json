@@ -105,7 +105,7 @@
           "conditions": [
             {
               "id": "validate-action",
-              "leftValue": "={{ ['start','stop','restart'].includes($('Webhook').item.json.body.action) && ['neo4j','flowise','minio','clickhouse','langfuse-web','langfuse-worker','n8n','open-webui','qdrant','crawl4ai','searxng','python-nlp-service','langfuse','uptime-kuma'].includes($('Webhook').item.json.body.service) }}",
+              "leftValue": "={{ ['start','stop','restart'].includes($('Webhook').item.json.body.action) && ['neo4j','n8n','open-webui','qdrant','crawl4ai','searxng','python-nlp-service','uptime-kuma'].includes($('Webhook').item.json.body.service) }}",
               "rightValue": "true",
               "operator": { "type": "string", "operation": "equals" }
             }

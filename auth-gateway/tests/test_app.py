@@ -492,7 +492,7 @@ class TestServiceControl:
         mock_gdc.return_value = (MagicMock(), None)
         mock_run.return_value = MagicMock(returncode=1, stderr="image not found")
         resp = client.post(
-            "/control/services/flowise/start",
+            "/control/services/crawl4ai/start",
             headers=self._auth_header(),
         )
         assert resp.status_code == 500

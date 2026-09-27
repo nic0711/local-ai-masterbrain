@@ -20,21 +20,15 @@
         { key: 'hermes-dashboard',   label: 'Hermes Dashboard', linkId: 'hermesGateway', controllable: true },
         { key: 'hermes-gateway',     label: 'Hermes Gateway',   controllable: true },
         { key: 'searxng',            label: 'SearXNG',          linkId: 'searxng',       controllable: true },
-        { key: 'flowise',            label: 'Flowise',          linkId: 'flowise',       controllable: true },
 
         // Infrastructure & Data Services
         { key: 'supabase',           label: 'Supabase',         linkId: 'supabase',      controllable: false },
-        { key: 'langfuse',           label: 'Langfuse',         linkId: 'langfuse',      controllable: false },
-        { key: 'langfuse-web',       label: 'Langfuse Web',     controllable: true },
-        { key: 'langfuse-worker',    label: 'Langfuse Worker',  controllable: true },
         { key: 'neo4j',              label: 'Neo4j',            linkId: 'neo4j',         controllable: true },
         { key: 'qdrant',             label: 'Qdrant',           linkId: 'qdrant',        controllable: true },
-        { key: 'minio',              label: 'MinIO',            linkId: 'minio',         controllable: true },
         { key: 'crawl4ai',           label: 'Crawl4AI',         linkId: 'crawl4ai',      controllable: true },
         { key: 'obsidian',           label: 'Obsidian',         linkId: 'obsidian',      controllable: false },
         { key: 'uptime-kuma',        label: 'UptimeBot',        linkId: 'uptimeKuma',    controllable: true },
         { key: 'grafana',            label: 'Grafana',          linkId: 'grafana',       controllable: true },
-        { key: 'clickhouse',         label: 'Clickhouse',       controllable: true },
         { key: 'redis',              label: 'Redis (Valkey)',   controllable: true },
 
         // Monitoring (Profil: monitoring)

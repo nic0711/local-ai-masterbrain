@@ -66,7 +66,6 @@ der durch `health.js` nach jedem Health-Check aktualisiert wird.
 | `link-n8n` | N8N Workflow Engine |
 | `link-supabase` | Supabase Studio |
 | `link-openwebui` | Open-WebUI (Chat) |
-| `link-flowise` | Flowise AI Builder |
 | `link-searxng` | SearXNG Search |
 
 ### API-Cards (`.api-card`)

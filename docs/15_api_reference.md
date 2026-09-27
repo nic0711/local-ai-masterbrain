@@ -94,9 +94,8 @@ Gibt den laufenden Status aller kontrollierbaren Docker-Services zurück.
 
 ```json
 {
-  "n8n": "up", "open-webui": "up", "flowise": "down",
-  "neo4j": "down", "minio": "up", "clickhouse": "up",
-  "langfuse-web": "up", "langfuse-worker": "down"
+  "n8n": "up", "open-webui": "up", "neo4j": "down",
+  "crawl4ai": "up", "qdrant": "up"
 }
 ```
 
@@ -104,7 +103,7 @@ Gibt den laufenden Status aller kontrollierbaren Docker-Services zurück.
 `action` = `start` | `stop` | `restart`
 
 **Optionale Services** (starten nicht automatisch beim Stack-Start, werden bei `start` per `docker compose --profile optional up -d` erstellt falls kein Container existiert):
-`neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker`
+`neo4j` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard`
 
 ```bash
 curl -X POST https://auth.brain.local/control/services/neo4j/start \
@@ -122,16 +121,15 @@ Führt ein vordefiniertes Macro aus (`dashboard/macros.json`).
 | `light-mode` | Nur n8n + Open WebUI |
 | `research` | SearXNG + Crawl4AI + Open WebUI + n8n |
 | `rag-mode` | Qdrant + Neo4j + NLP + Open WebUI + n8n |
-| `langfuse-start` | MinIO + ClickHouse + Langfuse starten |
 | `save-resources` | Alle optionalen Services stoppen |
-| `restart-core` | n8n + Open WebUI + Flowise neustarten |
+| `restart-core` | n8n + Open WebUI neustarten |
 
 ```bash
-curl -X POST https://auth.brain.local/control/macro/langfuse-start \
+curl -X POST https://auth.brain.local/control/macro/rag-mode \
   -H "Authorization: Bearer $TOKEN"
 
 # Response
-{ "status": "ok", "macro": "langfuse-start", "results": ["start minio: ok", ...], "errors": [] }
+{ "status": "ok", "macro": "rag-mode", "results": ["start qdrant: ok", ...], "errors": [] }
 ```
 
 ---

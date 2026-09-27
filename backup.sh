@@ -49,14 +49,9 @@ VOLUMES_TO_BACKUP=(
     "ollama_storage"
     "qdrant_storage"
     "open-webui"
-    "flowise"
     "caddy-data"
     "caddy-config"
     "valkey-data"
-    "langfuse_postgres_data"
-    "langfuse_clickhouse_data"
-    "langfuse_clickhouse_logs"
-    "langfuse_minio_data"
     "supabase_db"
     "supabase_storage"
 )
@@ -108,15 +103,6 @@ for mount in "${BIND_MOUNTS_TO_BACKUP[@]}"; do
     fi
 done
 
-# --- Special Case: ~/.flowise ---
-# This path is user-dependent.
-FLOWISE_HOME_DIR="${HOME}/.flowise"
-if [[ -d "$FLOWISE_HOME_DIR" ]]; then
-    echo "Backing up ~/.flowise..."
-    tar czf "${BACKUP_DIR}/flowise_home_config.tar.gz" -C "$(dirname "$FLOWISE_HOME_DIR")" "$(basename "$FLOWISE_HOME_DIR")"
-else
-    echo "INFO: Directory ~/.flowise not found. Skipping."
-fi
 
 # --- .env Backup (enthält Secrets – restriktive Berechtigungen) ---
 echo "Backing up .env configuration..."

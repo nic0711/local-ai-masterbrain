@@ -214,18 +214,6 @@
     reverse_proxy open-webui:8080
 }
 
-# Flowise
-{$FLOWISE_HOSTNAME} {
-    import protected
-    reverse_proxy flowise:3001
-}
-
-# Langfuse
-{$LANGFUSE_HOSTNAME} {
-    import protected
-    reverse_proxy langfuse-web:3000
-}
-
 # Uptime Kuma – Service Monitoring (optional, Profil: monitoring)
 # Kein forward_auth: Uptime Kuma hat eigenen Login, Status-Pages sollen public sein
 {$UPTIME_KUMA_HOSTNAME:uptime.invalid} {
@@ -267,12 +255,6 @@
 {$QDRANT_HOSTNAME} {
     import protected
     reverse_proxy qdrant:6333
-}
-
-# Minio Console – KEIN forward_auth (MinIO hat eigenen Login, wie Supabase)
-{$MINIO_HOSTNAME} {
-    import security_headers
-    reverse_proxy minio:9001
 }
 
 # Grafana – alle Requests brauchen JWT; /api/* gibt bei Fehler 401 (kein Redirect)

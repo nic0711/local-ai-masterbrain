@@ -18,12 +18,6 @@ Alle Services haben explizite Limits. Limits sind bewusst konservativ gesetzt �
 | grafana | 512 MB | 128 MB | |
 | neo4j | 2 GB | 256 MB | optional; JVM-Heap per NEO4J_* konfigurierbar |
 | qdrant | 1 GB | 256 MB | bei großen Kollektionen erhöhen |
-| flowise | 1 GB | 256 MB | optional |
-| langfuse-web | 1 GB | 256 MB | optional |
-| langfuse-worker | 1 GB | 256 MB | optional |
-| clickhouse | 2 GB | 256 MB | optional; Analytics-DB |
-| minio | 512 MB | 128 MB | optional |
-| postgres (Langfuse) | 512 MB | 128 MB | separater Langfuse-Postgres |
 | redis (Valkey) | 256 MB | 64 MB | |
 | searxng | 512 MB | 128 MB | |
 | crawl4ai | 3 GB | 512 MB | optional; Chromium-basiert |

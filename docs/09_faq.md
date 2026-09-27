@@ -84,7 +84,7 @@ Ja – in `docker-compose.yml` den entsprechenden Service-Block auskommentieren,
 
 ### Kann ich externe AI-Provider (OpenAI, Anthropic) nutzen?
 
-Ja. In n8n und Flowise können API-Keys als Credentials hinterlegt werden. Open WebUI kann auf beliebige OpenAI-kompatible Endpunkte konfiguriert werden.
+Ja. In n8n können API-Keys als Credentials hinterlegt werden. Open WebUI kann auf beliebige OpenAI-kompatible Endpunkte konfiguriert werden.
 
 ---
 

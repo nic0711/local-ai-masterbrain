@@ -138,7 +138,7 @@ docker exec auth-gateway pip list --outdated
 
 Bestimmte ressourcenintensive Services starten **nicht automatisch** (`profiles: [optional]` oder `profiles: [monitoring]`):
 
-**optional:** `neo4j` · `flowise` · `minio` · `clickhouse` · `langfuse-web` · `langfuse-worker` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard`
+**optional:** `neo4j` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard`
 
 **monitoring:** `prometheus` · `node-exporter` · `cadvisor` · `pushgateway` · `mqtt2prometheus` · `modbus-exporter`
 
