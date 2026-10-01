@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Eng geschnittene, gemeinsame Utilities fuer local-ai-masterbrain Custom Services: JWT-Pruefung, JSON-Logging mit Correlation-ID, Health/Ready-Helper, Fehlerformat, Audit-Logging. Siehe README.md fuer den verbindlichen Scope."
 requires-python = ">=3.11"
 dependencies = [
-    "PyJWT==2.13.0",
+    "PyJWT==2.15.0",
     "python-json-logger==4.0.0",
 ]
 
