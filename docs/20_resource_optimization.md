@@ -110,7 +110,6 @@ python3 start_services.py --profile none --rebuild
 |---|---|---|---|---|
 | ocr-service, tts-service | `anyio` | 3.7.1 | 4.x | hoch (Major) |
 | ocr-service, tts-service | `fastapi` | 0.104.1 | 0.138.x | mittel |
-| tts-service | `gradio` | 5.1.0 | 6.x | hoch (Major) |
 | python-nlp-service | `neo4j` | 5.27.0 | 6.x | hoch (Major, API-Breaking) |
 | auth-gateway | `Flask-Limiter` | 3.9.0 | 4.x | niedrig |
 
