@@ -1,0 +1,42 @@
+name: omnivoice-version-check
+
+# omnivoice steht bewusst nicht in tts-service/requirements.lock.txt, sondern in
+# tts-service/requirements-omnivoice.txt (--no-deps). Dependabot ist hier nicht
+# verlaesslich, daher woechentlicher Vergleich gegen PyPI. Keine Aktualisierung,
+# nur ein Hinweis-Issue (hoechstens eines offen).
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Gepinnte Version mit PyPI vergleichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pinned=$(sed -n 's/^omnivoice==\([^ ]*\).*/\1/p' tts-service/requirements-omnivoice.txt)
+          latest=$(curl -fsS https://pypi.org/pypi/omnivoice/json | python3 -c 'import json,sys; print(json.load(sys.stdin)["info"]["version"])')
+          echo "gepinnt=$pinned pypi=$latest"
+          [ -n "$pinned" ] && [ -n "$latest" ]
+          [ "$pinned" != "$latest" ] || exit 0
+          open=$(gh issue list --state open --search "OmniVoice-Update in:title" --json number --jq 'length')
+          if [ "$open" -gt 0 ]; then
+            echo "Es ist bereits ein OmniVoice-Update-Issue offen."
+            exit 0
+          fi
+          gh issue create \
+            --title "OmniVoice-Update verfuegbar: $latest (gepinnt: $pinned)" \
+            --body "PyPI bietet omnivoice $latest, gepinnt ist $pinned in tts-service/requirements-omnivoice.txt. Manuell pruefen: Dependencies (gradio bleibt ausgeschlossen, neue Pflicht-Abhaengigkeiten in tts-service/requirements.in ergaenzen), Hashes von https://pypi.org/pypi/omnivoice/$latest/json, dann Build, Tests und Smoke-Test. Keine automatische Aktualisierung."
