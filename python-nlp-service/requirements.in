@@ -38,4 +38,4 @@ neo4j==6.2.0
 
 # Dokument- und PDF-Verarbeitung
 PyMuPDF==1.28.2           # PDF-Text-Extraktion und PDF-zu-PNG (fitz)
-Pillow==12.3.0            # Bildverarbeitung fuer OCR-Vorbereitung
+Pillow==13.0.0            # Bildverarbeitung fuer OCR-Vorbereitung

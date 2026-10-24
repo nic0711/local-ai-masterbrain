@@ -1,0 +1,12 @@
+# OmniVoice 0.2.1, bewusst getrennt von requirements.lock.txt (siehe Kommentar in
+# requirements.in): Installation im Dockerfile mit --no-deps --require-hashes.
+# omnivoice deklariert gradio als Pflicht-Abhaengigkeit, importiert es aber nur in
+# omnivoice/cli/demo.py. Die uebrigen Laufzeit-Abhaengigkeiten stehen in
+# requirements.in/requirements.lock.txt. `pip check` meldet deshalb genau EINE
+# erwartete Luecke: "omnivoice 0.2.1 requires gradio, which is not installed."
+# Jede andere pip-check-Meldung ist ein echter Fehler.
+# Version nur manuell aendern; Hashes (wheel + sdist) von PyPI:
+# https://pypi.org/pypi/omnivoice/<version>/json
+omnivoice==0.2.1 \
+    --hash=sha256:23f113ef51116a16308b55c4c2ac9c08efca7dfb594802f5c8adfb7523313ccc \
+    --hash=sha256:b55e5078a371f45ec72443b5cdafe4a87fd0c5c27056fbab113d8cccceff5c7c

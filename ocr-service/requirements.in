@@ -3,7 +3,7 @@
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
 python-multipart==0.0.32
-Pillow==12.3.0
+Pillow==13.0.0
 opencv-python==5.0.0.93
 numpy==2.5.2
 pymupdf==1.28.2

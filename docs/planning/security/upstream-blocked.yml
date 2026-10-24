@@ -243,3 +243,24 @@ entries:
       Release/installierbaren Paket) + Trivy-Rescan mit Target
       usr/libexec/docker/cli-plugins/docker-compose.
     recheck_after: "2026-09-10"
+
+  # --- auth-gateway: docker-compose-plugin 5.6.1 vendort golang.org/x/net v0.58.0 ---
+  - component: auth-gateway
+    cve: CVE-2026-78669
+    direct_package: docker-compose-plugin
+    installed_package_version: "5.6.1-1~debian.12~bookworm"
+    upstream_component: golang.org/x/net
+    vulnerable_version: v0.58.0
+    fixed_version: "0.60.0"
+    package_source: "https://download.docker.com/linux/debian bookworm/stable (offizielles Docker-Debian-Repo)"
+    verified_on: "2026-10-24"
+    evidence: >
+      apt-cache madison docker-compose-plugin: 5.6.1-1~debian.12~bookworm ist die
+      neueste Version (5.6.0, 5.5.1, 5.5.0 aelter); installiert und per
+      `docker compose version` (v5.6.1, veroeffentlicht 2026-10-21) bestaetigt.
+      go.mod von docker/compose v5.6.1 fuehrt golang.org/x/net v0.58.0; erst der
+      main-Branch (PR #14316, geschlossen 2026-10-09) enthaelt v0.60.0, ein Release
+      mit dem Fix existiert noch nicht. Frischer Rebuild + Trivy-Rescan mit
+      aktueller Trivy-DB (2026-10-24): Finding unveraendert, Target
+      usr/libexec/docker/cli-plugins/docker-compose.
+    recheck_after: "2026-11-07"
