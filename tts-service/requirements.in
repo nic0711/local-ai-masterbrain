@@ -13,7 +13,16 @@ librosa==1.0.0
 pydub==0.25.1
 
 # TTS + Voice Cloning
-omnivoice==0.2.1
+# omnivoice==0.2.1 wird bewusst NICHT hier gelockt, sondern aus
+# requirements-omnivoice.txt mit --no-deps --require-hashes installiert.
+# omnivoice deklariert gradio als Pflicht-Abhaengigkeit, importiert es aber nur in omnivoice/cli/demo.py (Demo-CLI, hier nie gestartet). gradio
+# zieht Pillow <13 und ein gebuendeltes node_modules (CVE-Findings) ins Image.
+# Seine uebrigen Laufzeit-Abhaengigkeiten stehen deshalb explizit hier:
+accelerate==1.14.0
+tensorboardx==2.6.5
+transformers==5.16.1
+webdataset==1.0.2
+audioop-lts==0.2.2  # pydub braucht audioop (ab Python 3.13 entfernt)
 
 # Transkription (Dubbing)
 faster-whisper==1.2.1
