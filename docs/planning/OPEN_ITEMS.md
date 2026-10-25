@@ -54,6 +54,35 @@ sind bereits über Squash-Merge vollständig in `main` enthalten
 (`gh pr list --state all` je Branch verifiziert). Kein weiterer offener
 Branch-Inhalt außer den oben genannten Punkten 1–4.
 
+## 6. Stand 2026-10-25 (nach Security-Deployment, PR #203)
+
+- **CVE-2026-78669 Recheck** (`golang.org/x/net` v0.58.0 in `docker-compose-plugin` 5.6.1, auth-gateway):
+  `upstream-blocked.yml`, `recheck_after: 2026-11-07`. Prüfen, ob ein `docker/compose`-Release mit
+  `golang.org/x/net >= 0.60.0` (Upstream-`main`, PR #14316) im offiziellen Docker-Debian-Repo verfügbar
+  ist. Das ist das einzige UPSTREAM-BLOCKED-Finding der vier Custom-Images; keine Security-Exceptions aktiv.
+  Die Punkte 3 und 4 oben sind historisch und gelten nur, solange ihre Einträge in der Datei stehen.
+- **Issue #205:** `pip check` meldet in auth-gateway und python-nlp-service Konflikte (`python-json-logger`
+  4.0.0 in `masterbrain-common` gegen 4.2.0 im Lock; `pyjwt` fehlt im nlp-Lock). CI führt kein `pip check` aus.
+- **Issue #206:** TrOCR lädt im ocr-service nicht (Tokenizer-Backend, `sentencepiece`/`tiktoken` fehlt). Aktiv ist nur Tesseract.
+- **OCR-Abnahme** des Deployments bestand nur aus synthetischem PNG/Bild-PDF und Unit-Tests. Pillow 13 und
+  filelock 4 sind nicht mit echten Scans geprüft.
+- **Aufräumen ab 2026-11-01:** Rollback-Tags `localai-<svc>:rollback-20261025` und die alten Image-IDs
+  (`1fefc685c6f3`, `098afbf9f980`, `905df7adb1ed`, `941daadfb6c0`). Backup unter
+  `../pgdata-backups-local-ai-masterbrain/pre-deploy-20261025-0100/` behalten.
+- **Grafana** startet in einer Restart-Schleife (`Datasource provisioning error: data source not found`),
+  solange das Profil `monitoring` (Prometheus) nicht läuft. Seit PR #202 enthält die Konfiguration die
+  Blackbox-Basis; Profil starten oder Grafana stoppen.
+- **Container-Bereinigung zurückgestellt.** Kandidaten laut Analyse (keine Nutzung im Repo gefunden):
+  `supabase-edge-functions` (nur Demo-Funktionen), `supabase-imgproxy`, `supabase-pooler`, `redis`
+  (nur SearXNG, `limiter: false`), evtl. `supabase-realtime`, `uptime-kuma` gegen Blackbox-Monitoring.
+  Entscheidung steht aus.
+- **Produktiv-Checkout** liegt weiter auf altem Stand (`fa01b40`, Branch
+  `agent/consolidate-phase-2b-and-monitoring`). Eine Umstellung auf `main` ist ein eigener Schritt
+  (`auth-gateway` bindet den Checkout als `/opt/project` ein).
+- **Remote-Branches:** `working` bleibt (CI-Trigger). Zwei neue Dependabot-Branches
+  (`…/auth-gateway/pip-b4ce6f8da2`, `…/python-nlp-service/pip-95482ee475`) sind ungeprüft.
+- **Backup/Restore:** Ein Start des gesamten Supabase-Stacks und von n8n auf wiederhergestellten Daten ist nicht getestet.
+
 ## Nicht Teil dieser Liste
 
 - Der lokale, produktive Checkout unter `/Users/lupus/AI/CLAUDE/local-ai-masterbrain`

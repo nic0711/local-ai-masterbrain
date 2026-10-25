@@ -261,3 +261,27 @@ Vollständige Liste: [k2-fsa/OmniVoice/docs/languages.md](https://github.com/k2-
 | `tts_storage/models` | `/data/models` | OmniVoice + Whisper Modell-Cache (persistent) |
 | `tts_storage/output` | `/data/output` | Fertige Dubbing-Videos |
 | `tts_storage/temp` | `/data/temp` | Temporäre Job-Dateien (werden nach Download gelöscht) |
+
+## OmniVoice-Installation und Abhängigkeiten
+
+`omnivoice` ist bewusst **nicht** in `tts-service/requirements.lock.txt`, sondern in
+`tts-service/requirements-omnivoice.txt` (Version + SHA256 von Wheel und sdist). Das Dockerfile
+installiert es nach dem Haupt-Lock mit `pip install --no-deps --require-hashes`.
+
+**Grund:** `omnivoice` deklariert `gradio` als Pflicht-Abhängigkeit, importiert es aber nur in
+`omnivoice/cli/demo.py` (Demo-CLI, wird hier nie gestartet). `gradio` würde Pillow `<13` und ein
+gebündeltes `node_modules` (CVE-Findings) ins Image ziehen. Die übrigen Laufzeit-Abhängigkeiten
+(`accelerate`, `tensorboardx`, `transformers`, `webdataset`, `audioop-lts`) stehen explizit in
+`requirements.in` und im Lock.
+
+**`pip check` im Image:** Genau eine Meldung ist erwartet:
+`omnivoice 0.2.1 requires gradio, which is not installed.` Jede andere Meldung ist ein echter Fehler.
+
+**Version aktualisieren (nur manuell):**
+1. Neue Version, Abhängigkeiten (`requires_dist`) und Hashes von `https://pypi.org/pypi/omnivoice/<version>/json` prüfen.
+2. `requirements-omnivoice.txt` anpassen, neue Pflicht-Abhängigkeiten (außer `gradio`) in `requirements.in` ergänzen, Lock neu erzeugen.
+3. Image bauen, `unittest`, `pip check` und einen echten Synthese-Request (WAV und MP3) ausführen.
+
+Der Workflow `.github/workflows/omnivoice-version-check.yml` vergleicht montags die gepinnte Version
+mit PyPI und legt bei Abweichung höchstens ein offenes Issue „OmniVoice-Update verfuegbar“ an. Er
+aktualisiert nichts automatisch.

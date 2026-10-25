@@ -46,3 +46,19 @@ stattfindet. Dies ist eine bewusste Abweichung von der in
 `docs/planning/implementation-roadmap.md` genannten Formulierung "Rollback
 erfolgreich" zugunsten der in `.handoff/claude/checks/PHASE-1-ACCEPTANCE.md`
 verlangten Formulierung "Rollback beschrieben".
+
+## Custom-Image-Deployment ohne Repo-Cutover (Verfahren, 2026-10-25 durchgeführt)
+
+Für `auth-gateway`, `python-nlp-service`, `ocr-service` und `tts-service` (Compose-Projekt `localai`,
+`build:` ohne `image:`, implizite Namen `localai-<service>:latest`). Der Produktiv-Checkout bleibt
+unverändert, denn `auth-gateway` bindet ihn als `/opt/project` ein und führt dort `docker compose` aus.
+
+1. **Vorprüfung:** alle Container und die vier Services `healthy`, mindestens 20 GB frei, Backup geprüft (siehe `docs/08_backup_and_recovery.md`).
+2. **Bauen aus separatem Worktree** von `origin/main` (nicht aus dem Produktiv-Checkout), `docker build --no-cache` mit denselben Contexts wie im Compose (`auth-gateway` und `python-nlp-service`: Repo-Root mit `-f <svc>/Dockerfile` und `--build-arg GIT_COMMIT=unknown`; `ocr-service` und `tts-service`: eigener Ordner). Tag `localai-<svc>:sec-<datum>`. Versionen im Image prüfen.
+3. **Rollback-Tag** auf das laufende Image: `docker tag $(docker inspect <svc> --format '{{.Image}}') "localai-<svc>:rollback-<datum>"`. In zsh `"${s}"` statt `$s:` nutzen (`:r` wird sonst als Modifier gelesen).
+4. **Cutover je Service nacheinander** (nlp, ocr, tts, zuletzt auth-gateway): `docker tag localai-<svc>:sec-<datum> localai-<svc>:latest`, dann mit allen vier Compose-Dateien (`docker-compose.yml`, `…override.public.yml`, `…override.public.supabase.yml`, `…override.none.yml`) und `-p localai`: erst `up --dry-run --no-deps --no-build <svc>` (genau ein „Recreate“), dann `up -d --no-deps --no-build <svc>`.
+5. **Prüfung je Service** (Health, Funktionsaufruf, Logs). `auth-gateway` ist für alle geschützten Routen kurz nicht erreichbar (ca. 7 s).
+6. **Rollback ohne Konfigurationsänderung:** `docker tag localai-<svc>:rollback-<datum> localai-<svc>:latest`, dann derselbe `up -d --no-deps --no-build <svc>`. Volumes und Mounts bleiben unberührt.
+7. **Aufräumen:** Worktree entfernen. Rollback-Tags und alte Images ca. 7 Tage behalten.
+
+Hinweis: `python-nlp-service` meldet `/ready` mit 503, solange Neo4j (Profil `optional`) nicht läuft. Das ist erwartet.

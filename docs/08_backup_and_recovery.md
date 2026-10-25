@@ -147,3 +147,33 @@ ls -la ./backups/
 **Restore hat keine Wirkung in n8n**
 - Restore schreibt nur Dateien – n8n muss Workflows neu importieren
 - n8n → Settings → Import workflow → Datei aus `n8n/backup/workflows/` wählen
+
+---
+
+## Vollbackup vor Deployments (verifiziertes Verfahren)
+
+Das Skript `backup/backup.sh` sichert nur Konfiguration und Workflows. Vor einem Image-Deployment
+wurde zusätzlich folgendes Backup erstellt und per Restore-Probe geprüft (Ablage außerhalb des
+Repos, Rechte 700, `SHA256SUMS` über alle Dateien):
+
+| Inhalt | Verfahren |
+|---|---|
+| Datenbanken (logisch) | `docker exec supabase-db pg_dumpall -U postgres \| gzip` |
+| Datenbank (physisch) | `pg_backup_start('label', true)`, Datenverzeichnis `supabase/docker/volumes/db/data` schreibgeschützt kopieren, `pg_backup_stop(true)` (Label als `backup_label` sichern), danach `pg_wal` erneut sichern. Alles in **einer** offenen psql-Sitzung. |
+| Compose-Volumes | je `docker run --rm -v <vol>:/d:ro … tar -czf` (Socket-Dateien werden ignoriert) |
+| SQLite (`webui.db`, `chroma.sqlite3`, `kuma.db`, Hermes-DBs, `grafana.db`) | SQLite-Backup-API über `file:…?mode=ro`, danach `integrity_check` und Zeilenzahl-Vergleich zur Live-DB |
+| Konfiguration | `.env`, Caddyfile, Compose-Dateien samt Overrides, Supabase-`.env`, Kong, Functions, Dashboard, Grafana, Prometheus, SearXNG, n8n |
+
+**Hinweise:**
+- `pg_basebackup` funktioniert hier nicht: `pg_hba.conf` hat keinen Replikationseintrag. Die Konfiguration wurde dafür nicht geändert.
+- `pg_dumpall` allein reicht nicht für einen vollständigen Restore: Rechte auf Extension-Objekte (`graphql`, `vault`, `net`) und `graphql_public.graphql` werden nicht geschrieben.
+- Volume-Archive eines laufenden Systems sind keine Snapshots. SQLite-Dateien deshalb immer mit der Backup-API sichern.
+- `ocr_storage` und `tts_storage` enthalten nur reproduzierbare Modell-Caches (Stand 2026-10, Ein-/Ausgabeverzeichnisse leer). Vor jedem Deployment erneut prüfen.
+
+**Restore-Probe (Wegwerf-Container, ohne Port, außerhalb des Stack-Netzes):**
+1. Physisches Backup in ein neues Volume entpacken, `backup_label` und nachgesicherte WAL-Dateien einspielen, Besitzer `105:105` (User `postgres` im Image), Rechte 700.
+2. `supabase/postgres:15.8.1.085` darauf starten. Erwartet: `consistent recovery state reached`, `ready to accept connections`.
+3. Katalog (Funktionen, Rechte, Trigger, Event-Trigger, Rollen, Extensions, Policies) und Zeilenzahlen aller Tabellen mit der Produktion vergleichen. Policy-Texte nur mit `set search_path=pg_catalog` vergleichen.
+4. Probe-Container und -Volume entfernen.
+
+Ein Start des gesamten Supabase-Stacks und von n8n auf den wiederhergestellten Daten wurde noch nicht getestet.
