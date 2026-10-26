@@ -1,21 +1,46 @@
 services:
   # Kong: ports nicht nach außen, 2 Worker reichen für lokalen Betrieb (default: 8)
   kong:
+    image: kong/kong:3.9.4
     ports: !reset null
     environment:
       KONG_NGINX_WORKER_PROCESSES: "2"
 
   supavisor:
+    image: supabase/supavisor:2.9.13
     ports: !reset null
 
-  # Daten-Volume ist PG15-initialisiert; Image auf 15.x pinnen bis Migration durchgeführt wird
+  # Daten-Volume ist PG15-initialisiert; Image auf 15.x pinnen bis Migration durchgeführt wird.
+  # 15.19.0.007: Security-Patchstand (an Datenkopie getestet). Beim ersten Wechsel von
+  # 15.8 einmalig: REINDEX DATABASE postgres; ALTER DATABASE postgres REFRESH COLLATION VERSION;
+  # Achtung: postgres-UID wechselte 105 -> 100; Volume db-config (pgsodium_root.key) musste auf
+  # 100:101 gechownt werden. Fuer Rollback auf 15.8.x zurueck auf 105:106 chownen.
   db:
-    image: supabase/postgres:15.8.1.085
+    image: supabase/postgres:15.19.0.007
 
   # TOTP / MFA für GoTrue aktivieren
   auth:
+    image: supabase/gotrue:v2.197.0
     environment:
       GOTRUE_MFA_ENABLED: "true"
       GOTRUE_MFA_TOTP_ENABLED: "true"
       GOTRUE_MFA_TOTP_ISSUER: "Local AI Masterbrain"
       GOTRUE_MFA_MAX_ENROLLED_FACTORS: "10"
+
+  # Security-Updates (CVE-Watch): Versionen = vom Supabase-Upstream
+  # (docker/docker-compose.yml, master 2026-10-22) getestete Kombination.
+  # Fuer Kong/supavisor/auth siehe oben. Submodule bleibt unveraendert.
+  studio:
+    image: supabase/studio:2026.10.26-sha-478bd88
+  rest:
+    image: postgrest/postgrest:v16.5
+  realtime:
+    image: supabase/realtime:v2.143.3
+  storage:
+    image: supabase/storage-api:v1.81.0
+  imgproxy:
+    image: darthsim/imgproxy:v4.0.19
+  meta:
+    image: supabase/postgres-meta:v0.100.0
+  functions:
+    image: supabase/edge-runtime:v1.77.8

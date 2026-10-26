@@ -23,7 +23,7 @@ x-n8n: &service-n8n
   # aendert Kompressions-Sicherheitsdefaults. Version bewusst und geprueft
   # anheben, sobald bestehende Workflows in n8n-tool-workflows/ dagegen
   # verifiziert wurden - kein automatisches Nachziehen ueber :latest.
-  image: n8nio/n8n:2.37.6
+  image: n8nio/n8n:2.45.4
   environment:
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=db
@@ -532,7 +532,7 @@ services:
 
   dashboard:
     container_name: dashboard-ui
-    image: nginx:1.25-alpine
+    image: nginx:1.30-alpine
     restart: unless-stopped
     volumes:
       - ./dashboard:/usr/share/nginx/html:rw
@@ -570,7 +570,7 @@ services:
         max-file: "1"
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:2.5.7-slim
     container_name: uptime-kuma
     restart: unless-stopped
     expose:
@@ -664,9 +664,21 @@ services:
   # ── Hermes Agent (optional) ──────────────────────────────────────
   # Autonomer KI-Agent mit Telegram/Slack-Gateway und Web-Dashboard.
   # Starten: docker compose --profile optional up -d hermes-gateway hermes-dashboard
-  hermes-gateway:
+  # Upstream-Build unveraendert; hermes-gateway legt darueber hermes-overlay/ (CVE-Pins).
+  hermes-base:
     build:
       context: ./hermes-agent
+    image: hermes-agent:base
+    pull_policy: never
+    profiles: [optional]
+    entrypoint: ["true"]
+    restart: "no"
+
+  hermes-gateway:
+    build:
+      context: ./hermes-overlay
+      additional_contexts:
+        base: service:hermes-base
     image: hermes-agent:local
     pull_policy: never
     container_name: hermes-gateway

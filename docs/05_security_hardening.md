@@ -301,6 +301,16 @@ Grafana vertraut den Headern `X-Forwarded-User`/`X-Forwarded-Role` (`GF_AUTH_PRO
 - Auf den beiden auth-freien Pfaden `/public/*` und `/avatar/*` (statische Assets, kein Login-Redirect gewünscht) entfernt Caddy die Header explizit (`header_up -X-Forwarded-User` / `-X-Forwarded-Role`), statt sie durchzureichen.
 - Zusätzlich kann `GRAFANA_PROXY_WHITELIST` in `.env` gesetzt werden (IP/Subnetz des Compose-Netzes), damit Grafana die Header ohnehin nur vom Caddy-Container akzeptiert (defense-in-depth, `GF_AUTH_PROXY_WHITELIST`).
 
+## CVE-Monitoring der Container
+
+- **Lokal (was wirklich läuft):** `scripts/scan-running.sh` scannt alle laufenden Images mit dem in der CI gepinnten Trivy und listet behebbare CRITICAL/HIGH-Funde mit Fix-Version. `--all` scannt auch nicht laufende Compose-Images, `--notify` löst bei Funden eine macOS-Benachrichtigung aus (für Cron/launchd). Exit-Code 1 = behebbare Funde.
+- **Wöchentlich in GitHub (was die Registry heute liefert):** `.github/workflows/cve-watch.yml` (montags) scannt die Registry-Stände der Compose-Images ohne die lokal gebauten und führt die Funde im Issue „CVE-Watch“.
+- **Updates sind manuell:** Supabase-Images werden in `docker-compose.override.public.supabase.yml` gepinnt (Vorbild: `docker/docker-compose.yml` des Supabase-Upstreams), übrige Images in `docker-compose.yml`. Neue Releases kommen nicht automatisch; Dependabot ist pausiert. Nach Anheben eines Pins: `python3 start_services.py --profile none --update`, danach `scripts/scan-running.sh`.
+- **Eigene Images** (inkl. `hermes-agent`) werden mit `--rebuild` erneuert.
+- **Major-Sprünge:** postgrest 16 und imgproxy 4 weichen bewusst vom Supabase-Upstream-Stand ab (Release Notes gegen die eigene Config geprüft). Bei Problemen die Tags in `docker-compose.override.public.supabase.yml` auf den Upstream-Stand zurücksetzen.
+
+---
+
 ## Bekannte Einschränkungen
 
 | Thema | Status | Begründung |
