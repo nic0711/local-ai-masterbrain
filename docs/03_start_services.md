@@ -107,7 +107,7 @@ Services sind direkt über `localhost:PORT` erreichbar.
 ## Images aktuell halten (`--rebuild`)
 
 Der Stack enthält fünf selbst gebaute Images:
-`auth-gateway` · `python-nlp-service` · `ocr-service` · `tts-service` · `hermes-agent` (Build aus dem Submodule `hermes-agent/`)
+`auth-gateway` · `python-nlp-service` · `ocr-service` · `tts-service` · `hermes-agent` (Upstream-Build aus dem Submodule `hermes-agent/`, darüber `hermes-overlay/` mit angehobenen Pins für Pillow und PyJWT)
 
 Diese werden **nicht automatisch aktualisiert** — `docker compose up` startet immer den zuletzt gebauten Stand. Mit `--rebuild` werden alle fünf Images neu gebaut, bevor der Stack startet:
 

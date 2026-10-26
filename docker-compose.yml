@@ -664,9 +664,21 @@ services:
   # ── Hermes Agent (optional) ──────────────────────────────────────
   # Autonomer KI-Agent mit Telegram/Slack-Gateway und Web-Dashboard.
   # Starten: docker compose --profile optional up -d hermes-gateway hermes-dashboard
-  hermes-gateway:
+  # Upstream-Build unveraendert; hermes-gateway legt darueber hermes-overlay/ (CVE-Pins).
+  hermes-base:
     build:
       context: ./hermes-agent
+    image: hermes-agent:base
+    pull_policy: never
+    profiles: [optional]
+    entrypoint: ["true"]
+    restart: "no"
+
+  hermes-gateway:
+    build:
+      context: ./hermes-overlay
+      additional_contexts:
+        base: service:hermes-base
     image: hermes-agent:local
     pull_policy: never
     container_name: hermes-gateway
