@@ -69,9 +69,10 @@ Branch-Inhalt außer den oben genannten Punkten 1–4.
 - **Aufräumen ab 2026-11-01:** Rollback-Tags `localai-<svc>:rollback-20261025` und die alten Image-IDs
   (`1fefc685c6f3`, `098afbf9f980`, `905df7adb1ed`, `941daadfb6c0`). Backup unter
   `../pgdata-backups-local-ai-masterbrain/pre-deploy-20261025-0100/` behalten.
-- **Grafana** startet in einer Restart-Schleife (`Datasource provisioning error: data source not found`),
-  solange das Profil `monitoring` (Prometheus) nicht läuft. Seit PR #202 enthält die Konfiguration die
-  Blackbox-Basis; Profil starten oder Grafana stoppen.
+- **Grafana** (behoben 2026-10-26): Die Restart-Schleife (`Datasource provisioning error: data source not found`)
+  kam von der in `prometheus.yml` neu gesetzten `uid: prometheus`, während die Datasource in der Grafana-DB
+  noch eine generierte UID hatte. Einmalig über `deleteDatasources` (Name `Prometheus`) entfernt und neu
+  provisioniert. Bei einer weiteren UID-Änderung gilt dasselbe Vorgehen.
 - **Container-Bereinigung zurückgestellt.** Kandidaten laut Analyse (keine Nutzung im Repo gefunden):
   `supabase-edge-functions` (nur Demo-Funktionen), `supabase-imgproxy`, `supabase-pooler`, `redis`
   (nur SearXNG, `limiter: false`), evtl. `supabase-realtime`, `uptime-kuma` gegen Blackbox-Monitoring.
@@ -82,6 +83,28 @@ Branch-Inhalt außer den oben genannten Punkten 1–4.
 - **Remote-Branches:** `working` bleibt (CI-Trigger). Zwei neue Dependabot-Branches
   (`…/auth-gateway/pip-b4ce6f8da2`, `…/python-nlp-service/pip-95482ee475`) sind ungeprüft.
 - **Backup/Restore:** Ein Start des gesamten Supabase-Stacks und von n8n auf wiederhergestellten Daten ist nicht getestet.
+
+## 7. Stand 2026-10-26 (CVE-Monitoring und Image-Updates, PR #211)
+
+- **Behebbare CRITICAL/HIGH-Funde** (`scripts/scan-running.sh`): von ca. 2300 auf 600. Der Rest steckt in
+  Upstream-Images ohne neueres Release: supavisor 2.9.13 (114, Debian-Pakete), realtime v2.143.3 (80),
+  storage-api v1.81.0 (60), postgres-meta v0.100.0 (45), uptime-kuma 2.5.7-slim (84, Go-Stdlib/Node),
+  hermes-agent (86, Debian/Python/Node). Wöchentlich meldet `cve-watch.yml` das Issue „CVE-Watch“.
+- **Nicht getestet:** echter Dashboard-Login und Storage-Upload nach dem Update (nur Health, Endpunkt- und
+  API-Checks). Postgres 15.19.0.007 lief vorab an einer Datenkopie; auf Live-Daten sind `REINDEX` und
+  `REFRESH COLLATION VERSION` für `postgres`, `_supabase`, `template1` ausgeführt.
+- **Rollback:** Alte Images liegen lokal; storage-api und realtime haben ihr Schema vorwärts migriert,
+  Rollback nur mit Dump. Postgres-Rollback auf 15.8.x braucht `chown -R 105:106` auf `localai_db-config`
+  (siehe `docs/07_troubleshooting.md`). Backups: `pgdata-backups-local-ai-masterbrain/pre-update*-20261026-*`.
+- **Hermes:** Bleibt auf Submodule-Pin v0.21.0; Pillow 13.0.0 und PyJWT 2.14.0 kommen über `hermes-overlay/`.
+  Release v2026.9.24 brächte kaum weniger Funde (118) bei großem Config-Sprung.
+- **Hermes Teams-Plattform** lädt nicht: `lazy_deps` scheitert an `microsoft-teams-apps==2.0.13.4`
+  (`cryptography==50.0.0`) gegen `msal==1.36.0` (`cryptography<49`). Besteht auch mit dem Image vor dem
+  Overlay; Ursache nicht abschließend geklärt.
+- **Pins mit Major-Sprung** (postgrest 16.5, imgproxy 4.0.19) weichen vom Supabase-Upstream-Stand ab
+  (dort postgrest v14.18, imgproxy v3.31.4). Release Notes gegen die eigene Config geprüft, API/Bild-Skalierung
+  getestet; bei Auffälligkeiten in `docker-compose.override.public.supabase.yml` zurücksetzen.
+- **uptime-kuma** läuft als `2.5.7-slim` (ohne Chromium, keine Browser-Monitore); die Instanz war leer.
 
 ## Nicht Teil dieser Liste
 

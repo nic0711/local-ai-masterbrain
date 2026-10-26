@@ -307,6 +307,7 @@ Grafana vertraut den Headern `X-Forwarded-User`/`X-Forwarded-Role` (`GF_AUTH_PRO
 - **Wöchentlich in GitHub (was die Registry heute liefert):** `.github/workflows/cve-watch.yml` (montags) scannt die Registry-Stände der Compose-Images ohne die lokal gebauten und führt die Funde im Issue „CVE-Watch“.
 - **Updates sind manuell:** Supabase-Images werden in `docker-compose.override.public.supabase.yml` gepinnt (Vorbild: `docker/docker-compose.yml` des Supabase-Upstreams), übrige Images in `docker-compose.yml`. Neue Releases kommen nicht automatisch; Dependabot ist pausiert. Nach Anheben eines Pins: `python3 start_services.py --profile none --update`, danach `scripts/scan-running.sh`.
 - **Eigene Images** (inkl. `hermes-agent`) werden mit `--rebuild` erneuert.
+- **Major-Sprünge:** postgrest 16 und imgproxy 4 weichen bewusst vom Supabase-Upstream-Stand ab (Release Notes gegen die eigene Config geprüft). Bei Problemen die Tags in `docker-compose.override.public.supabase.yml` auf den Upstream-Stand zurücksetzen.
 
 ---
 

@@ -122,5 +122,6 @@ DISABLE_SIGNUP=true
 
 - **Keine `%`-Zeichen** im `POSTGRES_PASSWORD`
 - `ANON_KEY` und `SERVICE_ROLE_KEY` müssen zum selben `JWT_SECRET` passen
+- Kommentare hinter einem Wert (` # …`) in `JWT_SECRET`, `ANON_KEY` und `SERVICE_ROLE_KEY` gehören nicht zum Wert; Docker Compose entfernt sie. Eigene Skripte (z. B. `cut -d= -f2-`) müssen sie ebenfalls abtrennen, sonst ergeben Signaturprüfung und Header-Tests falsche 401-Fehler
 - Nach dem ersten User-Setup `DISABLE_SIGNUP=true` setzen und Stack neu starten
 - Secrets nie in Git committen – `.env` ist in `.gitignore`

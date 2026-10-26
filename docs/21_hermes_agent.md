@@ -151,6 +151,19 @@ http://searxng:8080
 
 Für eine echte Tool-Anbindung (z. B. Hermes soll Qdrant/Neo4j abfragen oder Ergebnisse über den n8n-Webhook `kb-ingest-research` in die Wissensdatenbank schreiben, siehe [`docs/27_knowledge_base.md`](27_knowledge_base.md)) reicht Netzwerk-Erreichbarkeit allein nicht aus – Hermes bräuchte dafür einen MCP-Server, der diese Endpunkte als Tools bereitstellt (`mcp_servers:` in `hermes-config/cli-config.yaml`, siehe `hermes-agent/cli-config.yaml.example`). Ein solcher MCP-Server existiert im Stack aktuell nicht und ist bewusst nicht Teil dieser Integration – möglicher Folgeschritt.
 
+## Image-Build und CVE-Pins (Overlay)
+
+Das Image entsteht in zwei Stufen: `hermes-base` baut den unveränderten Upstream-Stand aus `hermes-agent/`,
+`hermes-gateway` legt darüber `hermes-overlay/Dockerfile` und hebt einzelne Python-Pakete mit behebbaren CVEs an
+(aktuell `Pillow==13.0.0`, `PyJWT==2.14.0`). Das Submodule bleibt dadurch unverändert. Neu bauen:
+
+```bash
+python3 start_services.py --profile none --rebuild   # baut auch hermes-gateway
+```
+
+Nach einem Submodule-Update prüfen, ob die Overlay-Pins noch nötig sind oder dem Upstream-Pin widersprechen
+(`scripts/scan-running.sh`). Das Vorgängerimage bleibt als `hermes-agent:prev-*` lokal erhalten.
+
 ## Submodul aktualisieren
 
 ```bash
