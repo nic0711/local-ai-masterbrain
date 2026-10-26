@@ -10,9 +10,13 @@ services:
     image: supabase/supavisor:2.9.13
     ports: !reset null
 
-  # Daten-Volume ist PG15-initialisiert; Image auf 15.x pinnen bis Migration durchgeführt wird
+  # Daten-Volume ist PG15-initialisiert; Image auf 15.x pinnen bis Migration durchgeführt wird.
+  # 15.19.0.007: Security-Patchstand (an Datenkopie getestet). Beim ersten Wechsel von
+  # 15.8 einmalig: REINDEX DATABASE postgres; ALTER DATABASE postgres REFRESH COLLATION VERSION;
+  # Achtung: postgres-UID wechselte 105 -> 100; Volume db-config (pgsodium_root.key) musste auf
+  # 100:101 gechownt werden. Fuer Rollback auf 15.8.x zurueck auf 105:106 chownen.
   db:
-    image: supabase/postgres:15.8.1.085
+    image: supabase/postgres:15.19.0.007
 
   # TOTP / MFA für GoTrue aktivieren
   auth:

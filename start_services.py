@@ -110,7 +110,7 @@ def get_pg15_override_files():
     keine parallele Logik.
 
     Hinweis: docker-compose.override.public.supabase.yml pinnt db.image
-    zusaetzlich hart auf 15.8.1.085 (nur fuer environment=="public",
+    zusaetzlich hart auf 15.19.0.007 (nur fuer environment=="public",
     unabhaengig vom tatsaechlichen PGDATA-Zustand - kein Fail-Closed, wird
     nach einem echten PG17-Upgrade der Daten falsch bleiben). Das ist eine
     vorbestehende, separate Datei ausserhalb des Scopes dieser Aenderung
@@ -418,7 +418,7 @@ def start_supabase(environment=None, compose_env=None):
     # Wait for Supabase to be ready
     wait_for_service_ready("Supabase", 8000)
 
-_CUSTOM_SERVICES = ["auth-gateway", "python-nlp-service", "ocr-service", "tts-service"]
+_CUSTOM_SERVICES = ["auth-gateway", "python-nlp-service", "ocr-service", "tts-service", "hermes-gateway"]
 
 def rebuild_custom_services(compose_env=None):
     """Rebuild all custom Docker images with latest base images and OS packages."""
