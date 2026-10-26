@@ -431,6 +431,23 @@ def rebuild_custom_services(compose_env=None):
     run_command(cmd, env=compose_env)
     print("✅ Rebuild complete.")
 
+def pull_images(profile=None, environment=None, compose_env=None):
+    """Pull registry images fuer alle Services, solange der Stack noch laeuft.
+
+    Laeuft VOR stop_existing_containers: schlaegt der Pull fehl, bleibt der
+    Stack unveraendert oben."""
+    print("⬇️  Pulling registry images (Stack bleibt waehrenddessen online)...")
+    cmd = ["docker", "compose", "-p", "localai"]
+    if profile and profile != "none":
+        cmd.extend(["--profile", profile])
+    if environment == "public":
+        cmd.extend(["--profile", "auth"])
+    cmd.extend(["--profile", "optional"])
+    cmd.extend(get_all_compose_files(profile, environment))
+    cmd.extend(["pull", "--ignore-buildable"])
+    run_command(cmd, env=compose_env)
+    print("✅ Pull complete.")
+
 def start_local_ai(profile=None, environment=None, compose_env=None, env_vars=None):
     """Start the local AI services with proper dependency handling."""
     print("Starting local AI services...")
@@ -568,39 +585,14 @@ def check_and_fix_docker_compose_for_searxng():
         with open(docker_compose_path, 'r') as file:
             content = file.read()
 
-        # Default to first run
-        is_first_run = True
-
-        # Check if Docker is running and if the SearXNG container exists
-        try:
-            # Check if the SearXNG container is running
-            container_check = subprocess.run(
-                ["docker", "ps", "--filter", "name=searxng", "--format", "{{.Names}}"],
-                capture_output=True, text=True, check=True
-            )
-            searxng_containers = container_check.stdout.strip().split('\n')
-
-            # If SearXNG container is running, check inside for uwsgi.ini
-            if any(container for container in searxng_containers if container):
-                container_name = next(container for container in searxng_containers if container)
-                print(f"Found running SearXNG container: {container_name}")
-
-                # Check if uwsgi.ini exists inside the container
-                container_check = subprocess.run(
-                    ["docker", "exec", container_name, "sh", "-c", "[ -f /etc/searxng/uwsgi.ini ] && echo 'found' || echo 'not_found'"],
-                    capture_output=True, text=True, check=False
-                )
-
-                if "found" in container_check.stdout:
-                    print("Found uwsgi.ini inside the SearXNG container - not first run")
-                    is_first_run = False
-                else:
-                    print("uwsgi.ini not found inside the SearXNG container - first run")
-                    is_first_run = True
-            else:
-                print("No running SearXNG container found - assuming first run")
-        except Exception as e:
-            print(f"Error checking Docker container: {e} - assuming first run")
+        # uwsgi.ini wird vom SearXNG-Entrypoint in das gemountete ./searxng
+        # geschrieben - existiert sie auf dem Host, ist es kein Erststart
+        # (unabhaengig davon, ob der Container gerade laeuft, z.B. nach down).
+        is_first_run = not os.path.exists(os.path.join("searxng", "uwsgi.ini"))
+        if is_first_run:
+            print("searxng/uwsgi.ini fehlt - Erststart")
+        else:
+            print("searxng/uwsgi.ini vorhanden - kein Erststart")
 
         # SearXNG-spezifischer cap_drop-Block (eindeutig durch nachfolgendes cap_add: CHOWN)
         # Muss als Multi-Line-String verglichen werden, da YAML über mehrere Zeilen geht
@@ -684,6 +676,9 @@ def main():
     parser.add_argument('--rebuild', action='store_true',
                       help='Rebuild custom images before start (--pull + --no-cache; updates base images and OS packages)')
 
+    parser.add_argument('--update', action='store_true',
+                      help='Pull registry images before restart (Stack bleibt bei Pull-Fehler unveraendert)')
+
     args = parser.parse_args()
 
     # Safety check for volume removal
@@ -708,6 +703,9 @@ def main():
     generate_dashboard_config(args.environment, env_vars)
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
+
+    if args.update:
+        pull_images(args.profile, args.environment, compose_env=compose_env)
 
     # Cleanup existing containers if not skipped
     if not args.no_cleanup:
