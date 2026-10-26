@@ -532,7 +532,7 @@ services:
 
   dashboard:
     container_name: dashboard-ui
-    image: nginx:1.25-alpine
+    image: nginx:1.30-alpine
     restart: unless-stopped
     volumes:
       - ./dashboard:/usr/share/nginx/html:rw
