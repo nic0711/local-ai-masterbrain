@@ -31,16 +31,16 @@ services:
   # (docker/docker-compose.yml, master 2026-10-22) getestete Kombination.
   # Fuer Kong/supavisor/auth siehe oben. Submodule bleibt unveraendert.
   studio:
-    image: supabase/studio:2026.10.12-sha-3699278
+    image: supabase/studio:2026.10.26-sha-478bd88
   rest:
-    image: postgrest/postgrest:v14.18
+    image: postgrest/postgrest:v16.5
   realtime:
     image: supabase/realtime:v2.143.3
   storage:
     image: supabase/storage-api:v1.81.0
   imgproxy:
-    image: darthsim/imgproxy:v3.31.4
+    image: darthsim/imgproxy:v4.0.19
   meta:
     image: supabase/postgres-meta:v0.100.0
   functions:
-    image: supabase/edge-runtime:v1.77.4
+    image: supabase/edge-runtime:v1.77.8
