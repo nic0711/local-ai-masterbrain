@@ -21,6 +21,7 @@ Volumes are safe by default unless `--remove-volumes` is passed.
 | `--profile` | `cpu`, `gpu-nvidia`, `gpu-amd`, `none` | `cpu` | Optionale Hardware-Profile (Ollama läuft standardmäßig auf dem Host) |
 | `--environment` | `private`, `public` | `public` | Deployment environment |
 | `--rebuild` | — | off | Custom Images vor Start neu bauen (Base-Images + OS-Pakete aktualisieren) |
+| `--update` | — | off | Registry-Images vor dem Neustart pullen; bei Pull-Fehler bleibt der Stack unverändert online |
 | `--remove-volumes` | — | off | Delete all data volumes (irreversible!) |
 | `--no-cleanup` | — | off | Skip container cleanup (for debugging) |
 
@@ -105,22 +106,30 @@ Services sind direkt über `localhost:PORT` erreichbar.
 
 ## Images aktuell halten (`--rebuild`)
 
-Der Stack enthält vier selbst gebaute Images:
-`auth-gateway` · `python-nlp-service` · `ocr-service` · `tts-service`
+Der Stack enthält fünf selbst gebaute Images:
+`auth-gateway` · `python-nlp-service` · `ocr-service` · `tts-service` · `hermes-agent` (Build aus dem Submodule `hermes-agent/`)
 
-Diese werden **nicht automatisch aktualisiert** — `docker compose up` startet immer den zuletzt gebauten Stand. Mit `--rebuild` werden alle vier Images neu gebaut, bevor der Stack startet:
+Diese werden **nicht automatisch aktualisiert** — `docker compose up` startet immer den zuletzt gebauten Stand. Mit `--rebuild` werden alle fünf Images neu gebaut, bevor der Stack startet:
 
 ```bash
 python3 start_services.py --profile none --rebuild
 ```
 
 Was `--rebuild` macht:
-- `docker compose build --pull --no-cache` für alle vier Custom-Services
+- `docker compose build --pull --no-cache` für alle fünf Custom-Services
 - `--pull` holt das neueste Base-Image (`python:3.12-slim-bookworm` etc.)
 - `--no-cache` läuft `apt-get upgrade` frisch durch → OS-Security-Patches
 - Gepinnte Versionen in `requirements.txt` werden **respektiert** — kein unkontrolliertes `pip upgrade`
 
 **Empfehlung:** Monatlich oder nach Sicherheitsmeldungen ausführen. Dauert ca. 5–10 Minuten (Download + Build).
+
+### Registry-Images aktualisieren (`--update`)
+
+```bash
+python3 start_services.py --profile none --update   # Alias: stack-update
+```
+
+`--update` führt `docker compose pull --ignore-buildable` aus, **bevor** der Stack heruntergefahren wird. Schlägt der Pull fehl, bleibt der laufende Stack unverändert. Gepinnte Tags (siehe `docker-compose.yml` und `docker-compose.override.public.supabase.yml`) ändern sich dadurch nicht — neue Versionen werden nur durch Anheben des Pins übernommen. Welche Images behebbare CVEs haben, zeigt `scripts/scan-running.sh` (siehe `docs/05_security_hardening.md`).
 
 ### Python-Abhängigkeiten aktualisieren
 

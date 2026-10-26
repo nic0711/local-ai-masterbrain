@@ -119,7 +119,7 @@ Major-Version-Sprünge erst in einer Testumgebung validieren bevor die `requirem
 
 ## Supabase: PG15 → PG17 Migration (ausstehend)
 
-Das Supabase-Submodul wurde auf `postgres:17.x` aktualisiert, das lokale Daten-Volume ist aber noch PG15-initialisiert. Das Image ist in `docker-compose.override.public.supabase.yml` temporär auf `15.8.1.085` gepinnt.
+Das Supabase-Submodul wurde auf `postgres:17.x` aktualisiert, das lokale Daten-Volume ist aber noch PG15-initialisiert. Das Image ist in `docker-compose.override.public.supabase.yml` temporär auf `15.19.0.007` gepinnt (PG15-Reihe, Security-Patchstand).
 
 Für die Migration (wenn gewünscht):
 ```bash

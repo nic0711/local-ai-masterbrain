@@ -241,8 +241,17 @@ Workaround: Image in `docker-compose.override.public.supabase.yml` auf PG15 pinn
 ```yaml
 services:
   db:
-    image: supabase/postgres:15.8.1.085
+    image: supabase/postgres:15.19.0.007
 ```
+
+Beim Wechsel zwischen PG15-Image-Versionen beachten: Die `postgres`-UID unterscheidet sich (15.8.x: 105, 15.19.x: 100). Das Volume `localai_db-config` (`pgsodium_root.key`, Modus 0600) muss zur UID passen, sonst startet `supabase-db` in einer Schleife mit `FATAL: invalid secret key`:
+
+```bash
+docker run --rm -v localai_db-config:/c alpine chown -R 100:101 /c   # zurück auf 15.8.x: 105:106
+```
+
+Nach einem Minor-Wechsel der Basis-Bibliothek (glibc-Warnung `collation version mismatch`) einmalig je Datenbank (`postgres`, `_supabase`, `template1`):
+`REINDEX DATABASE <db>; ALTER DATABASE <db> REFRESH COLLATION VERSION;`
 
 Für eine echte Migration: `pg_dump` mit PG15-Container, dann `pg_restore` in frischem PG17-Volume.
 
