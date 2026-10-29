@@ -88,7 +88,7 @@ Branch-Inhalt außer den oben genannten Punkten 1–4.
 
 - **Behebbare CRITICAL/HIGH-Funde** (`scripts/scan-running.sh`): von ca. 2300 auf 600. Der Rest steckt in
   Upstream-Images ohne neueres Release: supavisor 2.9.13 (114, Debian-Pakete), realtime v2.143.3 (80),
-  storage-api v1.81.0 (60), postgres-meta v0.100.0 (45), uptime-kuma 2.5.7-slim (84, Go-Stdlib/Node),
+  storage-api v1.84.23 (32), postgres-meta v0.100.0 (45), uptime-kuma 2.5.7-slim (84, Go-Stdlib/Node),
   hermes-agent (86, Debian/Python/Node). Wöchentlich meldet `cve-watch.yml` das Issue „CVE-Watch“.
 - **Nicht getestet:** echter Dashboard-Login und Storage-Upload nach dem Update (nur Health, Endpunkt- und
   API-Checks). Postgres 15.19.0.007 lief vorab an einer Datenkopie; auf Live-Daten sind `REINDEX` und

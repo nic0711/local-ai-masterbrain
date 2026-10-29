@@ -37,7 +37,7 @@ services:
   realtime:
     image: supabase/realtime:v2.143.3
   storage:
-    image: supabase/storage-api:v1.81.0
+    image: supabase/storage-api:v1.84.23
   imgproxy:
     image: darthsim/imgproxy:v4.0.19
   meta:
