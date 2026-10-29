@@ -11,7 +11,11 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python --no-cache-dir --no-dep
         "yarl==1.25.1" \
         "urllib3==2.8.0" \
         "tornado==6.5.9" \
-        "certifi==2026.10.18"
+        "certifi==2026.10.18" \
+        "anyio==4.14.2" \
+        "brotlicffi==1.2.1.0" \
+        "httpcore2==2.12.0" \
+        "httpx2==2.12.0"
 RUN apt-get -o Acquire::Retries=3 update && \
     apt-get -o Acquire::Retries=3 upgrade -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
