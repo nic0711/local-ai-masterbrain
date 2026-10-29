@@ -36,11 +36,20 @@ services:
     image: postgrest/postgrest:v16.5
   realtime:
     image: supabase/realtime:v2.143.3
+  # Storage-Daten als benanntes Volume: der Bind-Mount ./volumes/storage liegt auf
+  # dem macOS-Host und unterstuetzt keine xattr (file-Backend -> Upload 500 ENOTSUP).
   storage:
     image: supabase/storage-api:v1.84.23
+    volumes:
+      - supabase_storage_data:/var/lib/storage
   imgproxy:
     image: darthsim/imgproxy:v4.0.19
+    volumes:
+      - supabase_storage_data:/var/lib/storage
   meta:
     image: supabase/postgres-meta:v0.100.0
   functions:
     image: supabase/edge-runtime:v1.77.8
+
+volumes:
+  supabase_storage_data:
