@@ -455,19 +455,22 @@ CREATE OR REPLACE TRIGGER update_ai_conversations_updated_at BEFORE UPDATE ON ai
 CREATE OR REPLACE TRIGGER update_ai_models_updated_at BEFORE UPDATE ON ai_models FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Function to automatically create user profile
-CREATE OR REPLACE FUNCTION create_user_profile()
+-- SECURITY DEFINER + fester search_path: GoTrue laeuft als supabase_auth_admin
+-- mit search_path=auth, ein unqualifizierter Zugriff auf user_profiles scheiterte
+-- sonst und blockierte jede Nutzeranlage ("Database error creating new user").
+CREATE OR REPLACE FUNCTION public.create_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO user_profiles (user_id, display_name)
+    INSERT INTO public.user_profiles (user_id, display_name)
     VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.email));
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ language 'plpgsql' SECURITY DEFINER SET search_path = public;
 
 -- Trigger to create user profile on signup
 CREATE OR REPLACE TRIGGER create_user_profile_trigger
     AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION create_user_profile();
+    FOR EACH ROW EXECUTE FUNCTION public.create_user_profile();
 
 -- =====================================================
 -- INITIAL DATA
