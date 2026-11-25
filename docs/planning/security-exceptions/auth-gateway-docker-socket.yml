@@ -30,7 +30,7 @@ affected_image_digest: ""
 reason: >
   auth-gateway mountet /var/run/docker.sock und ist per group_add: ["0"]
   Mitglied der Root-Gruppe, damit das Dashboard-Feature "Service Control"
-  (Start/Stop/Restart/Logs fuer eine feste Allowlist von 23 Containern,
+  (Start/Stop/Restart/Logs fuer eine feste Allowlist von 17 Containern,
   siehe app.py _CONTROLLABLE) funktioniert. Docker-Socket-Zugriff ist
   strukturell root-aequivalent: bei vollstaendiger Kompromittierung des
   auth-gateway-Prozesses (z.B. ueber eine noch unbekannte Schwachstelle in
@@ -66,6 +66,6 @@ mitigation: >
 
 requested_by: "@claude-code-phase2a"
 
-expires_on: "2026-11-02"
+expires_on: "2027-02-25"
 
 broker_plan_ref: "docs/planning/future-work/service-control-broker.md"
