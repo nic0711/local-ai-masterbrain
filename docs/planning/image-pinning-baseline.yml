@@ -8,39 +8,10 @@
 # sie macht den Ist-Zustand nur sichtbar und verhindert eine sofortige,
 # nicht umsetzbare Blockade des allerersten CI-Laufs.
 
-known_findings:
-  # explizit :latest getaggt
-  - image: "n8nio/n8n:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "grafana/grafana:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "neo4j:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "unclecode/crawl4ai:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "docker.io/searxng/searxng:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "ollama/ollama:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "ollama/ollama:rocm"
-    note: "Bestandsfinding (AMD-Variante), Behebung Phase 2/3"
-  - image: "prom/prometheus:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "prom/node-exporter:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "gcr.io/cadvisor/cadvisor:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "prom/pushgateway:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "hikhvar/mqtt2prometheus:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "nmaarse/modbus_exporter:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  # ganz ohne Tag (= implizit latest)
-  - image: "ghcr.io/open-webui/open-webui:latest"
-    note: "Bestandsfinding, Behebung Phase 2/3"
-  - image: "qdrant/qdrant"
-    note: "Bestandsfinding (kein Tag = latest), Behebung Phase 2/3"
+# Alle Bestandsfindings am 2026-11-25 behoben (Images exakt gepinnt,
+# nmaarse/modbus_exporter entfernt - Image existierte nie). Jedes neue
+# :latest/ungetaggte Image blockiert die CI damit sofort.
+known_findings: []
 
 # Hinweis: nur Major-Version gepinnte Images (postgres, caddy:2-alpine,
 # valkey:8-alpine, uptime-kuma:1, alpine:3) sind KEIN Treffer

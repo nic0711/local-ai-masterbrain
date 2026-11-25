@@ -6,7 +6,6 @@ import json
 import tarfile
 import difflib
 import logging
-import subprocess
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -55,8 +54,6 @@ _BACKUP_NAME_RE = re.compile(r'^backup_\d{8}_\d{6}$')
 _BACKUP_DIR = os.path.dirname(_BACKUP_TRIGGER)
 # auth-gateway bekommt ./:/app:ro – damit kann diff aktuelle Dateien lesen
 _APP_DIR = os.environ.get("APP_DIR", "/app")
-# Host-seitiger Projektpfad für docker compose subprocess (Volumes müssen Host-Pfade sein)
-_HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR", _APP_DIR)
 
 
 @app.route('/health', methods=['GET'])
@@ -718,28 +715,24 @@ _CONTROLLABLE = {
     'cadvisor':           'cadvisor',
     'pushgateway':        'pushgateway',
     'mqtt2prometheus':    'mqtt2prometheus',
-    'modbus-exporter':    'modbus-exporter',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
 
-# Services die per `profiles: [optional]` nicht automatisch starten.
-# Beim ersten Start wird `docker compose --profile optional up -d <service>` ausgeführt.
-_OPTIONAL_COMPOSE_SERVICES = {
-    'neo4j':             'neo4j',
-    'crawl4ai':          'crawl4ai',
-    'hermes-gateway':    'hermes-gateway',
-    'hermes-dashboard':  'hermes-dashboard',
-}
-
-# Services die per `profiles: [monitoring]` laufen.
-_MONITORING_COMPOSE_SERVICES = {
-    'prometheus':     'prometheus',
-    'node-exporter':  'node-exporter',
-    'cadvisor':       'cadvisor',
-    'pushgateway':    'pushgateway',
-    'mqtt2prometheus': 'mqtt2prometheus',
-    'modbus-exporter': 'modbus-exporter',
+# Services hinter einem Compose-Profil: Service-Key -> Profil. auth-gateway
+# legt fehlende Container bewusst NICHT selbst an (keine Docker-CLI/Compose im
+# Image, nur Docker-SDK start/stop/restart/logs). Existiert der Container noch
+# nicht, wird der einmalige Host-Befehl zurueckgegeben.
+_PROFILE_SERVICES = {
+    'neo4j':            'optional',
+    'crawl4ai':         'optional',
+    'hermes-gateway':   'optional',
+    'hermes-dashboard': 'optional',
+    'prometheus':       'monitoring',
+    'node-exporter':    'monitoring',
+    'cadvisor':         'monitoring',
+    'pushgateway':      'monitoring',
+    'mqtt2prometheus':  'monitoring',
 }
 
 
@@ -801,44 +794,14 @@ def service_control(service, action):
         import docker as docker_sdk
         client, container = _get_docker_container(service)
         if container is None:
-            if action == 'start' and service in _OPTIONAL_COMPOSE_SERVICES:
-                compose_svc = _OPTIONAL_COMPOSE_SERVICES[service]
-                result = subprocess.run(
-                    ["docker", "compose",
-                     "--project-directory", _APP_DIR,
-                     "--project-name", "localai",
-                     "--profile", "optional",
-                     "up", "-d", compose_svc],
-                    capture_output=True, text=True, timeout=120,
-                    env={**os.environ, "HOST_PROJECT_DIR": _HOST_PROJECT_DIR},
-                )
-                if result.returncode != 0:
-                    logging.error(f"compose up {service} failed: {result.stderr}")
-                    audit_log(actor=user.id, action="start", target=service, result="error",
-                              detail="compose up failed")
-                    return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
-                audit_log(actor=user.id, action="start", target=service, result="ok",
-                          detail="compose up (optional)")
-                return jsonify({"status": "ok", "message": f"{service} gestartet (compose)"}), 200
-            if action == 'start' and service in _MONITORING_COMPOSE_SERVICES:
-                compose_svc = _MONITORING_COMPOSE_SERVICES[service]
-                result = subprocess.run(
-                    ["docker", "compose",
-                     "--project-directory", _APP_DIR,
-                     "--project-name", "localai",
-                     "--profile", "monitoring",
-                     "up", "-d", compose_svc],
-                    capture_output=True, text=True, timeout=120,
-                    env={**os.environ, "HOST_PROJECT_DIR": _HOST_PROJECT_DIR},
-                )
-                if result.returncode != 0:
-                    logging.error(f"compose up {service} failed: {result.stderr}")
-                    audit_log(actor=user.id, action="start", target=service, result="error",
-                              detail="compose up (monitoring) failed")
-                    return jsonify({"error": "Container-Start fehlgeschlagen"}), 500
-                audit_log(actor=user.id, action="start", target=service, result="ok",
-                          detail="compose up (monitoring)")
-                return jsonify({"status": "ok", "message": f"{service} gestartet (monitoring)"}), 200
+            if action == 'start' and service in _PROFILE_SERVICES:
+                profile = _PROFILE_SERVICES[service]
+                audit_log(actor=user.id, action="start", target=service, result="error",
+                          detail=f"container absent, profile {profile}")
+                return jsonify({
+                    "error": f"Container für '{service}' existiert noch nicht. Einmalig auf dem Host anlegen: "
+                             f"docker compose --profile {profile} up -d {service}",
+                }), 409
             return jsonify({"error": f"Container für '{service}' nicht gefunden"}), 404
 
         if action == 'start':

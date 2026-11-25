@@ -30,7 +30,7 @@ affected_image_digest: ""
 reason: >
   auth-gateway mountet /var/run/docker.sock und ist per group_add: ["0"]
   Mitglied der Root-Gruppe, damit das Dashboard-Feature "Service Control"
-  (Start/Stop/Restart/Logs fuer eine feste Allowlist von 23 Containern,
+  (Start/Stop/Restart/Logs fuer eine feste Allowlist von 17 Containern,
   siehe app.py _CONTROLLABLE) funktioniert. Docker-Socket-Zugriff ist
   strukturell root-aequivalent: bei vollstaendiger Kompromittierung des
   auth-gateway-Prozesses (z.B. ueber eine noch unbekannte Schwachstelle in
@@ -38,8 +38,9 @@ reason: >
   Verifiziert (Phase 2A, read-only Code-Review): service_control(),
   service_logs() und run_macro() validieren `service`/`svc` strikt gegen die
   feste Allowlist _CONTROLLABLE und `action`/`act` gegen ('start','stop',
-  'restart'); subprocess.run() nutzt durchgehend Listen-Form ohne Shell,
-  `compose_svc`-Werte kommen aus festen Dicts, nicht aus Nutzereingabe. Kein
+  'restart'). Seit 2026-11-25 enthaelt das Image weder Docker-CLI noch
+  Compose-Plugin und ruft keine Subprozesse mehr auf - fehlende Container
+  werden nicht angelegt, sondern mit 409 und Host-Befehl beantwortet. Kein
   exec, kein create, kein build, kein pull/push/commit, kein frei
   uebergebener Service-Name moeglich - der ueber die eigene API des Service
   erreichbare Missbrauchspfad ist damit eng begrenzt. Das Grundrisiko des
@@ -66,6 +67,6 @@ mitigation: >
 
 requested_by: "@claude-code-phase2a"
 
-expires_on: "2026-11-02"
+expires_on: "2027-02-25"
 
 broker_plan_ref: "docs/planning/future-work/service-control-broker.md"

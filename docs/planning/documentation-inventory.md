@@ -45,7 +45,7 @@ keine Umsetzung in diesem PR).
 | `20_resource_optimization.md` | Memory-Limits/Reservierungen, Logging-Konfiguration | gültig | Betrieb | übernehmen |
 | `21_hermes_agent.md` | Hermes Agent (Submodul) Architektur/Start | gültig | Services-Referenz | übernehmen |
 | `23_monitoring.md` | Prometheus-Stack (Prometheus, node-exporter, cAdvisor, Pushgateway) | gültig | Betrieb | übernehmen; s. Hinweis bei `12_monitoring.md` |
-| `24_sps_monitoring.md` | SPS/PLC-Monitoring (MQTT/Modbus/OPC-UA) | gültig | Services-Referenz | übernehmen |
+| `24_sps_monitoring.md` | SPS/PLC-Monitoring (MQTT/OPC-UA) | gültig | Services-Referenz | übernehmen |
 | `25_teams_bot.md` | Teams-Bot + Asana-Integration | gültig | Workflows | übernehmen |
 | `26_osticket_ki.md` | osTicket-KI-Integration (n8n + Ollama + Qdrant) | gültig | Workflows | übernehmen |
 | `27_knowledge_base.md` | Wissensdatenbank-Ingest-Workflows (Qdrant + Neo4j) | gültig | Workflows | übernehmen |

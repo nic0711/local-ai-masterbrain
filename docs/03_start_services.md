@@ -149,7 +149,7 @@ Bestimmte ressourcenintensive Services starten **nicht automatisch** (`profiles:
 
 **optional:** `neo4j` · `crawl4ai` · `hermes-gateway` · `hermes-dashboard`
 
-**monitoring:** `prometheus` · `node-exporter` · `cadvisor` · `pushgateway` · `mqtt2prometheus` · `modbus-exporter`
+**monitoring:** `prometheus` · `node-exporter` · `cadvisor` · `pushgateway` · `mqtt2prometheus`
 
 Autostart für Hermes: `AUTOSTART_HERMES=true` in `.env` (Standard: aktiviert).
 

@@ -37,7 +37,6 @@
         { key: 'cadvisor',           label: 'cAdvisor',         controllable: true },
         { key: 'pushgateway',        label: 'Pushgateway',      controllable: true },
         { key: 'mqtt2prometheus',    label: 'MQTT→Prometheus',  controllable: true },
-        { key: 'modbus-exporter',    label: 'Modbus Exporter',  controllable: true },
 
         // API Services
         { key: 'python-nlp-service', label: 'Python NLP',       linkId: 'pythonNlp',     controllable: true },
