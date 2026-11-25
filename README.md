@@ -80,7 +80,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ [**Caddy**](https://caddyserver.com/) – Managed HTTPS/TLS für benutzerdefinierte Domains
 - ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards für Stack-Metriken, Container-Health und Logs
 - ✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) – Self-hosted Uptime-Monitoring mit Status-Page (`status.brain.local`), Benachrichtigungen und Maintenance-Windows; eine der wenigen Ausnahmen ohne Caddy `forward_auth`
-- ✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Exporter für MQTT + Modbus + OPC-UA
+- ✅ [**Prometheus-Stack**] – Optionales Monitoring mit Prometheus, node-exporter, cAdvisor und Pushgateway; Grafana-Datasource automatisch bereitgestellt; SPS-Anbindung für MQTT + OPC-UA
 - ✅ **[Teams-Bot + Asana]** - n8n-Arbeitsabläufe: Azure Bot Service → Ollama LLM-Antworten in Teams; Grafana-Alerts als Adaptive Cards; täglicher Asana-Task-Bericht
 - ✅ [**osTicket KI-Integration**] – n8n liest direkt aus der osTicket-MySQL-Datenbank, generiert Lösungsvorschläge via Ollama + Qdrant-Ähnlichkeitssuche und postet interne Notizen; gelöste Tickets fließen automatisch in Neo4j + Qdrant
 - ✅ [**Wissensdatenbank (KB)**] – Zwei Ingest-Arbeitsabläufe: PDF/Dokumente oder Web-Research per Webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indiziert
@@ -99,7 +99,7 @@ Kuratiert von <https://github.com/n8n-io> und <https://github.com/coleam00>, kom
 - ✅ Grafana Monitoring mit Caddy-Routing + Auth-Proxy-Header
 - ✅ On-Demand Service Control: Dashboard Admin-Tab, REST API, n8n Toolcall
 - ✅ Ollama standardmäßig nativ auf dem Host – kein Ollama Container beim normalen Start
-- ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, SPS Exporter (MQTT/Modbus/OPC-UA)
+- ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, SPS-Anbindung (MQTT/OPC-UA)
 - ✅ Teams-Bot + Asana: n8n-Arbeitsabläufe für Chat, Grafana-Alerts, Task-Berichte
 - ✅ osTicket KI: direkter MySQL-Zugriff, Lösungsvorschläge via Qdrant + Ollama, auto KB-Sync
 - ✅ Wissensdatenbank: PDF/Web-Research → Qdrant + Neo4j; Tickets fließen automatisch ein
@@ -162,7 +162,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | Ressourcen-Optimierung (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
 | Hermes Agent (KI-Agent, Teams, Web-UI) | [21_hermes_agent.md](docs/21_hermes_agent.md) |
 | Monitoring (Prometheus, cAdvisor, Pushgateway) | [23_monitoring.md](docs/23_monitoring.md) |
-| SPS-Monitoring (OPC-UA, MQTT, Modbus) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
+| SPS-Monitoring (OPC-UA, MQTT) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
 | Teams Bot + Asana-Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket KI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Wissensdatenbank (KB-Arbeitsabläufe) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
@@ -237,7 +237,7 @@ python3 start_services.py         # Standard: Ollama läuft lokal auf dem Host
 | **Rollenhierarchie** | Superadmin / Admin / User via `SUPERADMIN_EMAILS` / `ADMIN_EMAILS`; Rate-Limiting auf allen Control Endpoints |
 | **Hermes Agent** | `agent.brain.local` – autonomer KI-Agent (NousResearch, MIT) mit Web-Dashboard + Microsoft-Teams-Gateway; Git Submodul, baut lokal; läuft auf lokalem Ollama; `AUTOSTART_HERMES=true` per Default |
 | **Prometheus Monitoring** | Profil `monitoring`: Prometheus, node-exporter, cAdvisor, Pushgateway; Grafana-Datasource auto-provisioniert; Dashboard-Macros zum Starten/Stoppen |
-| **SPS Monitoring** | mqtt2prometheus + modbus-exporter (Profil `monitoring`); OPC-UA als Grafana-Plugin; Konfigurationsvorlagen in `sps-monitoring/` |
+| **SPS Monitoring** | mqtt2prometheus (Profil `monitoring`); OPC-UA als Grafana-Plugin; Konfigurationsvorlagen in `sps-monitoring/` |
 | **Teams Bot** | n8n-Arbeitsablauf: Azure Bot Service → Ollama LLM; SSRF-Schutz, JWT Format Check, Prompt-Injection-Mitigation |
 | **Grafana → Teams Alerts** | n8n-Arbeitsablauf: Grafana Unified Alerting → Teams Adaptive Cards via Incoming Webhook |
 | **Asana Sync** | n8n-Arbeitsablauf: täglich überfällige + bald fällige Tasks als Teams-Nachricht |
@@ -597,7 +597,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ [**Caddy**](https://caddyserver.com/) - Managed HTTPS/TLS for custom domains
 - ✅ [**Grafana**](https://grafana.com/) - Monitoring & Dashboards for stack metrics, container health and logs
 - ✅ [**Uptime Kuma**](https://github.com/louislam/uptime-kuma) - Self-hosted uptime monitoring with status page (`status.brain.local`), notifications and maintenance windows; one of the few exceptions without Caddy `forward_auth`
-- ✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC exporter for MQTT + Modbus + OPC-UA
+- ✅ [**Prometheus-Stack**] - Optional monitoring with Prometheus, node-exporter, cAdvisor and Pushgateway; Grafana datasource automatically provisioned; PLC integration for MQTT + OPC-UA
 - ✅ **[Teams-Bot + Asana]** - n8n workflows: Azure Bot Service → Ollama LLM responses in Teams; Grafana alerts as Adaptive Cards; daily Asana task report
 - ✅ [**osTicket AI Integration**] - n8n reads directly from osTicket MySQL DB, generates solution suggestions via Ollama + Qdrant similarity search and posts internal notes; resolved tickets automatically flow into Neo4j + Qdrant
 - ✅ **[Knowledge Base (KB)]** – Two ingest workflows: PDF/Documents or web research via webhook → Embedding + NER → Qdrant (`knowledge_base`) + Neo4j parallel indexed
@@ -616,7 +616,7 @@ Curated by <https://github.com/n8n-io> and <https://github.com/coleam00>, it com
 - ✅ Grafana Monitoring with Caddy Routing + Auth Proxy Header
 - ✅ On-Demand Service Control: Dashboard Admin Tab, REST API, n8n Toolcall
 - ✅ Ollama defaults to native on host – no Ollama container during normal start
-- ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, PLC exporter (MQTT/Modbus/OPC-UA)
+- ✅ Prometheus Monitoring: node-exporter, cAdvisor, Pushgateway, PLC integration (MQTT/OPC-UA)
 - ✅ Teams-Bot + Asana: n8n workflows for chat, Grafana alerts, task reports
 - ✅ osTicket AI: direct MySQL access, solution suggestions via Qdrant + Ollama, auto KB sync
 - ✅ Knowledge Base: PDF/web research → Qdrant + Neo4j; tickets automatically flow in
@@ -679,7 +679,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | Resource Optimization (Memory, Logging) | [20_resource_optimization.md](docs/20_resource_optimization.md) |
 | Hermes Agent (AI Agent, Teams, Web-UI) | [21_hermes_agent.md](docs/21_hermes_agent.md) |
 | Monitoring (Prometheus, cAdvisor, Pushgateway) | [23_monitoring.md](docs/23_monitoring.md) |
-| PLC Monitoring (OPC-UA, MQTT, Modbus) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
+| PLC Monitoring (OPC-UA, MQTT) | [24_sps_monitoring.md](docs/24_sps_monitoring.md) |
 | Teams Bot + Asana Integration | [25_teams_bot.md](docs/25_teams_bot.md) |
 | osTicket AI Integration  | [26_osticket_ki.md](docs/26_osticket_ki.md) |
 | Knowledge Base (KB Workflows) | [27_knowledge_base.md](docs/27_knowledge_base.md) |
@@ -754,7 +754,7 @@ python3 start_services.py         # Default: Ollama runs natively on host
 | **Role Hierarchy** | Superadmin / Admin / User via `SUPERADMIN_EMAILS` / `ADMIN_EMAILS`; Rate-limiting on all control endpoints |
 | **Hermes Agent** | `agent.brain.local` – autonomous AI agent (NousResearch, MIT) with web dashboard + Microsoft Teams gateway; Git submodule, builds locally; runs on local Ollama; `AUTOSTART_HERMES=true` by default |
 | **Prometheus Monitoring** | Profile `monitoring`: Prometheus, node-exporter, cAdvisor, Pushgateway; Grafana datasource auto-provisioned; Dashboard macros for start/stop |
-| **PLC Monitoring** | mqtt2prometheus + modbus-exporter (profile `monitoring`); OPC-UA as Grafana plugin; configuration templates in `sps-monitoring/` |
+| **PLC Monitoring** | mqtt2prometheus (profile `monitoring`); OPC-UA as Grafana plugin; configuration templates in `sps-monitoring/` |
 | **Teams Bot** | n8n workflow: Azure Bot Service → Ollama LLM; SSRF protection, JWT format check, prompt injection mitigation |
 | **Grafana → Teams Alerts** | n8n workflow: Grafana Unified Alerting → Teams Adaptive Cards via Incoming Webhook |
 | **Asana Sync** | n8n workflow: overdue + soon-due tasks as Teams message daily |

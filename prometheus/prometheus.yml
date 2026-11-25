@@ -60,8 +60,3 @@ scrape_configs:
   - job_name: "mqtt2prometheus"
     static_configs:
       - targets: ["mqtt2prometheus:9641"]
-
-  # SPS: Modbus TCP → Prometheus
-  - job_name: "modbus-exporter"
-    static_configs:
-      - targets: ["modbus-exporter:9602"]

@@ -94,19 +94,17 @@
     {
       "id": "sps-start",
       "label": "SPS-Monitoring starten",
-      "description": "MQTT + Modbus Exporter starten (Prometheus muss laufen)",
+      "description": "MQTT-Exporter starten (Prometheus muss laufen)",
       "actions": [
-        {"action": "start", "service": "mqtt2prometheus"},
-        {"action": "start", "service": "modbus-exporter"}
+        {"action": "start", "service": "mqtt2prometheus"}
       ]
     },
     {
       "id": "sps-stop",
       "label": "SPS-Monitoring stoppen",
-      "description": "MQTT + Modbus Exporter stoppen",
+      "description": "MQTT-Exporter stoppen",
       "actions": [
-        {"action": "stop", "service": "mqtt2prometheus"},
-        {"action": "stop", "service": "modbus-exporter"}
+        {"action": "stop", "service": "mqtt2prometheus"}
       ]
     }
   ]

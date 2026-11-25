@@ -718,7 +718,6 @@ _CONTROLLABLE = {
     'cadvisor':           'cadvisor',
     'pushgateway':        'pushgateway',
     'mqtt2prometheus':    'mqtt2prometheus',
-    'modbus-exporter':    'modbus-exporter',
 }
 
 _MACROS_FILE = os.environ.get("MACROS_FILE", "/opt/project/dashboard/macros.json")
@@ -739,7 +738,6 @@ _MONITORING_COMPOSE_SERVICES = {
     'cadvisor':       'cadvisor',
     'pushgateway':    'pushgateway',
     'mqtt2prometheus': 'mqtt2prometheus',
-    'modbus-exporter': 'modbus-exporter',
 }
 
 

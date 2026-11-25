@@ -899,31 +899,3 @@ services:
       options:
         max-size: "2m"
         max-file: "1"
-
-  # ---------------------------------------------------------------------------
-  # SPS-Monitoring: Modbus TCP → Prometheus
-  # ---------------------------------------------------------------------------
-  modbus-exporter:
-    image: nmaarse/modbus_exporter:latest
-    container_name: modbus-exporter
-    restart: unless-stopped
-    profiles: [monitoring]
-    expose:
-      - 9602/tcp
-    volumes:
-      - ./sps-monitoring/modbus.yml:/config.yml:ro
-    command: ["--config.file=/config.yml", "--web.listen-address=:9602"]
-    environment:
-      - SPS_MODBUS_HOST=${SPS_MODBUS_HOST:-192.168.1.100}
-      - SPS_MODBUS_PORT=${SPS_MODBUS_PORT:-502}
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 16M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "2m"
-        max-file: "1"

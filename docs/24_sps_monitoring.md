@@ -1,13 +1,12 @@
-# 24 · SPS-Monitoring (OPC-UA, MQTT, Modbus)
+# 24 · SPS-Monitoring (OPC-UA, MQTT)
 
 ## Überblick
 
-Drei Protokoll-Exporter für SPS/PLC-Metriken, alle mit Compose-Profil `monitoring`:
+Zwei Protokoll-Anbindungen für SPS/PLC-Metriken (MQTT-Exporter mit Compose-Profil `monitoring`, OPC-UA als Grafana-Plugin):
 
 | Protokoll | Container | Port | Exporter |
 |---|---|---|---|
 | MQTT | `mqtt2prometheus` | 9641 | [hikhvar/mqtt2prometheus](https://github.com/hikhvar/mqtt2prometheus) |
-| Modbus TCP | `modbus-exporter` | 9602 | [nmaarse/modbus_exporter](https://github.com/nmaarse/modbus_exporter) |
 | OPC-UA | – (Grafana-Plugin) | – | grafana-opcua-datasource |
 
 Alle Exporter scrapen Prometheus. Grafana visualisiert die Daten.
@@ -19,7 +18,7 @@ Alle Exporter scrapen Prometheus. Grafana visualisiert die Daten.
 docker compose --profile monitoring up -d
 
 # Nur SPS-Exporter (wenn Prometheus bereits läuft)
-docker compose --profile monitoring up -d mqtt2prometheus modbus-exporter
+docker compose --profile monitoring up -d mqtt2prometheus
 
 # Via Dashboard-Macro: "SPS-Monitoring starten"
 ```
@@ -45,29 +44,6 @@ Wenn kein eigener Broker vorhanden: Mosquitto kann als weiterer optionaler Servi
 
 ### Grafana-Dashboard
 Nach dem Start: Dashboards → Import → Community-Dashboard-ID `11074` (MQTT Overview) oder eigenes Dashboard mit dem `mqtt2prometheus`-Job.
-
-## Modbus-Monitoring (modbus-exporter)
-
-### Konfiguration
-
-1. `SPS_MODBUS_HOST` und `SPS_MODBUS_PORT` in `.env` setzen
-2. `sps-monitoring/modbus.yml` anpassen:
-
-```yaml
-modules:
-  plc_main:
-    address: "${SPS_MODBUS_HOST}:${SPS_MODBUS_PORT}"
-    registers:
-      - name: temperature_raw
-        address: 0x0001
-        data_type: int16
-        factor: 0.1
-```
-
-Register-Adressen aus der SPS-Dokumentation (Holding Registers, Coils, Input Registers).
-
-### Grafana-Dashboard
-Dashboards → Import → eigenes Dashboard mit Job `modbus-exporter` oder Metriken direkt in der Query nutzen (z.B. `modbus_temperature_raw`).
 
 ## OPC-UA-Monitoring (Grafana-Plugin)
 
@@ -105,16 +81,12 @@ Zertifikate werden im Grafana-Datenpfad gespeichert.
 
 ## Prometheus-Scrape-Targets
 
-Alle drei Exporter sind in `prometheus/prometheus.yml` konfiguriert:
+Der MQTT-Exporter ist in `prometheus/prometheus.yml` konfiguriert:
 
 ```yaml
 - job_name: "mqtt2prometheus"
   static_configs:
     - targets: ["mqtt2prometheus:9641"]
-
-- job_name: "modbus-exporter"
-  static_configs:
-    - targets: ["modbus-exporter:9602"]
 ```
 
 Prometheus-Targets-Status: `http://localhost:9090/targets` (via SSH-Tunnel).
@@ -126,13 +98,6 @@ Prometheus-Targets-Status: `http://localhost:9090/targets` (via SSH-Tunnel).
 docker compose logs mqtt2prometheus
 # Broker-Adresse und Port in .env prüfen
 # Test: mosquitto_pub -h <broker> -t sps/test -m "42"
-```
-
-**modbus-exporter: Timeout:**
-```bash
-docker compose logs modbus-exporter
-# SPS-IP, Port (502) und Unit-ID in sps-monitoring/modbus.yml prüfen
-# Firewall: SPS muss TCP/502 akzeptieren
 ```
 
 **OPC-UA-Plugin fehlt in Grafana:**
