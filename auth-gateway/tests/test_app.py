@@ -467,35 +467,26 @@ class TestServiceControl:
         assert "permission denied" not in body.get("error", "")
         assert "docker.sock" not in body.get("error", "")
 
-    @patch("app.subprocess.run")
     @patch("app._get_docker_container")
-    def test_optional_service_start_uses_compose_when_container_absent(self, mock_gdc, mock_run, client):
-        """Wenn ein optional-Service noch nicht als Container existiert, wird compose up aufgerufen."""
+    def test_optional_service_absent_returns_409_with_host_command(self, mock_gdc, client):
+        """Fehlt ein Profil-Container, legt auth-gateway ihn nicht an, sondern nennt den Host-Befehl."""
         mock_gdc.return_value = (MagicMock(), None)
-        mock_run.return_value = MagicMock(returncode=0, stderr="")
         resp = client.post(
             "/control/services/neo4j/start",
             headers=self._auth_header(),
         )
-        assert resp.status_code == 200
-        args = mock_run.call_args[0][0]
-        assert "docker" in args[0]
-        assert "compose" in args
-        assert "--profile" in args
-        assert "optional" in args
-        assert "neo4j" in args
+        assert resp.status_code == 409
+        assert "docker compose --profile optional up -d neo4j" in resp.get_json()["error"]
 
-    @patch("app.subprocess.run")
     @patch("app._get_docker_container")
-    def test_optional_service_compose_failure_returns_500(self, mock_gdc, mock_run, client):
-        """Wenn compose up fehlschlägt, muss 500 zurückgegeben werden."""
+    def test_monitoring_service_absent_names_monitoring_profile(self, mock_gdc, client):
         mock_gdc.return_value = (MagicMock(), None)
-        mock_run.return_value = MagicMock(returncode=1, stderr="image not found")
         resp = client.post(
-            "/control/services/crawl4ai/start",
+            "/control/services/prometheus/start",
             headers=self._auth_header(),
         )
-        assert resp.status_code == 500
+        assert resp.status_code == 409
+        assert "--profile monitoring" in resp.get_json()["error"]
 
     @patch("app._get_docker_container")
     def test_non_optional_service_not_found_returns_404(self, mock_gdc, client):

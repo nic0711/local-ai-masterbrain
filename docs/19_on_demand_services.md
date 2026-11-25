@@ -22,18 +22,12 @@ Die 6 optionalen Services haben `profiles: [optional]` in `docker-compose.yml`. 
 
 `start_services.py --profile none` übergibt kein `--profile optional` → optionale Services bleiben gestoppt.
 
-### auth-gateway: Zwei-Wege-Start
+### auth-gateway: Start nur bestehender Container
 
-Wenn ein optionaler Service gestartet werden soll:
+auth-gateway steuert Container ausschließlich über das Docker-SDK (start/stop/restart/logs). Docker-CLI und Compose sind seit 2026-11-25 bewusst nicht mehr im Image (wiederkehrende, nicht behebbare Upstream-CVEs in den Go-Binaries; zudem kein Anlegen neuer Container über den Docker-Socket).
 
 1. **Container existiert** (gestoppt): Docker SDK → `container.start()`
-2. **Container fehlt** (erster Start): `docker compose --profile optional up -d <service>`
-
-Der subprocess-Aufruf im auth-gateway verwendet `HOST_PROJECT_DIR` (per Env-Var vom Host übergeben), damit die Volume-Pfade korrekt auf Host-Pfade zeigen statt auf Container-interne Pfade.
-
-### Volume-Pfade
-
-Neo4j-Volumes nutzen `${HOST_PROJECT_DIR:-.}/neo4j/...` statt `./ neo4j/...`, damit der Docker-Daemon (der Host-Pfade verlangt) die richtigen Pfade erhält wenn compose aus dem Container aufgerufen wird.
+2. **Container fehlt** (erster Start): Antwort `409` mit dem einmaligen Host-Befehl, z.B. `docker compose --profile optional up -d neo4j`
 
 ---
 
@@ -111,10 +105,14 @@ Definiert in `dashboard/macros.json`:
 
 ## Erster Start eines optionalen Service
 
-Beim allerersten Start (Container existiert noch nicht) wird `docker compose --profile optional up -d <service>` aufgerufen. Dies:
-- Lädt das Image (falls nicht gecacht) — kann einige Minuten dauern
-- Erstellt den Container mit korrekter Konfiguration
-- Startet ihn
+Beim allerersten Start (Container existiert noch nicht) einmalig auf dem Host ausführen:
+
+```bash
+docker compose --profile optional up -d <service>     # neo4j, crawl4ai, hermes-*
+docker compose --profile monitoring up -d <service>   # prometheus, node-exporter, ...
+```
+
+Danach lässt sich der Service über Dashboard/API starten und stoppen.
 
 ---
 
@@ -122,4 +120,4 @@ Beim allerersten Start (Container existiert noch nicht) wird `docker compose --p
 
 Nach `start_services.py --profile none` sind alle optionalen Services gestoppt (Container existieren aber noch). Beim nächsten Start via Dashboard/API → Container.start() (kein compose-Overhead, schnell).
 
-Nach `docker compose down` oder `docker rm` der Container → nächster Start läuft wieder über compose (langsamer, sauber).
+Nach `docker compose down` oder `docker rm` der Container → vor dem nächsten Dashboard-Start wieder einmalig `docker compose --profile … up -d <service>` auf dem Host.

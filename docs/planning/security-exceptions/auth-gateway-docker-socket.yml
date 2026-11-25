@@ -38,8 +38,9 @@ reason: >
   Verifiziert (Phase 2A, read-only Code-Review): service_control(),
   service_logs() und run_macro() validieren `service`/`svc` strikt gegen die
   feste Allowlist _CONTROLLABLE und `action`/`act` gegen ('start','stop',
-  'restart'); subprocess.run() nutzt durchgehend Listen-Form ohne Shell,
-  `compose_svc`-Werte kommen aus festen Dicts, nicht aus Nutzereingabe. Kein
+  'restart'). Seit 2026-11-25 enthaelt das Image weder Docker-CLI noch
+  Compose-Plugin und ruft keine Subprozesse mehr auf - fehlende Container
+  werden nicht angelegt, sondern mit 409 und Host-Befehl beantwortet. Kein
   exec, kein create, kein build, kein pull/push/commit, kein frei
   uebergebener Service-Name moeglich - der ueber die eigene API des Service
   erreichbare Missbrauchspfad ist damit eng begrenzt. Das Grundrisiko des
