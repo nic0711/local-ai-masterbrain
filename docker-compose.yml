@@ -51,7 +51,7 @@ x-n8n: &service-n8n
       max-file: "3"
 
 x-ollama: &service-ollama
-  image: ollama/ollama:latest
+  image: ollama/ollama:0.40.18
   container_name: ollama
   restart: unless-stopped
   expose:
@@ -65,7 +65,7 @@ x-ollama: &service-ollama
     - ollama_storage:/root/.ollama
 
 x-init-ollama: &init-ollama
-  image: ollama/ollama:latest
+  image: ollama/ollama:0.40.18
   container_name: ollama-pull-llama
   volumes:
     - ollama_storage:/root/.ollama
@@ -76,7 +76,7 @@ x-init-ollama: &init-ollama
 
 services:
   open-webui:
-    image: ghcr.io/open-webui/open-webui:latest
+    image: ghcr.io/open-webui/open-webui:v0.13.4
     restart: unless-stopped
     container_name: open-webui
     expose:
@@ -242,7 +242,7 @@ services:
           memory: 256M
 
   qdrant:
-    image: qdrant/qdrant
+    image: qdrant/qdrant:v1.20.2
     container_name: qdrant
     restart: unless-stopped
     expose:
@@ -263,7 +263,7 @@ services:
         max-file: "3"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.3.2
     container_name: grafana
     restart: unless-stopped
     expose:
@@ -312,7 +312,7 @@ services:
         max-file: "3"
 
   neo4j:
-    image: neo4j:latest
+    image: neo4j:2026.10.2
     container_name: neo4j
     profiles: [optional]
     volumes:
@@ -429,7 +429,7 @@ services:
       retries: 10
 
   crawl4ai:
-    image: unclecode/crawl4ai:latest
+    image: unclecode/crawl4ai:0.9.6
     container_name: crawl4ai
     profiles: [optional]
     restart: unless-stopped
@@ -460,7 +460,7 @@ services:
 
   searxng:
     container_name: searxng
-    image: docker.io/searxng/searxng:latest
+    image: docker.io/searxng/searxng:2026.11.23-a7163d091
     restart: unless-stopped
     expose:
       - 8081/tcp
@@ -506,7 +506,7 @@ services:
   ollama-gpu-amd:
     profiles: ["ollama-docker"]
     <<: *service-ollama
-    image: ollama/ollama:rocm
+    image: ollama/ollama:0.40.18-rocm
     devices:
       - "/dev/kfd"
       - "/dev/dri"
@@ -526,7 +526,7 @@ services:
   ollama-pull-llama-gpu-amd:
     profiles: ["ollama-docker"]
     <<: *init-ollama
-    image: ollama/ollama:rocm
+    image: ollama/ollama:0.40.18-rocm
     depends_on:
      - ollama-gpu-amd
 
@@ -749,7 +749,7 @@ services:
   # Starten: docker compose --profile monitoring up -d
   # (oder Dashboard-Macro "Monitoring starten")
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.16.0
     container_name: prometheus
     restart: unless-stopped
     profiles: [monitoring]
@@ -776,7 +776,7 @@ services:
         max-file: "2"
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.13.1
     container_name: node-exporter
     restart: unless-stopped
     profiles: [monitoring]
@@ -803,7 +803,7 @@ services:
         max-file: "1"
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: ghcr.io/google/cadvisor:v0.61.1
     container_name: cadvisor
     restart: unless-stopped
     profiles: [monitoring]
@@ -831,7 +831,7 @@ services:
         max-file: "1"
 
   pushgateway:
-    image: prom/pushgateway:latest
+    image: prom/pushgateway:v1.11.5
     container_name: pushgateway
     restart: unless-stopped
     profiles: [monitoring]
@@ -877,7 +877,7 @@ services:
   # SPS-Monitoring: MQTT → Prometheus
   # ---------------------------------------------------------------------------
   mqtt2prometheus:
-    image: hikhvar/mqtt2prometheus:latest
+    image: hikhvar/mqtt2prometheus:v0.1.7
     container_name: mqtt2prometheus
     restart: unless-stopped
     profiles: [monitoring]
