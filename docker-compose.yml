@@ -76,7 +76,7 @@ x-init-ollama: &init-ollama
 
 services:
   open-webui:
-    image: ghcr.io/open-webui/open-webui:v0.13.4
+    image: ghcr.io/open-webui/open-webui:v0.13.5
     restart: unless-stopped
     container_name: open-webui
     expose:
