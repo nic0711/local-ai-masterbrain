@@ -1,8 +1,8 @@
-# 23 · Monitoring (Prometheus-Stack)
+# 23 · Metrik-Monitoring (Prometheus-Stack)
 
 ## Überblick
 
-Der optionale Monitoring-Stack besteht aus vier Services mit dem Compose-Profil `monitoring`:
+Der optionale Monitoring-Stack besteht aus fünf Services mit dem Compose-Profil `monitoring`:
 
 | Service | Container | Port (intern) | Zweck |
 |---|---|---|---|
@@ -10,6 +10,7 @@ Der optionale Monitoring-Stack besteht aus vier Services mit dem Compose-Profil 
 | Node Exporter | `node-exporter` | 9100 | Host-Metriken (CPU, RAM, Disk, Netz) |
 | cAdvisor | `cadvisor` | 8080 | Docker-Container-Metriken |
 | Pushgateway | `pushgateway` | 9091 | Empfängt Push-Metriken (n8n, SPS, Solar) |
+| Blackbox Exporter | `blackbox-exporter` | 9115 | HTTP-/TCP-Verfügbarkeitsprüfungen (Module in `prometheus/blackbox.yml`; Jobs `blackbox-http`/`blackbox-tcp` in `prometheus/prometheus.yml`, Targets noch leer) |
 
 Grafana ist bereits im Kern-Stack enthalten. Die Prometheus-Datasource wird automatisch via Provisioning konfiguriert.
 
@@ -104,7 +105,7 @@ ssh -L 9090:localhost:9090 user@brain.local
 ```bash
 docker compose logs prometheus
 # Häufig: Syntaxfehler in prometheus/prometheus.yml
-docker run --rm -v $(pwd)/prometheus:/prometheus prom/prometheus:latest --check-config
+docker compose exec prometheus promtool check config /etc/prometheus/prometheus.yml
 ```
 
 **cAdvisor benötigt privilegierten Modus:**

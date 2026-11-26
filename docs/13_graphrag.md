@@ -186,4 +186,4 @@ docker logs python-nlp-service | grep graph
 ```
 Neo4j < 4.4: IF NOT EXISTS nicht unterstützt
 ```
-→ Neueres Neo4j-Image verwenden (neo4j:latest ist 5.x)
+→ Neo4j ≥ 4.4 verwenden (im Stack gepinnt: `neo4j:2026.10.2`)
