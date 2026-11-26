@@ -25,7 +25,7 @@ tar -czf "$ARCHIVE" \
     Caddyfile \
     .env.example \
     auth-gateway/app.py \
-    auth-gateway/requirements.txt \
+    auth-gateway/requirements.lock.txt \
     dashboard/index.html \
     dashboard/style.css \
     dashboard/auth.js \

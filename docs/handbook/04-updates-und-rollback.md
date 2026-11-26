@@ -19,9 +19,9 @@
   SBOM-Referenz, Scan-Report-Referenz, Signaturstatus je Custom Image.
 - Monatliches Stack-Release, unabhängige Security-Hotfixes dazwischen möglich.
 - Kein automatisches Produktions-Deployment nach einem Wochenbuild.
-- Kein `latest`-Tag in Produktion (siehe `docs/planning/image-pinning-baseline.yml`
-  für den aktuellen Bestand an Third-Party-Images, die diese Vorgabe heute noch
-  nicht erfüllen — Behebung ist Gegenstand von Phase 2/3, nicht dieses PR).
+- Kein `latest`-Tag in Produktion. Seit 2026-11 erfüllt: alle Images in
+  `docker-compose.yml` sind exakt gepinnt, `docs/planning/image-pinning-baseline.yml`
+  ist leer, CI (`scripts/ci/check-image-pinning.sh`) verhindert neue Ausnahmen.
 
 ## Rollback-Modell
 
@@ -36,16 +36,36 @@
   und ADR-0006 (Lösch-Replay nach Restore, Produktivfreigabe erst nach
   erfolgreichem Smoke-Test).
 
-## Ausdrücklicher Hinweis zu diesem PR
+## Third-Party-Image-Updates (Dependabot)
 
-Für den PR `agent/phase-1-governance-ci-supply-chain` selbst gilt: Es handelt
-sich um einen Draft-PR ohne Merge. Der Rollback dieses PR ist in der PR-Beschreibung
-**beschrieben, nicht durch einen tatsächlichen Merge-Rollback getestet** — ein
-echter Rollback-Test setzt einen vorherigen Merge voraus, der hier bewusst nicht
-stattfindet. Dies ist eine bewusste Abweichung von der in
-`docs/planning/implementation-roadmap.md` genannten Formulierung "Rollback
-erfolgreich" zugunsten der in `.handoff/claude/checks/PHASE-1-ACCEPTANCE.md`
-verlangten Formulierung "Rollback beschrieben".
+- Dependabot (`.github/dependabot.yml`, Ecosystem `docker-compose`) schlägt
+  wöchentlich neue Tags für die gepinnten Images vor, höchstens zwei offene PRs.
+- Jeder Bump läuft durch dieselben Pflicht-Checks wie andere PRs; der Branch
+  muss vor dem Merge aktuell sein (Branch-Schutz „strict“).
+- Nach dem Merge lokal: `git pull`, dann `docker compose --profile cpu up -d <service>`.
+
+### n8n
+
+Gemäß [n8n-Doku „Update n8n“](https://docs.n8n.io/deploy/host-n8n/keep-n8n-running/update-n8n):
+
+1. **Vor dem Update sichern:** Datenbank (`pg_dumpall`, siehe
+   [08_backup_and_recovery.md](../08_backup_and_recovery.md)) **und** die `.env`
+   mit `N8N_ENCRYPTION_KEY`. Ohne den Schlüssel sind Credentials nach einem
+   Restore unbrauchbar.
+2. **Gemeinsam updaten:** `n8nio/n8n` und `n8nio/runners` müssen exakt dieselbe
+   Version haben. Dependabot liefert beide in einem PR (Gruppe `n8n`); nie nur
+   eines der beiden Images anheben.
+3. **Runner-Konfiguration abgleichen:** `n8n/task-runners.json` ist eine Kopie von
+   `/etc/n8n-task-runners.json` aus dem Runner-Image mit erweiterter
+   `NODE_FUNCTION_ALLOW_BUILTIN`-Allowlist. Bei jedem Bump mit der Datei aus dem
+   neuen Image vergleichen:
+   `docker run --rm --entrypoint cat n8nio/runners:<version> /etc/n8n-task-runners.json | diff - n8n/task-runners.json`
+4. **Migrationen** laufen beim Start automatisch. Ein Downgrade auf das alte Image
+   macht sie **nicht** rückgängig: Rollback nur über `n8n db:revert` (vor dem
+   Image-Wechsel, im laufenden Container) oder Restore des Datenbank-Backups.
+5. **Major-Version 3.0** ist in Dependabot gesperrt (Breaking Changes, siehe
+   [v3.0-Breaking-Changes](https://docs.n8n.io/changelog/v30-breaking-changes)).
+   Vor dem Sprung die Workflows in `n8n-tool-workflows/` gegen die Liste prüfen.
 
 ## Custom-Image-Deployment ohne Repo-Cutover (Verfahren, 2026-10-25 durchgeführt)
 

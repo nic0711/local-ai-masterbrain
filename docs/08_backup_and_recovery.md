@@ -15,6 +15,8 @@ Das integrierte Backup-System sichert Konfigurationsdateien und n8n-Workflows di
 
 **Nicht** gesichert (Datenbank-Volumes, Ollama-Modelle): diese sollten über separate Volume-Backups abgesichert werden.
 
+> **Wichtig – `.env` wird bewusst nicht gesichert** (Archiv enthält nur `.env.example`, damit keine Secrets in `./backups/` landen). Ohne `N8N_ENCRYPTION_KEY` aus der `.env` sind die in der n8n-Datenbank gespeicherten Credentials nach einem Restore nicht mehr entschlüsselbar; ohne `JWT_SECRET`/`ANON_KEY`/`SERVICE_ROLE_KEY` passen Supabase-Tokens nicht mehr. Die `.env` deshalb getrennt und verschlüsselt sichern (z. B. Passwortmanager oder verschlüsseltes Archiv außerhalb des Repos). Auch die n8n-Credentials selbst liegen nur in der Datenbank, nicht in `n8n/backup/workflows/`.
+
 ---
 
 ## Backup im Dashboard
@@ -80,7 +82,7 @@ Der manuelle Dashboard-Button funktioniert **unabhängig** davon – auch ohne `
 |---|---|
 | Workflows | `n8n/backup/workflows/*.json` |
 | Stack-Konfiguration | `docker-compose.yml`, `Caddyfile`, `.env.example` |
-| Auth-Gateway | `auth-gateway/app.py`, `auth-gateway/requirements.txt` |
+| Auth-Gateway | `auth-gateway/app.py`, `auth-gateway/requirements.lock.txt` |
 | Dashboard | `index.html`, `style.css`, `auth.js`, `main.js`, `health.js`, `admin.js`, `entrypoint.sh` |
 | Backup-Scripts | `backup/backup-daemon.sh`, `backup/backup.sh` |
 

@@ -1,4 +1,4 @@
-# 12. Monitoring – UptimeBot
+# 12. Verfügbarkeits-Monitoring (Uptime Kuma)
 
 UptimeBot (Uptime Kuma) ist ein selbst-gehostetes Service-Monitoring-Tool als Ersatz für UptimeRobot.
 
