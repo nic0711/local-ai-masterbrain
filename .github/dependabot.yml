@@ -93,6 +93,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 2
+    # n8n und sein externer Task-Runner muessen exakt dieselbe Version haben,
+    # deshalb immer gemeinsam in einem PR.
+    groups:
+      n8n:
+        patterns:
+          - "n8nio/*"
     ignore:
       - dependency-name: "n8nio/n8n"
+        versions: [">= 3.0.0"]
+      - dependency-name: "n8nio/runners"
         versions: [">= 3.0.0"]
